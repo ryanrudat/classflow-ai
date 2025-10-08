@@ -344,10 +344,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     joinSession(session.id, 'teacher')
 
     // Listen for student joins
-    const handleUserJoined = ({ role, studentId }) => {
+    const handleUserJoined = ({ role, studentId, studentName }) => {
       if (role === 'student') {
-        // In a real app, fetch student details from API
-        setStudents(prev => [...prev, { id: studentId, name: `Student ${studentId.slice(0, 6)}` }])
+        setStudents(prev => [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}` }])
       }
     }
 
