@@ -310,6 +310,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
   const [instances, setInstances] = useState([])
   const [selectedInstance, setSelectedInstance] = useState(null)
+  const [loadingInstance, setLoadingInstance] = useState(false)
 
   const { joinSession, pushActivity, on, off, isConnected } = useSocket()
 
@@ -341,14 +342,14 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     loadActivities()
   }, [session?.id])
 
-  // Load session analytics
+  // Load session analytics (filtered by selected instance)
   useEffect(() => {
-    if (!session?.id) return
+    if (!session?.id || !selectedInstance?.id) return
 
     async function loadAnalytics() {
       try {
         setLoadingAnalytics(true)
-        const data = await analyticsAPI.getSessionAnalytics(session.id)
+        const data = await analyticsAPI.getSessionAnalytics(session.id, selectedInstance.id)
         setAnalytics(data)
       } catch (err) {
         console.error('Failed to load analytics:', err)
@@ -358,7 +359,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     }
 
     loadAnalytics()
-  }, [session?.id])
+  }, [session?.id, selectedInstance?.id])
 
   // Load session instances
   useEffect(() => {
@@ -387,6 +388,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   // Function to load students for a specific instance
   async function loadInstanceStudents(instanceId) {
     try {
+      setLoadingInstance(true)
       const data = await sessionsAPI.getInstanceDetails(session.id, instanceId)
       setStudents(data.students.map(s => ({
         id: s.id,
@@ -395,6 +397,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       })) || [])
     } catch (err) {
       console.error('Failed to load instance students:', err)
+    } finally {
+      setLoadingInstance(false)
     }
   }
 
@@ -587,32 +591,71 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
         <div className="card">
           <h3 className="text-lg font-bold text-gray-800 mb-4">📅 Class Periods</h3>
           <div className="flex gap-2 flex-wrap">
-            {instances.map(instance => (
-              <button
-                key={instance.id}
-                onClick={() => {
-                  setSelectedInstance(instance)
-                  loadInstanceStudents(instance.id)
-                }}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedInstance?.id === instance.id
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : instance.is_current
-                    ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300 hover:bg-indigo-200'
-                    : 'bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200'
-                }`}
-              >
-                {instance.label || `Period ${instance.instance_number}`}
-                {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
-                <span className="ml-2 text-xs opacity-75">({instance.student_count || 0} students)</span>
-              </button>
-            ))}
+            {instances.map(instance => {
+              const instanceDate = new Date(instance.started_at).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+              })
+              return (
+                <button
+                  key={instance.id}
+                  onClick={() => {
+                    setSelectedInstance(instance)
+                    loadInstanceStudents(instance.id)
+                  }}
+                  className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                    selectedInstance?.id === instance.id
+                      ? 'bg-indigo-600 text-white shadow-lg'
+                      : instance.is_current
+                      ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300 hover:bg-indigo-200'
+                      : 'bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col items-start">
+                    <div className="font-semibold">
+                      {instance.label || `Period ${instance.instance_number}`}
+                      {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
+                    </div>
+                    <div className="text-xs opacity-75 mt-0.5">
+                      {instanceDate} • {instance.student_count || 0} students
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Period Indicator Banner (when viewing non-current period) */}
+      {selectedInstance && !selectedInstance.is_current && (
+        <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">📅</span>
+            <div>
+              <div className="font-semibold text-amber-900">
+                Viewing Past Period: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+              </div>
+              <div className="text-sm text-amber-800">
+                This class session ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString()}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Indicator */}
+      {loadingInstance && (
+        <div className="card">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <span className="ml-3 text-gray-600">Loading period data...</span>
           </div>
         </div>
       )}
 
       {/* Student List */}
-      {students.length > 0 && (
+      {!loadingInstance && students.length > 0 && (
         <div className="card">
           <h3 className="text-lg font-bold text-gray-800 mb-4">
             Connected Students
@@ -666,6 +709,24 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty State - No Students */}
+      {!loadingInstance && students.length === 0 && selectedInstance && (
+        <div className="card">
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">👥</div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              No students in this period yet
+            </h3>
+            <p className="text-gray-600">
+              {selectedInstance.is_current
+                ? 'Students will appear here once they join using the code above.'
+                : `No students joined ${selectedInstance.label || `Period ${selectedInstance.instance_number}`}.`
+              }
+            </p>
           </div>
         </div>
       )}

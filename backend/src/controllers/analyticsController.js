@@ -2,13 +2,14 @@ import db from '../database/db.js'
 
 /**
  * Get session analytics
- * GET /api/sessions/:sessionId/analytics
- * Returns overall performance stats for all students in a session
+ * GET /api/sessions/:sessionId/analytics?instanceId=xxx
+ * Returns overall performance stats for students in a session (optionally filtered by instance)
  * Protected: Teacher only
  */
 export async function getSessionAnalytics(req, res) {
   try {
     const { sessionId } = req.params
+    const { instanceId } = req.query
     const teacherId = req.user.userId
 
     // Verify teacher owns this session
@@ -21,9 +22,8 @@ export async function getSessionAnalytics(req, res) {
       return res.status(404).json({ message: 'Session not found' })
     }
 
-    // Get all students in session with their response stats
-    const studentsResult = await db.query(
-      `SELECT
+    // Build query with optional instance filter
+    let query = `SELECT
         ss.id,
         ss.student_name,
         ss.device_type,
@@ -36,11 +36,20 @@ export async function getSessionAnalytics(req, res) {
         MAX(sr.created_at) as last_activity_at
        FROM session_students ss
        LEFT JOIN student_responses sr ON sr.student_id = ss.id
-       WHERE ss.session_id = $1
-       GROUP BY ss.id, ss.student_name, ss.device_type, ss.joined_at
-       ORDER BY ss.joined_at DESC`,
-      [sessionId]
-    )
+       WHERE ss.session_id = $1`
+
+    const params = [sessionId]
+
+    // Filter by instance if provided
+    if (instanceId) {
+      query += ' AND ss.instance_id = $2'
+      params.push(instanceId)
+    }
+
+    query += ` GROUP BY ss.id, ss.student_name, ss.device_type, ss.joined_at
+       ORDER BY ss.joined_at DESC`
+
+    const studentsResult = await db.query(query, params)
 
     // Calculate performance metrics for each student
     const students = studentsResult.rows.map(student => {

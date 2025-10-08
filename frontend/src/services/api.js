@@ -117,8 +117,11 @@ export const activitiesAPI = {
 
 // Analytics API
 export const analyticsAPI = {
-  getSessionAnalytics: async (sessionId) => {
-    const response = await api.get(`/sessions/${sessionId}/analytics`)
+  getSessionAnalytics: async (sessionId, instanceId = null) => {
+    const url = instanceId
+      ? `/sessions/${sessionId}/analytics?instanceId=${instanceId}`
+      : `/sessions/${sessionId}/analytics`
+    const response = await api.get(url)
     return response.data
   },
 
