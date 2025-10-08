@@ -258,6 +258,8 @@ export default function StudentView() {
 function ActivityDisplay({ activity, studentId, onSubmit }) {
   const [response, setResponse] = useState('')
   const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [answers, setAnswers] = useState([])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -266,11 +268,43 @@ function ActivityDisplay({ activity, studentId, onSubmit }) {
     if (activity.type === 'reading') {
       submitData = { type: 'reading_completed', timestamp: new Date().toISOString() }
     } else if (activity.type === 'questions' || activity.type === 'quiz') {
-      submitData = { answer: selectedAnswer, text: response }
+      submitData = { questionIndex: currentQuestionIndex, selectedOption: selectedAnswer, text: response }
     } else {
       submitData = { text: response }
     }
 
+    onSubmit(submitData)
+  }
+
+  const handleNextQuestion = () => {
+    const questions = activity.content?.questions || activity.content?.quiz || []
+
+    // Save current answer
+    const newAnswers = [...answers]
+    newAnswers[currentQuestionIndex] = selectedAnswer
+    setAnswers(newAnswers)
+
+    // Move to next question
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
+      setSelectedAnswer(newAnswers[currentQuestionIndex + 1] ?? null)
+    }
+  }
+
+  const handlePreviousQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1)
+      setSelectedAnswer(answers[currentQuestionIndex - 1] ?? null)
+    }
+  }
+
+  const handleSubmitQuiz = () => {
+    // Submit all answers
+    const submitData = {
+      answers: answers,
+      questionIndex: currentQuestionIndex,
+      selectedOption: selectedAnswer
+    }
     onSubmit(submitData)
   }
 
@@ -290,13 +324,19 @@ function ActivityDisplay({ activity, studentId, onSubmit }) {
 
   if (activity.type === 'questions' || activity.type === 'quiz') {
     const questions = activity.content?.questions || activity.content?.quiz || []
-    const currentQuestion = questions[0] // Show first question for now
+    const currentQuestion = questions[currentQuestionIndex]
+    const isLastQuestion = currentQuestionIndex === questions.length - 1
 
     return (
       <div className="card">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
-          {activity.type === 'quiz' ? 'Quiz' : 'Questions'}
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-900">
+            {activity.type === 'quiz' ? 'Quiz' : 'Questions'}
+          </h3>
+          <span className="text-sm text-gray-600">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </span>
+        </div>
 
         {currentQuestion && (
           <div className="space-y-4">
@@ -334,13 +374,34 @@ function ActivityDisplay({ activity, studentId, onSubmit }) {
               />
             )}
 
-            <button
-              onClick={handleSubmit}
-              className="btn-primary w-full"
-              disabled={currentQuestion.options ? selectedAnswer === null : !response.trim()}
-            >
-              Submit Answer
-            </button>
+            <div className="flex gap-2">
+              {currentQuestionIndex > 0 && (
+                <button
+                  onClick={handlePreviousQuestion}
+                  className="btn-secondary flex-1"
+                >
+                  Previous
+                </button>
+              )}
+
+              {!isLastQuestion ? (
+                <button
+                  onClick={handleNextQuestion}
+                  className="btn-primary flex-1"
+                  disabled={currentQuestion.options ? selectedAnswer === null : !response.trim()}
+                >
+                  Next Question
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmitQuiz}
+                  className="btn-primary flex-1"
+                  disabled={currentQuestion.options ? selectedAnswer === null : !response.trim()}
+                >
+                  Submit Quiz
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
