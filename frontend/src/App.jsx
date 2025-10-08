@@ -17,6 +17,7 @@ function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/join" element={<StudentView />} />
           <Route path="/join/:joinCode" element={<StudentView />} />
 
           {/* Protected routes */}
