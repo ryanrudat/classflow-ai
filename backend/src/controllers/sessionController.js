@@ -178,6 +178,57 @@ export async function endSession(req, res) {
 }
 
 /**
+ * Reactivate ended session
+ * POST /api/sessions/:id/reactivate
+ * Protected: Teacher only
+ */
+export async function reactivateSession(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const check = await db.query(
+      'SELECT id, status FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    if (check.rows[0].status === 'active') {
+      return res.status(400).json({ message: 'Session is already active' })
+    }
+
+    // Reactivate session
+    const result = await db.query(
+      `UPDATE sessions
+       SET status = 'active', ended_at = NULL
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    )
+
+    // Log analytics
+    await db.query(
+      `INSERT INTO analytics_events (event_type, user_id, session_id)
+       VALUES ($1, $2, $3)`,
+      ['session_reactivated', teacherId, id]
+    )
+
+    res.json({
+      session: result.rows[0],
+      message: 'Session reactivated successfully'
+    })
+
+  } catch (error) {
+    console.error('Reactivate session error:', error)
+    res.status(500).json({ message: 'Failed to reactivate session' })
+  }
+}
+
+/**
  * Delete session
  * DELETE /api/sessions/:id
  * Protected: Teacher only

@@ -3,6 +3,7 @@ import {
   createSession,
   getSession,
   endSession,
+  reactivateSession,
   deleteSession,
   joinSession,
   getTeacherSessions
@@ -18,6 +19,7 @@ router.get('/', authenticateToken, getTeacherSessions)
 router.get('/:id', authenticateToken, getSession)
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
 router.post('/:id/end', authenticateToken, endSession)
+router.post('/:id/reactivate', authenticateToken, reactivateSession)
 router.delete('/:id', authenticateToken, deleteSession)
 
 // Public routes (students)

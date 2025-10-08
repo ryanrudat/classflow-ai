@@ -57,6 +57,21 @@ export default function TeacherDashboard() {
     }
   }
 
+  async function reactivateSession(sessionId) {
+    if (!confirm('Reactivate this session? Students will be able to join again with the same code.')) return
+
+    try {
+      const result = await sessionsAPI.reactivate(sessionId)
+      loadSessions()
+      // Update the active session to reflect the new status
+      if (activeSession?.id === sessionId) {
+        setActiveSession(result.session)
+      }
+    } catch (err) {
+      alert('Failed to reactivate session')
+    }
+  }
+
   async function deleteSession(sessionId) {
     if (!confirm('Permanently delete this session? All data will be lost.')) return
 
@@ -182,6 +197,7 @@ export default function TeacherDashboard() {
               <ActiveSessionView
                 session={activeSession}
                 onEnd={() => endSession(activeSession.id)}
+                onReactivate={() => reactivateSession(activeSession.id)}
                 onUpdate={loadSessions}
               />
             )}
@@ -279,7 +295,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
   )
 }
 
-function ActiveSessionView({ session, onEnd, onUpdate }) {
+function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -455,12 +471,21 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
               </span>
             </div>
           </div>
-          <button
-            onClick={onEnd}
-            className="text-red-600 hover:text-red-700 text-sm font-medium"
-          >
-            End Session
-          </button>
+          {session.status === 'ended' ? (
+            <button
+              onClick={onReactivate}
+              className="text-green-600 hover:text-green-700 text-sm font-medium"
+            >
+              Reactivate Session
+            </button>
+          ) : (
+            <button
+              onClick={onEnd}
+              className="text-red-600 hover:text-red-700 text-sm font-medium"
+            >
+              End Session
+            </button>
+          )}
         </div>
 
         <div className="mt-4 p-4 bg-white rounded-lg border-2 border-primary-300">

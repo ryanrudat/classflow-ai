@@ -55,6 +55,11 @@ export const sessionsAPI = {
     return response.data
   },
 
+  reactivate: async (sessionId) => {
+    const response = await api.post(`/sessions/${sessionId}/reactivate`)
+    return response.data
+  },
+
   delete: async (sessionId) => {
     const response = await api.delete(`/sessions/${sessionId}`)
     return response.data
