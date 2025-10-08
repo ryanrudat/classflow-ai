@@ -73,6 +73,16 @@ export const sessionsAPI = {
   getActivities: async (sessionId) => {
     const response = await api.get(`/sessions/${sessionId}/activities`)
     return response.data
+  },
+
+  getInstances: async (sessionId) => {
+    const response = await api.get(`/sessions/${sessionId}/instances`)
+    return response.data
+  },
+
+  getInstanceDetails: async (sessionId, instanceId) => {
+    const response = await api.get(`/sessions/${sessionId}/instances/${instanceId}`)
+    return response.data
   }
 }
 

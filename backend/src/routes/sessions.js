@@ -6,7 +6,9 @@ import {
   reactivateSession,
   deleteSession,
   joinSession,
-  getTeacherSessions
+  getTeacherSessions,
+  getSessionInstances,
+  getInstanceDetails
 } from '../controllers/sessionController.js'
 import { getSessionActivities } from '../controllers/activityController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -17,6 +19,8 @@ const router = express.Router()
 router.post('/', authenticateToken, createSession)
 router.get('/', authenticateToken, getTeacherSessions)
 router.get('/:id', authenticateToken, getSession)
+router.get('/:id/instances', authenticateToken, getSessionInstances)
+router.get('/:sessionId/instances/:instanceId', authenticateToken, getInstanceDetails)
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
 router.post('/:id/end', authenticateToken, endSession)
 router.post('/:id/reactivate', authenticateToken, reactivateSession)

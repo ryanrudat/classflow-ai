@@ -308,6 +308,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [loadingActivities, setLoadingActivities] = useState(false)
   const [analytics, setAnalytics] = useState(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [instances, setInstances] = useState([])
+  const [selectedInstance, setSelectedInstance] = useState(null)
 
   const { joinSession, pushActivity, on, off, isConnected } = useSocket()
 
@@ -357,6 +359,44 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 
     loadAnalytics()
   }, [session?.id])
+
+  // Load session instances
+  useEffect(() => {
+    if (!session?.id) return
+
+    async function loadInstances() {
+      try {
+        const data = await sessionsAPI.getInstances(session.id)
+        setInstances(data.instances || [])
+
+        // Select the current instance by default
+        const currentInstance = data.instances?.find(i => i.is_current)
+        if (currentInstance) {
+          setSelectedInstance(currentInstance)
+          // Load students for the current instance
+          loadInstanceStudents(currentInstance.id)
+        }
+      } catch (err) {
+        console.error('Failed to load instances:', err)
+      }
+    }
+
+    loadInstances()
+  }, [session?.id])
+
+  // Function to load students for a specific instance
+  async function loadInstanceStudents(instanceId) {
+    try {
+      const data = await sessionsAPI.getInstanceDetails(session.id, instanceId)
+      setStudents(data.students.map(s => ({
+        id: s.id,
+        name: s.student_name,
+        connected: true
+      })) || [])
+    } catch (err) {
+      console.error('Failed to load instance students:', err)
+    }
+  }
 
   // Join session as teacher and listen for events
   useEffect(() => {
@@ -542,10 +582,46 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
         </div>
       </div>
 
+      {/* Session Instances (Class Periods) */}
+      {instances.length > 1 && (
+        <div className="card">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">📅 Class Periods</h3>
+          <div className="flex gap-2 flex-wrap">
+            {instances.map(instance => (
+              <button
+                key={instance.id}
+                onClick={() => {
+                  setSelectedInstance(instance)
+                  loadInstanceStudents(instance.id)
+                }}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  selectedInstance?.id === instance.id
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : instance.is_current
+                    ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300 hover:bg-indigo-200'
+                    : 'bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200'
+                }`}
+              >
+                {instance.label || `Period ${instance.instance_number}`}
+                {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
+                <span className="ml-2 text-xs opacity-75">({instance.student_count || 0} students)</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Student List */}
       {students.length > 0 && (
         <div className="card">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Connected Students</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-4">
+            Connected Students
+            {selectedInstance && instances.length > 1 && (
+              <span className="ml-2 text-sm font-normal text-gray-600">
+                - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+              </span>
+            )}
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {students.map(student => {
               const hasResponded = studentResponses.some(r => r.studentId === student.id)

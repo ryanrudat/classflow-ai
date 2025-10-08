@@ -59,6 +59,14 @@ export async function createSession(req, res) {
 
     const session = result.rows[0]
 
+    // Create first instance for this session
+    const instanceResult = await db.query(
+      `INSERT INTO session_instances (session_id, instance_number, label, is_current)
+       VALUES ($1, 1, 'Period 1', true)
+       RETURNING *`,
+      [session.id]
+    )
+
     // Log analytics
     await db.query(
       `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
@@ -68,6 +76,7 @@ export async function createSession(req, res) {
 
     res.json({
       session,
+      instance: instanceResult.rows[0],
       message: 'Session created successfully'
     })
 
@@ -178,13 +187,15 @@ export async function endSession(req, res) {
 }
 
 /**
- * Reactivate ended session
+ * Reactivate ended session (creates new instance for new class period)
  * POST /api/sessions/:id/reactivate
+ * Body: { label } (optional - e.g., "Period 2", "Class B")
  * Protected: Teacher only
  */
 export async function reactivateSession(req, res) {
   try {
     const { id } = req.params
+    const { label } = req.body
     const teacherId = req.user.userId
 
     // Verify teacher owns this session
@@ -201,6 +212,27 @@ export async function reactivateSession(req, res) {
       return res.status(400).json({ message: 'Session is already active' })
     }
 
+    // Mark all existing instances as not current
+    await db.query(
+      'UPDATE session_instances SET is_current = false WHERE session_id = $1',
+      [id]
+    )
+
+    // Get the next instance number
+    const instanceCountResult = await db.query(
+      'SELECT COALESCE(MAX(instance_number), 0) + 1 as next_number FROM session_instances WHERE session_id = $1',
+      [id]
+    )
+    const nextInstanceNumber = instanceCountResult.rows[0].next_number
+
+    // Create new instance
+    const instanceResult = await db.query(
+      `INSERT INTO session_instances (session_id, instance_number, label, is_current)
+       VALUES ($1, $2, $3, true)
+       RETURNING *`,
+      [id, nextInstanceNumber, label || `Period ${nextInstanceNumber}`]
+    )
+
     // Reactivate session
     const result = await db.query(
       `UPDATE sessions
@@ -212,14 +244,15 @@ export async function reactivateSession(req, res) {
 
     // Log analytics
     await db.query(
-      `INSERT INTO analytics_events (event_type, user_id, session_id)
-       VALUES ($1, $2, $3)`,
-      ['session_reactivated', teacherId, id]
+      `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+       VALUES ($1, $2, $3, $4)`,
+      ['session_reactivated', teacherId, id, JSON.stringify({ instanceNumber: nextInstanceNumber, label: label || `Period ${nextInstanceNumber}` })]
     )
 
     res.json({
       session: result.rows[0],
-      message: 'Session reactivated successfully'
+      instance: instanceResult.rows[0],
+      message: `Session reactivated for ${label || `Period ${nextInstanceNumber}`}`
     })
 
   } catch (error) {
@@ -310,12 +343,29 @@ export async function joinSession(req, res) {
 
     const session = sessionResult.rows[0]
 
-    // Add student to session
+    // Get the current instance for this session
+    const instanceResult = await db.query(
+      `SELECT id FROM session_instances
+       WHERE session_id = $1 AND is_current = true
+       ORDER BY instance_number DESC
+       LIMIT 1`,
+      [session.id]
+    )
+
+    if (instanceResult.rows.length === 0) {
+      return res.status(500).json({
+        message: 'No active instance found for this session'
+      })
+    }
+
+    const currentInstanceId = instanceResult.rows[0].id
+
+    // Add student to session with current instance
     const result = await db.query(
-      `INSERT INTO session_students (session_id, student_name, device_type, current_screen_state)
-       VALUES ($1, $2, $3, 'free')
+      `INSERT INTO session_students (session_id, instance_id, student_name, device_type, current_screen_state)
+       VALUES ($1, $2, $3, $4, 'free')
        RETURNING id, session_id, student_name, device_type, joined_at`,
-      [session.id, studentName, deviceType || 'unknown']
+      [session.id, currentInstanceId, studentName, deviceType || 'unknown']
     )
 
     const student = result.rows[0]
@@ -379,5 +429,95 @@ export async function getTeacherSessions(req, res) {
   } catch (error) {
     console.error('Get teacher sessions error:', error)
     res.status(500).json({ message: 'Failed to get sessions' })
+  }
+}
+
+/**
+ * Get all instances for a session
+ * GET /api/sessions/:id/instances
+ * Protected: Teacher only
+ */
+export async function getSessionInstances(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const check = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Get all instances with student counts
+    const result = await db.query(
+      `SELECT si.*,
+              (SELECT COUNT(*) FROM session_students WHERE instance_id = si.id) as student_count
+       FROM session_instances si
+       WHERE si.session_id = $1
+       ORDER BY si.instance_number ASC`,
+      [id]
+    )
+
+    res.json({
+      instances: result.rows
+    })
+
+  } catch (error) {
+    console.error('Get session instances error:', error)
+    res.status(500).json({ message: 'Failed to get session instances' })
+  }
+}
+
+/**
+ * Get specific instance details with students
+ * GET /api/sessions/:sessionId/instances/:instanceId
+ * Protected: Teacher only
+ */
+export async function getInstanceDetails(req, res) {
+  try {
+    const { sessionId, instanceId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const check = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [sessionId, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Get instance details
+    const instanceResult = await db.query(
+      'SELECT * FROM session_instances WHERE id = $1 AND session_id = $2',
+      [instanceId, sessionId]
+    )
+
+    if (instanceResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Instance not found' })
+    }
+
+    // Get students for this instance
+    const studentsResult = await db.query(
+      `SELECT id, student_name, device_type, current_screen_state, joined_at, last_active
+       FROM session_students
+       WHERE instance_id = $1
+       ORDER BY joined_at DESC`,
+      [instanceId]
+    )
+
+    res.json({
+      instance: instanceResult.rows[0],
+      students: studentsResult.rows
+    })
+
+  } catch (error) {
+    console.error('Get instance details error:', error)
+    res.status(500).json({ message: 'Failed to get instance details' })
   }
 }
