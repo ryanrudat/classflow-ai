@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { sessionsAPI, aiAPI, activitiesAPI } from '../services/api'
+import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 
 export default function TeacherDashboard() {
@@ -306,6 +306,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [studentResponses, setStudentResponses] = useState([])
   const [sessionActivities, setSessionActivities] = useState([])
   const [loadingActivities, setLoadingActivities] = useState(false)
+  const [analytics, setAnalytics] = useState(null)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false)
 
   const { joinSession, pushActivity, on, off, isConnected } = useSocket()
 
@@ -335,6 +337,25 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     }
 
     loadActivities()
+  }, [session?.id])
+
+  // Load session analytics
+  useEffect(() => {
+    if (!session?.id) return
+
+    async function loadAnalytics() {
+      try {
+        setLoadingAnalytics(true)
+        const data = await analyticsAPI.getSessionAnalytics(session.id)
+        setAnalytics(data)
+      } catch (err) {
+        console.error('Failed to load analytics:', err)
+      } finally {
+        setLoadingAnalytics(false)
+      }
+    }
+
+    loadAnalytics()
   }, [session?.id])
 
   // Join session as teacher and listen for events
@@ -620,6 +641,85 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Session Analytics */}
+      {analytics && (
+        <div className="card">
+          <h3 className="text-xl font-bold text-gray-800 mb-4">📊 Session Analytics</h3>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">{analytics.summary.totalStudents}</div>
+              <div className="text-sm text-gray-600">Total Students</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{analytics.summary.activeStudents}</div>
+              <div className="text-sm text-gray-600">Active Students</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">{analytics.summary.avgCorrectness}%</div>
+              <div className="text-sm text-gray-600">Avg Correctness</div>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600">{analytics.summary.strugglingCount}</div>
+              <div className="text-sm text-gray-600">Need Help</div>
+            </div>
+          </div>
+
+          {/* Student Performance List */}
+          <h4 className="font-bold text-gray-800 mb-3">Student Performance</h4>
+          <div className="space-y-2">
+            {analytics.students.map(student => {
+              const getPerformanceColor = (level) => {
+                switch (level) {
+                  case 'advanced': return 'bg-green-100 border-green-300 text-green-800'
+                  case 'on-track': return 'bg-blue-100 border-blue-300 text-blue-800'
+                  case 'struggling': return 'bg-red-100 border-red-300 text-red-800'
+                  case 'limited-data': return 'bg-yellow-100 border-yellow-300 text-yellow-800'
+                  default: return 'bg-gray-100 border-gray-300 text-gray-600'
+                }
+              }
+
+              const getPerformanceLabel = (level) => {
+                switch (level) {
+                  case 'advanced': return '🌟 Advanced'
+                  case 'on-track': return '✓ On Track'
+                  case 'struggling': return '⚠️ Needs Help'
+                  case 'limited-data': return '📊 Limited Data'
+                  default: return 'No Data'
+                }
+              }
+
+              return (
+                <div
+                  key={student.id}
+                  className={`p-3 rounded-lg border-2 ${getPerformanceColor(student.performanceLevel)}`}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="font-medium">{student.name}</div>
+                      <div className="text-xs mt-1">
+                        {student.totalResponses > 0 ? (
+                          <>
+                            {student.correctResponses}/{student.totalResponses} correct
+                            {student.correctnessRate !== null && ` (${student.correctnessRate}%)`}
+                          </>
+                        ) : (
+                          'No responses yet'
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium">
+                      {getPerformanceLabel(student.performanceLevel)}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
