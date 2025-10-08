@@ -355,12 +355,21 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       setStudentResponses(prev => [...prev, { activityId, studentId, response }])
     }
 
+    // Listen for student leaving
+    const handleUserLeft = ({ role, studentId }) => {
+      if (role === 'student') {
+        setStudents(prev => prev.filter(s => s.id !== studentId))
+      }
+    }
+
     on('user-joined', handleUserJoined)
     on('student-responded', handleStudentResponded)
+    on('user-left', handleUserLeft)
 
     return () => {
       off('user-joined', handleUserJoined)
       off('student-responded', handleStudentResponded)
+      off('user-left', handleUserLeft)
     }
   }, [session, joinSession, on, off])
 
