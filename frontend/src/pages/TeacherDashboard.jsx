@@ -562,15 +562,30 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
-                      {student.name}
-                    </span>
-                    {!isConnected && (
-                      <span className="text-xs text-gray-500 font-medium">Disconnected</span>
-                    )}
-                    {isConnected && hasResponded && (
-                      <span className="text-xs text-green-600 font-medium">✓ Responded</span>
-                    )}
+                    <div className="flex items-center gap-2 flex-1">
+                      <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                        {student.name}
+                      </span>
+                      {!isConnected && (
+                        <span className="text-xs text-gray-500 font-medium">Disconnected</span>
+                      )}
+                      {isConnected && hasResponded && (
+                        <span className="text-xs text-green-600 font-medium">✓ Responded</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Remove ${student.name} from this session?`)) {
+                          setStudents(prev => prev.filter(s => s.id !== student.id))
+                        }
+                      }}
+                      className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Remove student"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               )
