@@ -290,7 +290,13 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
     const handleUserJoined = ({ role, studentId }) => {
       if (role === 'student') {
         // In a real app, fetch student details from API
-        setStudents(prev => [...prev, { id: studentId, name: `Student ${studentId.slice(0, 6)}` }])
+        setStudents(prev => {
+          // Check if student already exists
+          if (prev.some(s => s.id === studentId)) {
+            return prev
+          }
+          return [...prev, { id: studentId, name: `Student ${studentId.slice(0, 6)}` }]
+        })
       }
     }
 
