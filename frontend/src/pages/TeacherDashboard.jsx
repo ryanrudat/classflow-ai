@@ -346,7 +346,18 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     // Listen for student joins
     const handleUserJoined = ({ role, studentId, studentName }) => {
       if (role === 'student') {
-        setStudents(prev => [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}` }])
+        setStudents(prev => {
+          // Check if student already exists (reconnecting)
+          const existingIndex = prev.findIndex(s => s.id === studentId)
+          if (existingIndex !== -1) {
+            // Student reconnecting - mark as connected
+            const updated = [...prev]
+            updated[existingIndex] = { ...updated[existingIndex], connected: true }
+            return updated
+          }
+          // New student joining
+          return [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}`, connected: true }]
+        })
       }
     }
 
@@ -358,7 +369,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     // Listen for student leaving
     const handleUserLeft = ({ role, studentId }) => {
       if (role === 'student') {
-        setStudents(prev => prev.filter(s => s.id !== studentId))
+        // Mark student as disconnected instead of removing them
+        setStudents(prev => prev.map(s =>
+          s.id === studentId ? { ...s, connected: false } : s
+        ))
       }
     }
 
@@ -514,18 +528,26 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {students.map(student => {
               const hasResponded = studentResponses.some(r => r.studentId === student.id)
+              const isConnected = student.connected !== false // Default to true for backward compatibility
               return (
                 <div
                   key={student.id}
                   className={`p-3 rounded-lg border-2 ${
-                    hasResponded
+                    !isConnected
+                      ? 'border-gray-300 bg-gray-100 opacity-60'
+                      : hasResponded
                       ? 'border-green-500 bg-green-50'
                       : 'border-gray-200 bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900">{student.name}</span>
-                    {hasResponded && (
+                    <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                      {student.name}
+                    </span>
+                    {!isConnected && (
+                      <span className="text-xs text-gray-500 font-medium">Disconnected</span>
+                    )}
+                    {isConnected && hasResponded && (
                       <span className="text-xs text-green-600 font-medium">✓ Responded</span>
                     )}
                   </div>
