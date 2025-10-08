@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { sessionsAPI, aiAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
+import Analytics from '../components/Analytics'
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()
@@ -239,6 +240,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
 }
 
 function ActiveSessionView({ session, onEnd, onUpdate }) {
+  const [activeTab, setActiveTab] = useState('activities') // 'activities' or 'analytics'
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -467,6 +469,36 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
         </div>
       )}
 
+      {/* Tab Navigation */}
+      <div className="card">
+        <div className="flex gap-2 border-b border-gray-200 -mx-6 -mt-6 px-6 mb-6">
+          <button
+            onClick={() => setActiveTab('activities')}
+            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'activities'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📝 Activities & AI Generation
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'analytics'
+                ? 'border-primary-500 text-primary-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            📊 Analytics & Performance
+          </button>
+        </div>
+
+        {activeTab === 'analytics' ? (
+          <Analytics sessionId={session.id} />
+        ) : (
+          <div className="space-y-6">
+
       {/* Session History */}
       {sessionActivities.length > 0 && (
         <div className="card">
@@ -644,6 +676,8 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
           </div>
         )}
       </div>

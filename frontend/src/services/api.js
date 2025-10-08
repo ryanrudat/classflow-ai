@@ -95,4 +95,17 @@ export const activitiesAPI = {
   }
 }
 
+// Analytics API
+export const analyticsAPI = {
+  getSessionAnalytics: async (sessionId) => {
+    const response = await api.get(`/sessions/${sessionId}/analytics`)
+    return response.data
+  },
+
+  getStudentAnalytics: async (studentId) => {
+    const response = await api.get(`/students/${studentId}/analytics`)
+    return response.data
+  }
+}
+
 export default api
