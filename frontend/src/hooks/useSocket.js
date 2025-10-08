@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { io } from 'socket.io-client'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000'
@@ -41,53 +41,53 @@ export function useSocket() {
     }
   }, [])
 
-  const joinSession = (sessionId, role, studentId = null) => {
+  const joinSession = useCallback((sessionId, role, studentId = null) => {
     if (socketRef.current) {
       socketRef.current.emit('join-session', { sessionId, role, studentId })
     }
-  }
+  }, [])
 
-  const pushActivity = (sessionId, activity, target = 'all', studentIds = []) => {
+  const pushActivity = useCallback((sessionId, activity, target = 'all', studentIds = []) => {
     if (socketRef.current) {
       socketRef.current.emit('push-activity', { sessionId, activity, target, studentIds })
     }
-  }
+  }, [])
 
-  const submitResponse = (activityId, studentId, response) => {
+  const submitResponse = useCallback((activityId, studentId, response) => {
     if (socketRef.current) {
       socketRef.current.emit('submit-response', { activityId, studentId, response })
     }
-  }
+  }, [])
 
-  const lockScreen = (sessionId, studentIds = 'all') => {
+  const lockScreen = useCallback((sessionId, studentIds = 'all') => {
     if (socketRef.current) {
       socketRef.current.emit('screen-lock', { sessionId, studentIds })
     }
-  }
+  }, [])
 
-  const unlockScreen = (sessionId, studentIds = 'all') => {
+  const unlockScreen = useCallback((sessionId, studentIds = 'all') => {
     if (socketRef.current) {
       socketRef.current.emit('screen-unlock', { sessionId, studentIds })
     }
-  }
+  }, [])
 
-  const updateStudentStatus = (studentId, status) => {
+  const updateStudentStatus = useCallback((studentId, status) => {
     if (socketRef.current) {
       socketRef.current.emit('student-status', { studentId, status })
     }
-  }
+  }, [])
 
-  const on = (event, callback) => {
+  const on = useCallback((event, callback) => {
     if (socketRef.current) {
       socketRef.current.on(event, callback)
     }
-  }
+  }, [])
 
-  const off = (event, callback) => {
+  const off = useCallback((event, callback) => {
     if (socketRef.current) {
       socketRef.current.off(event, callback)
     }
-  }
+  }, [])
 
   return {
     socket: socketRef.current,
