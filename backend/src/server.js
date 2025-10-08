@@ -12,6 +12,7 @@ import authRoutes from './routes/auth.js'
 import sessionRoutes from './routes/sessions.js'
 import aiRoutes from './routes/ai.js'
 import activityRoutes from './routes/activities.js'
+import analyticsRoutes from './routes/analytics.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -41,6 +42,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/sessions', sessionRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/activities', activityRoutes)
+app.use('/api', analyticsRoutes)
 
 // Setup WebSocket
 setupSocketIO(io)
