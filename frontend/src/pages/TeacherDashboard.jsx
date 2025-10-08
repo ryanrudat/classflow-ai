@@ -287,15 +287,14 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
     joinSession(session.id, 'teacher')
 
     // Listen for student joins
-    const handleUserJoined = ({ role, studentId }) => {
+    const handleUserJoined = ({ role, studentId, studentName }) => {
       if (role === 'student') {
-        // In a real app, fetch student details from API
         setStudents(prev => {
           // Check if student already exists
           if (prev.some(s => s.id === studentId)) {
             return prev
           }
-          return [...prev, { id: studentId, name: `Student ${studentId.slice(0, 6)}` }]
+          return [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}` }]
         })
       }
     }

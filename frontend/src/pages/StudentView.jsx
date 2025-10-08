@@ -72,7 +72,7 @@ export default function StudentView() {
     if (!session || !student) return
 
     // Join the session room
-    joinSession(session.id, 'student', student.id)
+    joinSession(session.id, 'student', student.id, student.student_name)
 
     // Listen for activity pushed by teacher
     const handleActivityReceived = ({ activity, targetStudentId }) => {

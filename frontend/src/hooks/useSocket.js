@@ -41,9 +41,9 @@ export function useSocket() {
     }
   }, [])
 
-  const joinSession = useCallback((sessionId, role, studentId = null) => {
+  const joinSession = useCallback((sessionId, role, studentId = null, studentName = null) => {
     if (socketRef.current) {
-      socketRef.current.emit('join-session', { sessionId, role, studentId })
+      socketRef.current.emit('join-session', { sessionId, role, studentId, studentName })
     }
   }, [])
 

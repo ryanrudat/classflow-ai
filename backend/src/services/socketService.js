@@ -4,19 +4,21 @@ export function setupSocketIO(io) {
     console.log('✅ Client connected:', socket.id)
 
     // Join session room
-    socket.on('join-session', ({ sessionId, role, studentId }) => {
+    socket.on('join-session', ({ sessionId, role, studentId, studentName }) => {
       socket.join(`session-${sessionId}`)
       socket.sessionId = sessionId
       socket.role = role // 'teacher' or 'student'
       socket.studentId = studentId
+      socket.studentName = studentName
 
-      console.log(`Socket ${socket.id} joined session ${sessionId} as ${role}`)
+      console.log(`Socket ${socket.id} joined session ${sessionId} as ${role}${studentName ? ` (${studentName})` : ''}`)
 
       // Notify others in the session
       socket.to(`session-${sessionId}`).emit('user-joined', {
         socketId: socket.id,
         role,
         studentId,
+        studentName,
         timestamp: new Date().toISOString()
       })
     })
