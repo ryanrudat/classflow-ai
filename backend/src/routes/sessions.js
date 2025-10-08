@@ -3,6 +3,7 @@ import {
   createSession,
   getSession,
   endSession,
+  deleteSession,
   joinSession,
   getTeacherSessions
 } from '../controllers/sessionController.js'
@@ -17,6 +18,7 @@ router.get('/', authenticateToken, getTeacherSessions)
 router.get('/:id', authenticateToken, getSession)
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
 router.post('/:id/end', authenticateToken, endSession)
+router.delete('/:id', authenticateToken, deleteSession)
 
 // Public routes (students)
 router.post('/join', joinSession)

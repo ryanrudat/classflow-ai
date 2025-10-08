@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { sessionsAPI, aiAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
-import Analytics from '../components/Analytics'
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()
@@ -58,6 +57,20 @@ export default function TeacherDashboard() {
     }
   }
 
+  async function deleteSession(sessionId) {
+    if (!confirm('Permanently delete this session? All data will be lost.')) return
+
+    try {
+      await sessionsAPI.delete(sessionId)
+      loadSessions()
+      if (activeSession?.id === sessionId) {
+        setActiveSession(null)
+      }
+    } catch (err) {
+      alert('Failed to delete session')
+    }
+  }
+
   function handleLogout() {
     logout()
     navigate('/login')
@@ -97,28 +110,55 @@ export default function TeacherDashboard() {
               </div>
 
               <div className="space-y-2">
-                {sessions.filter(s => s.status === 'active').length === 0 && (
+                {sessions.length === 0 && (
                   <p className="text-gray-500 text-sm text-center py-8">
-                    No active sessions.<br />Create one to get started!
+                    No sessions yet.<br />Create one to get started!
                   </p>
                 )}
 
-                {sessions.filter(s => s.status === 'active').map(session => (
+                {sessions.map(session => (
                   <div
                     key={session.id}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`p-4 rounded-lg border-2 transition-all ${
                       activeSession?.id === session.id
                         ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        : session.status === 'ended'
+                        ? 'border-gray-300 bg-gray-50 opacity-75'
+                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                     }`}
-                    onClick={() => setActiveSession(session)}
                   >
-                    <div className="font-medium text-gray-900">{session.title}</div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      {session.subject || 'No subject'}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-2">
-                      Join Code: <span className="font-mono font-bold">{session.join_code}</span>
+                    <div className="flex items-start justify-between">
+                      <div
+                        className="flex-1 cursor-pointer"
+                        onClick={() => setActiveSession(session)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">{session.title}</div>
+                          {session.status === 'ended' && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-gray-200 text-gray-600 rounded">
+                              Ended
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {session.subject || 'No subject'}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Join Code: <span className="font-mono font-bold">{session.join_code}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteSession(session.id)
+                        }}
+                        className="ml-2 text-red-500 hover:text-red-700 p-1"
+                        title="Delete session"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -240,7 +280,6 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
 }
 
 function ActiveSessionView({ session, onEnd, onUpdate }) {
-  const [activeTab, setActiveTab] = useState('activities') // 'activities' or 'analytics'
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -289,15 +328,10 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
     joinSession(session.id, 'teacher')
 
     // Listen for student joins
-    const handleUserJoined = ({ role, studentId, studentName }) => {
+    const handleUserJoined = ({ role, studentId }) => {
       if (role === 'student') {
-        setStudents(prev => {
-          // Check if student already exists
-          if (prev.some(s => s.id === studentId)) {
-            return prev
-          }
-          return [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}` }]
-        })
+        // In a real app, fetch student details from API
+        setStudents(prev => [...prev, { id: studentId, name: `Student ${studentId.slice(0, 6)}` }])
       }
     }
 
@@ -468,36 +502,6 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
           </div>
         </div>
       )}
-
-      {/* Tab Navigation */}
-      <div className="card">
-        <div className="flex gap-2 border-b border-gray-200 -mx-6 -mt-6 px-6 mb-6">
-          <button
-            onClick={() => setActiveTab('activities')}
-            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'activities'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📝 Activities & AI Generation
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-              activeTab === 'analytics'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            📊 Analytics & Performance
-          </button>
-        </div>
-
-        {activeTab === 'analytics' ? (
-          <Analytics sessionId={session.id} />
-        ) : (
-          <div className="space-y-6">
 
       {/* Session History */}
       {sessionActivities.length > 0 && (
@@ -676,8 +680,6 @@ function ActiveSessionView({ session, onEnd, onUpdate }) {
                 </div>
               </div>
             )}
-          </div>
-        )}
           </div>
         )}
       </div>

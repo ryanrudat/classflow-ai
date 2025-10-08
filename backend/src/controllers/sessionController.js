@@ -178,6 +178,49 @@ export async function endSession(req, res) {
 }
 
 /**
+ * Delete session
+ * DELETE /api/sessions/:id
+ * Protected: Teacher only
+ */
+export async function deleteSession(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const check = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Log analytics before deletion
+    await db.query(
+      `INSERT INTO analytics_events (event_type, user_id, session_id)
+       VALUES ($1, $2, $3)`,
+      ['session_deleted', teacherId, id]
+    )
+
+    // Delete session (cascade will handle related data)
+    await db.query(
+      'DELETE FROM sessions WHERE id = $1',
+      [id]
+    )
+
+    res.json({
+      message: 'Session deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Delete session error:', error)
+    res.status(500).json({ message: 'Failed to delete session' })
+  }
+}
+
+/**
  * Join session as student
  * POST /api/sessions/join
  * Body: { joinCode, studentName, deviceType }
