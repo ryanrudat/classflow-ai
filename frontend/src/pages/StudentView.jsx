@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { sessionsAPI, activitiesAPI } from '../services/api'
+import { sessionsAPI, slidesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
+import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -14,6 +15,10 @@ export default function StudentView() {
   const [error, setError] = useState('')
   const [currentActivity, setCurrentActivity] = useState(null)
   const [screenLocked, setScreenLocked] = useState(false)
+
+  // Presentation state
+  const [presentationActive, setPresentationActive] = useState(false)
+  const [currentDeck, setCurrentDeck] = useState(null)
 
   // Auto-fill join code if in URL
   const [code, setCode] = useState(joinCode || '')
@@ -95,15 +100,29 @@ export default function StudentView() {
       }
     }
 
+    // Listen for presentation started
+    const handlePresentationStarted = async ({ deckId, mode }) => {
+      console.log('📊 Presentation started:', deckId, mode)
+      try {
+        const deckData = await slidesAPI.getDeck(deckId)
+        setCurrentDeck(deckData)
+        setPresentationActive(true)
+      } catch (err) {
+        console.error('Failed to load presentation:', err)
+      }
+    }
+
     on('activity-received', handleActivityReceived)
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
+    on('presentation-started', handlePresentationStarted)
 
     // Cleanup
     return () => {
       off('activity-received', handleActivityReceived)
       off('screen-locked', handleScreenLocked)
       off('screen-unlocked', handleScreenUnlocked)
+      off('presentation-started', handlePresentationStarted)
     }
   }, [session, student, joinSession, on, off])
 
@@ -184,6 +203,17 @@ export default function StudentView() {
     )
   }
 
+  // Show presentation viewer if presentation is active
+  if (presentationActive && currentDeck) {
+    return (
+      <StudentPresentationViewer
+        deck={currentDeck.deck}
+        sessionId={session.id}
+        studentId={student.id}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -246,7 +276,7 @@ export default function StudentView() {
               </svg>
             </div>
             <h3 className="text-xl font-medium text-gray-600">Waiting for teacher...</h3>
-            <p className="text-gray-500 mt-2">Your teacher will push activities to you soon</p>
+            <p className="text-gray-500 mt-2">Your teacher will push activities or presentations</p>
           </div>
         )}
       </div>
