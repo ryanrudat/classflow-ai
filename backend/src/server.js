@@ -55,6 +55,12 @@ app.use(cors({
 }))
 app.use(express.json())
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`📨 ${req.method} ${req.path}`)
+  next()
+})
+
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
 
