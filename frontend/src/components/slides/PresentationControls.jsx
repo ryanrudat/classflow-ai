@@ -18,6 +18,8 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   const totalSlides = deck?.slides?.length || 0
 
   useEffect(() => {
+    if (!deck?.id) return
+
     loadStudentProgress()
 
     // Listen for student progress updates
@@ -46,9 +48,11 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       off('student-slide-changed', handleStudentSlideChanged)
       off('student-slide-completed', handleStudentSlideCompleted)
     }
-  }, [on, off])
+  }, [deck?.id, on, off])
 
   const loadStudentProgress = async () => {
+    if (!deck?.id) return
+
     try {
       const result = await presentationAPI.getProgress(deck.id)
       setStudentProgress(result.students || [])

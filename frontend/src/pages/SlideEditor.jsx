@@ -236,7 +236,7 @@ export default function SlideEditor() {
               </div>
 
               <button
-                onClick={() => navigate('/teacher-dashboard')}
+                onClick={() => navigate('/dashboard')}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Back to Dashboard

@@ -90,7 +90,7 @@ export default function Presentation() {
 
   const handleEndPresentation = () => {
     if (confirm('End presentation and return to session dashboard?')) {
-      navigate('/teacher-dashboard')
+      navigate('/dashboard')
     }
   }
 
