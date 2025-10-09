@@ -86,6 +86,67 @@ export function setupSocketIO(io) {
       })
     })
 
+    // Slide navigation events
+    socket.on('student-navigated', ({ slideNumber, slideId }) => {
+      const sessionId = socket.sessionId
+      const studentId = socket.studentId
+
+      // Notify teacher of student's current slide
+      socket.to(`session-${sessionId}`).emit('student-slide-changed', {
+        studentId,
+        slideNumber,
+        slideId,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`📍 Student ${studentId} navigated to slide ${slideNumber}`)
+    })
+
+    // Student started viewing a slide
+    socket.on('slide-started', async ({ slideId, studentId: providedStudentId }) => {
+      const sessionId = socket.sessionId
+      const studentId = providedStudentId || socket.studentId
+
+      // Track slide progress in database
+      const db = (await import('../database/db.js')).default
+      await db.query(
+        `INSERT INTO student_slide_progress (student_id, slide_id, started_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (student_id, slide_id)
+         DO UPDATE SET started_at = NOW(), completed_at = NULL`,
+        [studentId, slideId]
+      )
+
+      console.log(`▶️ Student ${studentId} started slide ${slideId}`)
+    })
+
+    // Student completed a slide
+    socket.on('slide-completed', async ({ slideId, timeSpent, studentId: providedStudentId }) => {
+      const sessionId = socket.sessionId
+      const studentId = providedStudentId || socket.studentId
+
+      // Update slide progress in database
+      const db = (await import('../database/db.js')).default
+      await db.query(
+        `UPDATE student_slide_progress
+         SET completed_at = NOW(),
+             time_spent_seconds = $3,
+             stuck = false
+         WHERE student_id = $1 AND slide_id = $2`,
+        [studentId, slideId, timeSpent]
+      )
+
+      // Notify teacher
+      socket.to(`session-${sessionId}`).emit('student-slide-completed', {
+        studentId,
+        slideId,
+        timeSpent,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`✅ Student ${studentId} completed slide ${slideId}`)
+    })
+
     // Handle disconnection
     socket.on('disconnect', () => {
       if (socket.sessionId && socket.studentId) {
