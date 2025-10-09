@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { slidesAPI, presentationAPI } from '../services/api'
 import PresentationControls from '../components/slides/PresentationControls'
+import { useSocket } from '../hooks/useSocket'
+import { useAuthStore } from '../stores/authStore'
 
 /**
  * Presentation - Teacher's presentation view
@@ -10,6 +12,8 @@ import PresentationControls from '../components/slides/PresentationControls'
 export default function Presentation() {
   const { deckId } = useParams()
   const navigate = useNavigate()
+  const { joinSession } = useSocket()
+  const user = useAuthStore(state => state.user)
 
   const [deck, setDeck] = useState(null)
   const [currentSlideNumber, setCurrentSlideNumber] = useState(1)
@@ -48,6 +52,12 @@ export default function Presentation() {
     try {
       const result = await slidesAPI.getDeck(deckId)
       setDeck(result)
+
+      // Join WebSocket room for this session
+      if (result.deck?.session_id) {
+        console.log('🔌 Teacher joining WebSocket room for session:', result.deck.session_id)
+        joinSession(result.deck.session_id, 'teacher', user?.id, user?.name)
+      }
 
       // Start presentation to notify all students
       try {

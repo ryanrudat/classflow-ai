@@ -213,14 +213,13 @@ export async function getStudentProgress(req, res) {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
-    // Get all students in the current instance of this session
+    // Get all students in this session (simplified query)
     console.log('[Progress] Fetching students for session:', deck.session_id)
     const studentsResult = await db.query(
-      `SELECT ss.id, ss.student_name
-       FROM session_students ss
-       LEFT JOIN session_instances si ON ss.instance_id = si.id
-       WHERE si.session_id = $1 AND si.is_current = true
-       ORDER BY ss.student_name`,
+      `SELECT id, student_name
+       FROM session_students
+       WHERE session_id = $1
+       ORDER BY student_name`,
       [deck.session_id]
     )
 

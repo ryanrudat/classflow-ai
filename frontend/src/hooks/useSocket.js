@@ -94,6 +94,12 @@ export function useSocket() {
     }
   }, [])
 
+  const emit = useCallback((event, data) => {
+    if (socketRef.current) {
+      socketRef.current.emit(event, data)
+    }
+  }, [])
+
   return {
     socket: socketRef.current,
     isConnected,
@@ -104,6 +110,7 @@ export function useSocket() {
     unlockScreen,
     updateStudentStatus,
     on,
-    off
+    off,
+    emit
   }
 }
