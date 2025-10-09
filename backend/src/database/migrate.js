@@ -64,16 +64,34 @@ async function runMigrations() {
       const filePath = path.join(migrationsDir, file)
       const sql = fs.readFileSync(filePath, 'utf8')
 
-      // Execute the migration
-      await client.query(sql)
+      try {
+        // Execute the migration
+        await client.query(sql)
 
-      // Record the migration
-      await client.query(
-        'INSERT INTO migrations (filename) VALUES ($1)',
-        [file]
-      )
+        // Record the migration
+        await client.query(
+          'INSERT INTO migrations (filename) VALUES ($1)',
+          [file]
+        )
 
-      console.log(`✅ Completed migration: ${file}`)
+        console.log(`✅ Completed migration: ${file}`)
+      } catch (migrationError) {
+        // Check if error is because tables already exist
+        if (migrationError.code === '42P07' || migrationError.code === '42710') {
+          // Table or object already exists - mark as executed and continue
+          console.log(`⚠️  Migration ${file} contains already-existing objects, marking as executed`)
+
+          await client.query(
+            'INSERT INTO migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING',
+            [file]
+          )
+
+          console.log(`✅ Marked ${file} as executed (skipped duplicate creation)`)
+        } else {
+          // Re-throw other errors
+          throw migrationError
+        }
+      }
     }
 
     console.log('✅ All migrations completed successfully!')
