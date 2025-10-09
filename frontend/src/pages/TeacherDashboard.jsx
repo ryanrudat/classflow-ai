@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI } from '../services/api'
+import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 
 export default function TeacherDashboard() {
@@ -296,6 +296,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
 }
 
 function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
+  const navigate = useNavigate()
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -311,6 +312,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [instances, setInstances] = useState([])
   const [selectedInstance, setSelectedInstance] = useState(null)
   const [loadingInstance, setLoadingInstance] = useState(false)
+  const [slideDecks, setSlideDecks] = useState([])
+  const [loadingSlides, setLoadingSlides] = useState(false)
+  const [generatingSlides, setGeneratingSlides] = useState(false)
+  const [showSlideGenerator, setShowSlideGenerator] = useState(false)
 
   const { joinSession, pushActivity, on, off, isConnected } = useSocket()
 
@@ -340,6 +345,25 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     }
 
     loadActivities()
+  }, [session?.id])
+
+  // Load slide decks for this session
+  useEffect(() => {
+    if (!session?.id) return
+
+    async function loadSlides() {
+      try {
+        setLoadingSlides(true)
+        const data = await slidesAPI.getSessionDecks(session.id)
+        setSlideDecks(data.decks || [])
+      } catch (err) {
+        console.error('Failed to load slides:', err)
+      } finally {
+        setLoadingSlides(false)
+      }
+    }
+
+    loadSlides()
   }, [session?.id])
 
   // Load session analytics (filtered by selected instance)
@@ -543,6 +567,28 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     setGeneratedContent(activity)
   }
 
+  async function handleGenerateSlides(slideData) {
+    try {
+      setGeneratingSlides(true)
+      setError('')
+
+      const result = await slidesAPI.generate(
+        session.id,
+        slideData.topic,
+        slideData.gradeLevel,
+        slideData.difficulty,
+        slideData.slideCount
+      )
+
+      // Navigate to the slide editor
+      navigate(`/slides/edit/${result.deck.id}`)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to generate slides')
+    } finally {
+      setGeneratingSlides(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Session Info */}
@@ -584,6 +630,64 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
             Share this code with students to join the session
           </div>
         </div>
+      </div>
+
+      {/* Slides Section */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800">📊 Presentation Slides</h3>
+          <button
+            onClick={() => setShowSlideGenerator(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Generate New Slides
+          </button>
+        </div>
+
+        {loadingSlides ? (
+          <p className="text-gray-500 text-sm text-center py-4">Loading slides...</p>
+        ) : slideDecks.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <div className="text-5xl mb-3">📽️</div>
+            <p className="text-gray-600">No slide decks yet</p>
+            <p className="text-gray-500 text-sm mt-2">Generate AI-powered slides for your lessons</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {slideDecks.map(deck => (
+              <div
+                key={deck.id}
+                className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-all"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-bold text-gray-900">{deck.title}</h4>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {deck.slideCount} slides • {deck.gradeLevel} • {deck.difficulty}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Created {new Date(deck.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => navigate(`/slides/edit/${deck.id}`)}
+                    className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm transition-colors"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => navigate(`/present/${deck.id}`)}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm transition-colors"
+                  >
+                    ▶️ Present
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Session Instances (Class Periods) */}
@@ -989,6 +1093,133 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* Slide Generator Modal */}
+      {showSlideGenerator && (
+        <SlideGeneratorModal
+          onClose={() => setShowSlideGenerator(false)}
+          onGenerate={handleGenerateSlides}
+          loading={generatingSlides}
+          subject={session.subject}
+        />
+      )}
+    </div>
+  )
+}
+
+function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
+  const [topic, setTopic] = useState('')
+  const [gradeLevel, setGradeLevel] = useState('9th-10th')
+  const [difficulty, setDifficulty] = useState('medium')
+  const [slideCount, setSlideCount] = useState(10)
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    onGenerate({ topic, gradeLevel, difficulty, slideCount })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Generate AI Slides</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Lesson Topic *
+            </label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              className="input-field"
+              placeholder="e.g., The American Revolution, Photosynthesis, Shakespeare's Macbeth"
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Grade Level
+              </label>
+              <select
+                value={gradeLevel}
+                onChange={(e) => setGradeLevel(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              >
+                <option value="6th-8th">6th-8th Grade</option>
+                <option value="9th-10th">9th-10th Grade</option>
+                <option value="11th-12th">11th-12th Grade</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Difficulty
+              </label>
+              <select
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Number of Slides: {slideCount}
+            </label>
+            <input
+              type="range"
+              min="5"
+              max="15"
+              value={slideCount}
+              onChange={(e) => setSlideCount(parseInt(e.target.value))}
+              className="w-full"
+              disabled={loading}
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>5 slides</span>
+              <span>15 slides</span>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-gray-700">
+              <strong>Subject:</strong> {subject}
+            </p>
+            <p className="text-xs text-gray-600 mt-1">
+              AI will generate {slideCount} slides about "{topic || 'your topic'}" tailored for {gradeLevel} students
+            </p>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary flex-1"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary flex-1"
+              disabled={loading || !topic.trim()}
+            >
+              {loading ? 'Generating...' : '✨ Generate Slides'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )

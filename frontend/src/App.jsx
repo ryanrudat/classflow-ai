@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 
-// Pages (to be created in Week 1)
+// Pages
 import Login from './pages/Login'
 import Register from './pages/Register'
 import TeacherDashboard from './pages/TeacherDashboard'
 import StudentView from './pages/StudentView'
+import SlideEditor from './pages/SlideEditor'
+import Presentation from './pages/Presentation'
+import StudentMonitoringDashboard from './pages/StudentMonitoringDashboard'
 
 function App() {
   const { user } = useAuthStore()
@@ -24,6 +27,20 @@ function App() {
           <Route
             path="/dashboard"
             element={user ? <TeacherDashboard /> : <Navigate to="/login" />}
+          />
+
+          {/* Slides routes */}
+          <Route
+            path="/slides/edit/:deckId"
+            element={user ? <SlideEditor /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/present/:deckId"
+            element={user ? <Presentation /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/slides/monitor/:deckId"
+            element={user ? <StudentMonitoringDashboard /> : <Navigate to="/login" />}
           />
 
           {/* Default route */}
