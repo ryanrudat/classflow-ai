@@ -427,6 +427,10 @@ export async function getSessionDecks(req, res) {
 
   } catch (error) {
     console.error('Get session decks error:', error)
-    res.status(500).json({ message: 'Failed to get session decks' })
+    console.error('Error details:', error.message, error.stack)
+    res.status(500).json({
+      message: 'Failed to get session decks',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 }

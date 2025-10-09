@@ -53,8 +53,47 @@ app.use(express.json())
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+app.get('/health', async (req, res) => {
+  try {
+    // Import db
+    const { default: db } = await import('./database/db.js')
+
+    // Check database connection
+    await db.query('SELECT 1')
+
+    // Check if slides tables exist
+    const tablesResult = await db.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('slide_decks', 'slides', 'uploaded_images', 'student_slide_progress')
+      ORDER BY table_name
+    `)
+
+    const existingTables = tablesResult.rows.map(r => r.table_name)
+    const requiredTables = ['slide_decks', 'slides', 'uploaded_images', 'student_slide_progress']
+    const missingTables = requiredTables.filter(t => !existingTables.includes(t))
+
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      tables: {
+        existing: existingTables,
+        missing: missingTables.length > 0 ? missingTables : null
+      },
+      env: {
+        claudeApiKey: process.env.CLAUDE_API_KEY ? 'set' : 'missing',
+        nodeEnv: process.env.NODE_ENV
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    })
+  }
 })
 
 // API Routes
