@@ -177,6 +177,8 @@ export async function getStudentProgress(req, res) {
     const { deckId } = req.params
     const teacherId = req.user.userId
 
+    console.log('[Progress] Request for deckId:', deckId, 'teacherId:', teacherId)
+
     // Verify ownership
     const deckResult = await db.query(
       `SELECT d.*, s.id as session_id, s.teacher_id
@@ -187,24 +189,36 @@ export async function getStudentProgress(req, res) {
     )
 
     if (deckResult.rows.length === 0) {
+      console.log('[Progress] Deck not found:', deckId)
       return res.status(404).json({ message: 'Deck not found' })
     }
 
     const deck = deckResult.rows[0]
+    console.log('[Progress] Found deck:', deck.id, 'session:', deck.session_id)
 
     if (deck.teacher_id !== teacherId) {
+      console.log('[Progress] Unauthorized access attempt')
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
     // Get all students in the current instance of this session
+    console.log('[Progress] Fetching students for session:', deck.session_id)
     const studentsResult = await db.query(
       `SELECT ss.id, ss.student_name
        FROM session_students ss
-       JOIN session_instances si ON ss.instance_id = si.id
+       LEFT JOIN session_instances si ON ss.instance_id = si.id
        WHERE si.session_id = $1 AND si.is_current = true
        ORDER BY ss.student_name`,
       [deck.session_id]
     )
+
+    console.log('[Progress] Found', studentsResult.rows.length, 'students')
+
+    // If no students, return empty array (this is not an error)
+    if (studentsResult.rows.length === 0) {
+      console.log('[Progress] No students connected yet, returning empty array')
+      return res.json({ students: [] })
+    }
 
     // For each student, get their latest slide progress for this deck
     const students = await Promise.all(
@@ -243,14 +257,16 @@ export async function getStudentProgress(req, res) {
       })
     )
 
+    console.log('[Progress] Returning', students.length, 'students with progress')
     res.json({ students })
 
   } catch (error) {
-    console.error('Get progress error:', error)
-    console.error('Error details:', {
+    console.error('[Progress] ERROR:', error)
+    console.error('[Progress] Error details:', {
       message: error.message,
       stack: error.stack,
-      deckId: req.params.deckId
+      deckId: req.params.deckId,
+      code: error.code
     })
     res.status(500).json({
       message: 'Failed to get student progress',
