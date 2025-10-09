@@ -196,35 +196,53 @@ export async function getStudentProgress(req, res) {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
-    // Get all students and their current slide progress
-    const progressResult = await db.query(
-      `SELECT
-        ss.id as student_id,
-        ss.student_name,
-        MAX(sp.slide_id) as current_slide_id,
-        s.slide_number as current_slide_number,
-        COUNT(DISTINCT sp.slide_id) as completed_slides,
-        BOOL_OR(sp.stuck) as is_stuck,
-        MAX(sp.started_at) as last_activity
+    // Get all students in this session
+    const studentsResult = await db.query(
+      `SELECT ss.id, ss.student_name
        FROM session_students ss
-       LEFT JOIN student_slide_progress sp ON ss.id = sp.student_id
-       LEFT JOIN slides s ON sp.slide_id = s.id
-       WHERE ss.session_id = $1 AND s.deck_id = $2
-       GROUP BY ss.id, ss.student_name, s.slide_number
+       WHERE ss.session_id = $1
        ORDER BY ss.student_name`,
-      [deck.session_id, deckId]
+      [deck.session_id]
     )
 
-    res.json({
-      students: progressResult.rows.map(row => ({
-        studentId: row.student_id,
-        name: row.student_name,
-        currentSlideNumber: parseFloat(row.current_slide_number) || 1,
-        completedSlides: parseInt(row.completed_slides) || 0,
-        isStuck: row.is_stuck || false,
-        lastActivity: row.last_activity
-      }))
-    })
+    // For each student, get their latest slide progress for this deck
+    const students = await Promise.all(
+      studentsResult.rows.map(async (student) => {
+        const progressQuery = await db.query(
+          `SELECT
+            s.slide_number,
+            sp.completed_at,
+            sp.stuck,
+            sp.started_at
+           FROM student_slide_progress sp
+           JOIN slides s ON sp.slide_id = s.id
+           WHERE sp.student_id = $1 AND s.deck_id = $2
+           ORDER BY sp.started_at DESC
+           LIMIT 1`,
+          [student.id, deckId]
+        )
+
+        const progress = progressQuery.rows[0]
+        const completedCount = await db.query(
+          `SELECT COUNT(DISTINCT sp.slide_id) as count
+           FROM student_slide_progress sp
+           JOIN slides s ON sp.slide_id = s.id
+           WHERE sp.student_id = $1 AND s.deck_id = $2 AND sp.completed_at IS NOT NULL`,
+          [student.id, deckId]
+        )
+
+        return {
+          studentId: student.id,
+          name: student.student_name,
+          currentSlideNumber: progress ? parseFloat(progress.slide_number) : 1,
+          completedSlides: parseInt(completedCount.rows[0].count) || 0,
+          isStuck: progress?.stuck || false,
+          lastActivity: progress?.started_at || null
+        }
+      })
+    )
+
+    res.json({ students })
 
   } catch (error) {
     console.error('Get progress error:', error)
