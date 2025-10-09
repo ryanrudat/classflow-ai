@@ -38,7 +38,11 @@ const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      process.env.FRONTEND_URL || 'http://localhost:5173',
+      'https://classflow-ai-frontend.onrender.com',
+      'https://classflow-ai.onrender.com'
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -50,7 +54,11 @@ const io = new Server(httpServer, {
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:5173',
+    'https://classflow-ai-frontend.onrender.com',
+    'https://classflow-ai.onrender.com'
+  ],
   credentials: true
 }))
 app.use(express.json())
