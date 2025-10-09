@@ -64,6 +64,11 @@ app.use((req, res, next) => {
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
 
+// Global OPTIONS handler for CORS preflight (must come before routes)
+app.options('*', (req, res) => {
+  res.status(200).end()
+})
+
 // Health check
 app.get('/health', async (req, res) => {
   try {
