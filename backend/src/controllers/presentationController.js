@@ -196,11 +196,12 @@ export async function getStudentProgress(req, res) {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
-    // Get all students in this session
+    // Get all students in the current instance of this session
     const studentsResult = await db.query(
       `SELECT ss.id, ss.student_name
        FROM session_students ss
-       WHERE ss.session_id = $1
+       JOIN session_instances si ON ss.instance_id = si.id
+       WHERE si.session_id = $1 AND si.is_current = true
        ORDER BY ss.student_name`,
       [deck.session_id]
     )
@@ -246,7 +247,15 @@ export async function getStudentProgress(req, res) {
 
   } catch (error) {
     console.error('Get progress error:', error)
-    res.status(500).json({ message: 'Failed to get student progress' })
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      deckId: req.params.deckId
+    })
+    res.status(500).json({
+      message: 'Failed to get student progress',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    })
   }
 }
 
