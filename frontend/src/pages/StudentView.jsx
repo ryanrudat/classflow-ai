@@ -112,7 +112,15 @@ export default function StudentView() {
         console.log('  Loading deck data...')
         const deckData = await slidesAPI.getDeck(deckId)
         console.log('  Deck loaded successfully:', deckData)
-        setCurrentDeck(deckData)
+
+        // Restructure the deck data
+        const restructuredDeck = {
+          id: deckData.deck.id,
+          title: deckData.deck.title,
+          slides: deckData.slides
+        }
+
+        setCurrentDeck(restructuredDeck)
         setPresentationActive(true)
         console.log('  ✅ Presentation view activated!')
       } catch (err) {
@@ -215,7 +223,7 @@ export default function StudentView() {
   if (presentationActive && currentDeck) {
     return (
       <StudentPresentationViewer
-        deck={currentDeck.deck}
+        deck={currentDeck}
         sessionId={session.id}
         studentId={student.id}
       />

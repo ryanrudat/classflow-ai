@@ -72,7 +72,14 @@ export default function StudentMonitoringDashboard() {
         presentationAPI.getProgress(deckId)
       ])
 
-      setDeck(deckData)
+      // Restructure the deck data properly
+      const restructuredDeck = {
+        id: deckData.deck.id,
+        title: deckData.deck.title,
+        slides: deckData.slides
+      }
+
+      setDeck(restructuredDeck)
       setStudents(progressData.students || [])
     } catch (err) {
       console.error('Failed to load data:', err)

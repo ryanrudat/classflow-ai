@@ -51,12 +51,24 @@ export default function Presentation() {
   const loadDeck = async () => {
     try {
       const result = await slidesAPI.getDeck(deckId)
-      setDeck(result)
+
+      // Restructure the data properly
+      const deckData = {
+        id: result.deck.id,
+        session_id: result.deck.sessionId, // Convert camelCase to snake_case
+        title: result.deck.title,
+        gradeLevel: result.deck.gradeLevel,
+        difficulty: result.deck.difficulty,
+        totalSlides: result.deck.totalSlides,
+        slides: result.slides
+      }
+
+      setDeck(deckData)
 
       // Join WebSocket room for this session
-      if (result.deck?.session_id) {
-        console.log('🔌 Teacher joining WebSocket room for session:', result.deck.session_id)
-        joinSession(result.deck.session_id, 'teacher', user?.id, user?.name)
+      if (deckData.session_id) {
+        console.log('🔌 Teacher joining WebSocket room for session:', deckData.session_id)
+        joinSession(deckData.session_id, 'teacher', user?.id, user?.name)
       }
 
       // Start presentation to notify all students
