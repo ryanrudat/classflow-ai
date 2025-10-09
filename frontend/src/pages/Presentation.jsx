@@ -89,8 +89,8 @@ export default function Presentation() {
   }
 
   const handleEndPresentation = () => {
-    if (confirm('End presentation and return to editor?')) {
-      navigate(`/slides/edit/${deckId}`)
+    if (confirm('End presentation and return to session dashboard?')) {
+      navigate('/teacher-dashboard')
     }
   }
 
