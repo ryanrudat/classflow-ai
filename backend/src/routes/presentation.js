@@ -10,11 +10,6 @@ import { authenticateToken } from '../middleware/auth.js'
 
 const router = express.Router()
 
-// Allow OPTIONS requests for CORS preflight (before auth)
-router.options('*', (req, res) => {
-  res.status(200).end()
-})
-
 // All routes require authentication
 router.use(authenticateToken)
 

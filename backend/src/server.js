@@ -52,16 +52,25 @@ const io = new Server(httpServer, {
   pingInterval: 25000
 })
 
-// Middleware
-app.use(cors({
+// CORS configuration
+const corsOptions = {
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:5173',
     'https://classflow-ai-frontend.onrender.com',
     'https://classflow-ai.onrender.com'
   ],
-  credentials: true
-}))
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+}
+
+// Middleware
+app.use(cors(corsOptions))
 app.use(express.json())
+
+// Handle preflight requests
+app.options('*', cors(corsOptions))
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -71,11 +80,6 @@ app.use((req, res, next) => {
 
 // Serve static files (uploaded images)
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')))
-
-// Global OPTIONS handler for CORS preflight (must come before routes)
-app.options('*', (req, res) => {
-  res.status(200).end()
-})
 
 // Health check
 app.get('/health', async (req, res) => {

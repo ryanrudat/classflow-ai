@@ -5,6 +5,11 @@ import jwt from 'jsonwebtoken'
  * Verifies JWT token and attaches user info to req.user
  */
 export function authenticateToken(req, res, next) {
+  // Skip authentication for OPTIONS requests (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return next()
+  }
+
   try {
     // Get token from Authorization header
     const authHeader = req.headers['authorization']
