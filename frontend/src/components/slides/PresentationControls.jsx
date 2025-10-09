@@ -26,7 +26,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
     const handleStudentSlideChanged = ({ studentId, slideNumber }) => {
       setStudentProgress(prev =>
         prev.map(s =>
-          s.id === studentId ? { ...s, currentSlide: slideNumber } : s
+          s.studentId === studentId ? { ...s, currentSlide: slideNumber } : s
         )
       )
     }
@@ -34,7 +34,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
     const handleStudentSlideCompleted = ({ studentId, slideId }) => {
       setStudentProgress(prev =>
         prev.map(s =>
-          s.id === studentId
+          s.studentId === studentId
             ? { ...s, completedSlides: [...(s.completedSlides || []), slideId] }
             : s
         )
@@ -95,16 +95,17 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   }
 
   const handleNavigate = async (slideNumber) => {
-    if (mode !== 'teacher') return
+    // Allow navigation in all modes, but only broadcast in teacher mode
+    onNavigate(slideNumber)
 
-    try {
-      await presentationAPI.navigate(deck.id, slideNumber)
-      onNavigate(slideNumber)
-
-      // Broadcast to students
-      emit('teacher-navigated', { slideNumber })
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to navigate')
+    if (mode === 'teacher') {
+      try {
+        await presentationAPI.navigate(deck.id, slideNumber)
+        // Broadcast to students
+        emit('teacher-navigated', { slideNumber })
+      } catch (err) {
+        console.error('Failed to broadcast navigation:', err)
+      }
     }
   }
 
@@ -135,7 +136,8 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   }
 
   const getStudentProgressColor = (student) => {
-    const progress = (student.currentSlide / totalSlides) * 100
+    const currentSlide = student.currentSlideNumber || student.currentSlide || 1
+    const progress = (currentSlide / totalSlides) * 100
     if (progress < 30) return 'bg-red-100 text-red-700'
     if (progress < 70) return 'bg-yellow-100 text-yellow-700'
     return 'bg-green-100 text-green-700'
@@ -252,18 +254,18 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
             <div className="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto">
               {studentProgress.map((student) => (
                 <div
-                  key={student.id}
+                  key={student.studentId}
                   className={`p-3 rounded-lg ${getStudentProgressColor(student)}`}
                 >
                   <div className="font-medium truncate">{student.name}</div>
                   <div className="text-sm">
-                    Slide {student.currentSlide || 1} / {totalSlides}
+                    Slide {student.currentSlideNumber || student.currentSlide || 1} / {totalSlides}
                   </div>
                   <div className="w-full bg-white bg-opacity-50 rounded-full h-1.5 mt-2">
                     <div
                       className="bg-current h-1.5 rounded-full transition-all"
                       style={{
-                        width: `${((student.currentSlide || 1) / totalSlides) * 100}%`
+                        width: `${((student.currentSlideNumber || student.currentSlide || 1) / totalSlides) * 100}%`
                       }}
                     />
                   </div>

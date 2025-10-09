@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { slidesAPI } from '../services/api'
+import { slidesAPI, presentationAPI } from '../services/api'
 import PresentationControls from '../components/slides/PresentationControls'
 
 /**
@@ -48,6 +48,15 @@ export default function Presentation() {
     try {
       const result = await slidesAPI.getDeck(deckId)
       setDeck(result)
+
+      // Start presentation to notify all students
+      try {
+        await presentationAPI.start(deckId, 'student')
+        console.log('✅ Presentation started, students notified')
+      } catch (err) {
+        console.error('Failed to start presentation:', err)
+        // Don't block loading even if start fails
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load deck')
     } finally {
