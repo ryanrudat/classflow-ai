@@ -43,7 +43,12 @@ export function useSocket() {
 
   const joinSession = useCallback((sessionId, role, studentId = null, studentName = null) => {
     if (socketRef.current) {
+      console.log('🔌 Emitting join-session:', { sessionId, role, studentId, studentName })
+      console.log('   Socket connected?', socketRef.current.connected)
+      console.log('   Socket ID:', socketRef.current.id)
       socketRef.current.emit('join-session', { sessionId, role, studentId, studentName })
+    } else {
+      console.error('❌ Cannot join session - socket not initialized')
     }
   }, [])
 

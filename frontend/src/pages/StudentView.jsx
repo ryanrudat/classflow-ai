@@ -102,13 +102,21 @@ export default function StudentView() {
 
     // Listen for presentation started
     const handlePresentationStarted = async ({ deckId, mode }) => {
-      console.log('📊 Presentation started:', deckId, mode)
+      console.log('📊📊📊 PRESENTATION STARTED EVENT RECEIVED!')
+      console.log('  DeckId:', deckId)
+      console.log('  Mode:', mode)
+      console.log('  Session:', session?.id)
+      console.log('  Student:', student?.student_name)
+
       try {
+        console.log('  Loading deck data...')
         const deckData = await slidesAPI.getDeck(deckId)
+        console.log('  Deck loaded successfully:', deckData)
         setCurrentDeck(deckData)
         setPresentationActive(true)
+        console.log('  ✅ Presentation view activated!')
       } catch (err) {
-        console.error('Failed to load presentation:', err)
+        console.error('  ❌ Failed to load presentation:', err)
       }
     }
 

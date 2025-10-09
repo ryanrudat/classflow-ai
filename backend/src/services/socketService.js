@@ -4,17 +4,23 @@ export function setupSocketIO(io) {
     console.log('✅ Client connected:', socket.id)
 
     // Join session room
-    socket.on('join-session', ({ sessionId, role, studentId, studentName }) => {
-      socket.join(`session-${sessionId}`)
+    socket.on('join-session', async ({ sessionId, role, studentId, studentName }) => {
+      const roomName = `session-${sessionId}`
+      socket.join(roomName)
       socket.sessionId = sessionId
       socket.role = role // 'teacher' or 'student'
       socket.studentId = studentId
       socket.studentName = studentName
 
-      console.log(`Socket ${socket.id} joined session ${sessionId} as ${role}${studentName ? ` (${studentName})` : ''}`)
+      // Get all sockets in room after joining
+      const socketsInRoom = await io.in(roomName).allSockets()
+
+      console.log(`✅ Socket ${socket.id} joined room ${roomName} as ${role}${studentName ? ` (${studentName})` : ''}`)
+      console.log(`   Total sockets in ${roomName}:`, socketsInRoom.size)
+      console.log(`   Socket IDs in room:`, Array.from(socketsInRoom))
 
       // Notify others in the session
-      socket.to(`session-${sessionId}`).emit('user-joined', {
+      socket.to(roomName).emit('user-joined', {
         socketId: socket.id,
         role,
         studentId,

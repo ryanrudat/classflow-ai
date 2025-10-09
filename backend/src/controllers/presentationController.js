@@ -43,12 +43,24 @@ export async function startPresentation(req, res) {
       ]
     )
 
+    const roomName = `session-${deck.session_id}`
+    const socketsInRoom = await io.in(roomName).allSockets()
+
+    console.log('🎬 PRESENTATION STARTING')
+    console.log('  Room:', roomName)
+    console.log('  DeckId:', deckId)
+    console.log('  Mode:', mode)
+    console.log('  Connected sockets in room:', socketsInRoom.size)
+    console.log('  Socket IDs:', Array.from(socketsInRoom))
+
     // Notify all connected students
-    io.to(`session-${deck.session_id}`).emit('presentation-started', {
+    io.to(roomName).emit('presentation-started', {
       deckId,
       mode,
       currentSlide: 1
     })
+
+    console.log('✅ presentation-started event emitted to room:', roomName)
 
     res.json({
       message: 'Presentation started',
