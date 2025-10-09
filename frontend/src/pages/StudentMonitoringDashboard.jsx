@@ -25,8 +25,8 @@ export default function StudentMonitoringDashboard() {
     const handleStudentSlideChanged = ({ studentId, slideNumber, slideId }) => {
       setStudents(prev =>
         prev.map(s =>
-          s.id === studentId
-            ? { ...s, currentSlide: slideNumber, currentSlideId: slideId }
+          s.studentId === studentId
+            ? { ...s, currentSlideNumber: slideNumber, lastActivity: new Date().toISOString() }
             : s
         )
       )
@@ -37,12 +37,17 @@ export default function StudentMonitoringDashboard() {
         prev.map(s => {
           if (s.id !== studentId) return s
 
-          const completedSlides = s.completedSlides || []
-          if (!completedSlides.find(cs => cs.slideId === slideId)) {
-            completedSlides.push({ slideId, timeSpent, completedAt: new Date() })
-          }
+          // completedSlides is a count, increment it
+          const completedCount = typeof s.completedSlides === 'number'
+            ? s.completedSlides + 1
+            : (s.completedSlides?.length || 0) + 1
 
-          return { ...s, completedSlides, stuck: false }
+          return {
+            ...s,
+            completedSlides: completedCount,
+            stuck: false,
+            lastActivity: new Date().toISOString()
+          }
         })
       )
     }
@@ -78,18 +83,16 @@ export default function StudentMonitoringDashboard() {
 
   const getStudentProgress = (student) => {
     const totalSlides = deck?.slides?.length || 1
-    const completed = student.completedSlides?.length || 0
+    // completedSlides is a number (count), not an array
+    const completed = typeof student.completedSlides === 'number'
+      ? student.completedSlides
+      : (student.completedSlides?.length || 0)
     return Math.round((completed / totalSlides) * 100)
   }
 
   const getStudentTimeSpent = (student) => {
-    const totalSeconds = student.completedSlides?.reduce(
-      (sum, slide) => sum + (slide.timeSpent || 0),
-      0
-    ) || 0
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+    // Since we don't have time data from the API yet, show "-"
+    return "-"
   }
 
   const getProgressColor = (progress) => {
@@ -110,9 +113,10 @@ export default function StudentMonitoringDashboard() {
         sorted.sort((a, b) => getStudentProgress(b) - getStudentProgress(a))
         break
       case 'time':
+        // Sort by last activity time instead
         sorted.sort((a, b) => {
-          const timeA = a.completedSlides?.reduce((sum, s) => sum + (s.timeSpent || 0), 0) || 0
-          const timeB = b.completedSlides?.reduce((sum, s) => sum + (s.timeSpent || 0), 0) || 0
+          const timeA = a.lastActivity ? new Date(a.lastActivity).getTime() : 0
+          const timeB = b.lastActivity ? new Date(b.lastActivity).getTime() : 0
           return timeB - timeA
         })
         break
