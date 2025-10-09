@@ -41,12 +41,30 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       )
     }
 
+    const handleUserJoined = ({ studentId, studentName, role }) => {
+      if (role === 'student') {
+        // Reload student progress to include new student
+        loadStudentProgress()
+      }
+    }
+
+    const handleUserLeft = ({ studentId, role }) => {
+      if (role === 'student') {
+        // Remove student from progress list
+        setStudentProgress(prev => prev.filter(s => s.studentId !== studentId))
+      }
+    }
+
     on('student-slide-changed', handleStudentSlideChanged)
     on('student-slide-completed', handleStudentSlideCompleted)
+    on('user-joined', handleUserJoined)
+    on('user-left', handleUserLeft)
 
     return () => {
       off('student-slide-changed', handleStudentSlideChanged)
       off('student-slide-completed', handleStudentSlideCompleted)
+      off('user-joined', handleUserJoined)
+      off('user-left', handleUserLeft)
     }
   }, [deck?.id, on, off])
 
