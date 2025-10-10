@@ -93,7 +93,19 @@ export function setupSocketIO(io) {
     })
 
     // Teacher removes a student
-    socket.on('remove-student', ({ studentId, sessionId }) => {
+    socket.on('remove-student', async ({ studentId, sessionId }) => {
+      // Remove student from database
+      try {
+        const db = (await import('../database/db.js')).default
+        await db.query(
+          'DELETE FROM session_students WHERE id = $1',
+          [studentId]
+        )
+        console.log(`🗑️ Teacher removed student ${studentId} from database`)
+      } catch (err) {
+        console.error('Failed to remove student from database:', err)
+      }
+
       // Find and disconnect the student's socket
       const room = io.sockets.adapter.rooms.get(`session-${sessionId}`)
       if (room) {
@@ -181,8 +193,21 @@ export function setupSocketIO(io) {
     })
 
     // Handle disconnection
-    socket.on('disconnect', () => {
-      if (socket.sessionId && socket.studentId) {
+    socket.on('disconnect', async () => {
+      if (socket.sessionId && socket.studentId && socket.role === 'student') {
+        // Remove student from database when they disconnect
+        try {
+          const db = (await import('../database/db.js')).default
+          await db.query(
+            'DELETE FROM session_students WHERE id = $1',
+            [socket.studentId]
+          )
+          console.log(`🗑️ Removed student ${socket.studentId} from database`)
+        } catch (err) {
+          console.error('Failed to remove student from database:', err)
+        }
+
+        // Emit user-left event
         io.to(`session-${socket.sessionId}`).emit('user-left', {
           socketId: socket.id,
           role: socket.role,

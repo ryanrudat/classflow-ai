@@ -413,12 +413,20 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   async function loadInstanceStudents(instanceId) {
     try {
       setLoadingInstance(true)
+      // Clear students list when switching instances
+      // Students will be populated via WebSocket when they join
+      setStudents([])
+
+      // We could still fetch from database for historical data, but don't show them as connected
+      // For now, we'll start fresh each time
+      /*
       const data = await sessionsAPI.getInstanceDetails(session.id, instanceId)
       setStudents(data.students.map(s => ({
         id: s.id,
         name: s.student_name,
-        connected: true
+        connected: false // Mark as disconnected by default
       })) || [])
+      */
     } catch (err) {
       console.error('Failed to load instance students:', err)
     } finally {
