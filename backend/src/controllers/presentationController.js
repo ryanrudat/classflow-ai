@@ -104,15 +104,30 @@ export async function navigateToSlide(req, res) {
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
+    const roomName = `session-${deck.session_id}`
+
+    // Get sockets in room for debugging
+    const socketsInRoom = await io.in(roomName).allSockets()
+    console.log('🎯 TEACHER NAVIGATION BROADCAST')
+    console.log('   DeckId:', deckId)
+    console.log('   Slide Number:', slideNumber)
+    console.log('   Session ID:', deck.session_id)
+    console.log('   Room:', roomName)
+    console.log('   Sockets in room:', socketsInRoom.size)
+
     // Broadcast to all students
-    io.to(`session-${deck.session_id}`).emit('teacher-navigated', {
+    io.to(roomName).emit('teacher-navigated', {
       deckId,
       slideNumber
     })
 
+    console.log('✅ teacher-navigated event emitted')
+
     res.json({
       message: 'Navigation broadcast',
-      slideNumber
+      slideNumber,
+      sessionId: deck.session_id,
+      socketsNotified: socketsInRoom.size
     })
 
   } catch (error) {
@@ -163,15 +178,31 @@ export async function changeMode(req, res) {
       ]
     )
 
+    const roomName = `session-${deck.session_id}`
+
+    // Get sockets in room for debugging
+    const socketsInRoom = await io.in(roomName).allSockets()
+    console.log('🎛️ MODE CHANGE BROADCAST')
+    console.log('   DeckId:', deckId)
+    console.log('   New Mode:', mode)
+    console.log('   Session ID:', deck.session_id)
+    console.log('   Room:', roomName)
+    console.log('   Sockets in room:', socketsInRoom.size)
+    console.log('   Socket IDs:', Array.from(socketsInRoom))
+
     // Broadcast mode change
-    io.to(`session-${deck.session_id}`).emit('mode-changed', {
+    io.to(roomName).emit('mode-changed', {
       deckId,
       mode
     })
 
+    console.log('✅ mode-changed event emitted to room:', roomName)
+
     res.json({
       message: 'Mode changed',
-      mode
+      mode,
+      sessionId: deck.session_id,
+      socketsNotified: socketsInRoom.size
     })
 
   } catch (error) {

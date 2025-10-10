@@ -20,11 +20,15 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   useEffect(() => {
     if (!deck?.id) return
 
-    // Load students from database first (they persist across disconnects)
-    loadStudentProgress()
+    console.log('📊 PresentationControls initialized for deck:', deck.id)
+    console.log('   Session ID:', deck.session_id)
+
+    // Start with empty student list - only show currently active students during presentation
+    setStudentProgress([])
 
     // Listen for student progress updates
     const handleStudentSlideChanged = ({ studentId, slideNumber }) => {
+      console.log('📍 Student navigated:', studentId, 'to slide', slideNumber)
       setStudentProgress(prev => {
         const existing = prev.find(s => s.studentId === studentId)
         if (existing) {
@@ -34,6 +38,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
           )
         } else {
           // Add new student if they don't exist yet
+          console.log('   ➕ Adding new student to progress list:', studentId)
           return [...prev, { studentId, currentSlide: slideNumber, currentSlideNumber: slideNumber, name: `Student ${studentId.slice(0, 6)}`, completedSlides: [] }]
         }
       })
@@ -108,13 +113,17 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
 
   const handleModeChange = async (newMode) => {
     console.log('🎛️ Teacher changing mode to:', newMode)
+    console.log('   Deck ID:', deck.id)
+    console.log('   Session ID:', deck.session_id)
     setIsLoading(true)
     try {
-      await presentationAPI.changeMode(deck.id, newMode)
+      const result = await presentationAPI.changeMode(deck.id, newMode)
+      console.log('✅ Mode change API response:', result)
       setMode(newMode)
-      console.log('✅ Mode changed successfully (backend will broadcast to students)')
+      console.log('✅ Mode changed locally. Backend should broadcast to session:', deck.session_id)
     } catch (err) {
       console.error('❌ Mode change failed:', err)
+      console.error('   Error details:', err.response?.data)
       alert(err.response?.data?.message || 'Failed to change mode')
     } finally {
       setIsLoading(false)
