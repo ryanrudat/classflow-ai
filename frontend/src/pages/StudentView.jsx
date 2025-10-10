@@ -24,7 +24,7 @@ export default function StudentView() {
   const [code, setCode] = useState(joinCode || '')
 
   // WebSocket connection
-  const { joinSession, submitResponse, on, off, isConnected } = useSocket()
+  const { joinSession, submitResponse, on, off, emit, isConnected } = useSocket()
 
   async function handleJoin(e) {
     e.preventDefault()
