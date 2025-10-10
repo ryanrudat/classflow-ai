@@ -317,7 +317,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [generatingSlides, setGeneratingSlides] = useState(false)
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
 
-  const { joinSession, pushActivity, on, off, isConnected } = useSocket()
+  const { joinSession, pushActivity, on, off, isConnected, removeStudent } = useSocket()
 
   // Clear content when session changes
   useEffect(() => {
@@ -465,14 +465,22 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       }
     }
 
+    // Listen for student being removed by teacher
+    const handleStudentRemoved = ({ studentId }) => {
+      // Remove student from the list completely
+      setStudents(prev => prev.filter(s => s.id !== studentId))
+    }
+
     on('user-joined', handleUserJoined)
     on('student-responded', handleStudentResponded)
     on('user-left', handleUserLeft)
+    on('student-removed', handleStudentRemoved)
 
     return () => {
       off('user-joined', handleUserJoined)
       off('student-responded', handleStudentResponded)
       off('user-left', handleUserLeft)
+      off('student-removed', handleStudentRemoved)
     }
   }, [session, joinSession, on, off])
 
@@ -799,6 +807,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
                     <button
                       onClick={() => {
                         if (confirm(`Remove ${student.name} from this session?`)) {
+                          // Emit WebSocket event to forcefully disconnect the student
+                          removeStudent(session.id, student.id)
+                          // Update local state
                           setStudents(prev => prev.filter(s => s.id !== student.id))
                         }
                       }}

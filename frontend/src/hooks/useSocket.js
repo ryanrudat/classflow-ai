@@ -100,6 +100,12 @@ export function useSocket() {
     }
   }, [])
 
+  const removeStudent = useCallback((sessionId, studentId) => {
+    if (socketRef.current) {
+      socketRef.current.emit('remove-student', { sessionId, studentId })
+    }
+  }, [])
+
   return {
     socket: socketRef.current,
     isConnected,
@@ -111,6 +117,7 @@ export function useSocket() {
     updateStudentStatus,
     on,
     off,
-    emit
+    emit,
+    removeStudent
   }
 }

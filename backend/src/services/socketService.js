@@ -92,6 +92,33 @@ export function setupSocketIO(io) {
       })
     })
 
+    // Teacher removes a student
+    socket.on('remove-student', ({ studentId, sessionId }) => {
+      // Find and disconnect the student's socket
+      const room = io.sockets.adapter.rooms.get(`session-${sessionId}`)
+      if (room) {
+        for (const socketId of room) {
+          const studentSocket = io.sockets.sockets.get(socketId)
+          if (studentSocket && studentSocket.studentId === studentId) {
+            // Send disconnect message to the student
+            studentSocket.emit('force-disconnect', {
+              message: 'You have been removed from the session'
+            })
+            // Disconnect the socket
+            studentSocket.disconnect(true)
+          }
+        }
+      }
+
+      // Notify other users that the student was removed
+      io.to(`session-${sessionId}`).emit('student-removed', {
+        studentId,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`🚫 Student ${studentId} removed from session ${sessionId}`)
+    })
+
     // Slide navigation events
     socket.on('student-navigated', ({ slideNumber, slideId }) => {
       const sessionId = socket.sessionId

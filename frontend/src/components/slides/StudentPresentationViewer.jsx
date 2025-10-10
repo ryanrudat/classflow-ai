@@ -7,9 +7,9 @@ import { useSocket } from '../../hooks/useSocket'
  */
 export default function StudentPresentationViewer({ deck, sessionId, studentId }) {
   const [currentSlideNumber, setCurrentSlideNumber] = useState(1)
-  const [mode, setMode] = useState('student') // 'teacher', 'student', 'bounded'
+  const [mode, setMode] = useState(deck?.initialMode || 'student') // 'teacher', 'student', 'bounded'
   const [checkpoints, setCheckpoints] = useState([])
-  const [canNavigate, setCanNavigate] = useState(true)
+  const [canNavigate, setCanNavigate] = useState(deck?.initialMode !== 'teacher')
 
   const { on, off, emit } = useSocket()
   const currentSlide = deck?.slides?.find(s => s.slideNumber === currentSlideNumber)

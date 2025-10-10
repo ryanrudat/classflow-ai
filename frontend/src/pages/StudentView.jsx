@@ -113,25 +113,38 @@ export default function StudentView() {
         const deckData = await slidesAPI.getDeck(deckId)
         console.log('  Deck loaded successfully:', deckData)
 
-        // Restructure the deck data
+        // Restructure the deck data and include the mode
         const restructuredDeck = {
           id: deckData.deck.id,
           title: deckData.deck.title,
-          slides: deckData.slides
+          slides: deckData.slides,
+          initialMode: mode // Pass the initial mode to the viewer
         }
 
         setCurrentDeck(restructuredDeck)
         setPresentationActive(true)
-        console.log('  ✅ Presentation view activated!')
+        console.log('  ✅ Presentation view activated with mode:', mode)
       } catch (err) {
         console.error('  ❌ Failed to load presentation:', err)
       }
+    }
+
+    // Listen for force disconnect (when teacher removes student)
+    const handleForceDisconnect = ({ message }) => {
+      alert(message || 'You have been removed from the session')
+      localStorage.removeItem('student_session')
+      setStep('join')
+      setSession(null)
+      setStudent(null)
+      setPresentationActive(false)
+      setCurrentDeck(null)
     }
 
     on('activity-received', handleActivityReceived)
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
     on('presentation-started', handlePresentationStarted)
+    on('force-disconnect', handleForceDisconnect)
 
     // Cleanup
     return () => {
@@ -139,6 +152,7 @@ export default function StudentView() {
       off('screen-locked', handleScreenLocked)
       off('screen-unlocked', handleScreenUnlocked)
       off('presentation-started', handlePresentationStarted)
+      off('force-disconnect', handleForceDisconnect)
     }
   }, [session, student, joinSession, on, off])
 

@@ -152,7 +152,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrevious}
-              disabled={currentSlideNumber === 1 || mode !== 'teacher'}
+              disabled={currentSlideNumber === 1}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               ← Previous
@@ -164,7 +164,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
 
             <button
               onClick={handleNext}
-              disabled={currentSlideNumber === totalSlides || mode !== 'teacher'}
+              disabled={currentSlideNumber === totalSlides}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next →
