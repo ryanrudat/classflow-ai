@@ -11,6 +11,9 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
   const [checkpoints, setCheckpoints] = useState([])
   const [canNavigate, setCanNavigate] = useState(deck?.initialMode !== 'teacher')
 
+  // Track question answers per slide (slideId -> selectedIndex)
+  const [questionAnswers, setQuestionAnswers] = useState({})
+
   // WebSocket functions now received as props - NO second connection created!
   const currentSlide = deck?.slides?.find(s => s.slideNumber === currentSlideNumber)
   const totalSlides = deck?.slides?.length || 0
@@ -162,6 +165,35 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
     }
   }
 
+  const handleAnswerQuestion = (optionIndex) => {
+    if (!currentSlide?.question || !currentSlide?.id) return
+
+    // Mark this answer
+    setQuestionAnswers(prev => ({
+      ...prev,
+      [currentSlide.id]: optionIndex
+    }))
+
+    // Check if correct
+    const isCorrect = currentSlide.question.correct === optionIndex
+
+    // Emit answer to teacher
+    emit('student-answered-question', {
+      slideId: currentSlide.id,
+      slideNumber: currentSlideNumber,
+      studentId,
+      selectedOption: optionIndex,
+      isCorrect,
+      timestamp: Date.now()
+    })
+
+    console.log('📝 Student answered question:', {
+      slideId: currentSlide.id,
+      option: optionIndex,
+      correct: isCorrect
+    })
+  }
+
   const getModeColor = () => {
     switch (mode) {
       case 'teacher':
@@ -247,7 +279,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
             </div>
           )}
 
-          {/* Question */}
+          {/* Question - Interactive */}
           {currentSlide.question && (
             <div className="mt-6 p-6 bg-blue-50 border-2 border-blue-200 rounded-lg">
               <h3 className="font-bold text-xl text-gray-900 mb-4">
@@ -255,17 +287,74 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
               </h3>
 
               {currentSlide.question.type === 'multiple_choice' && (
-                <div className="space-y-2">
-                  {currentSlide.question.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="p-3 bg-white border-2 border-gray-200 rounded-lg"
-                    >
-                      <span className="text-lg text-gray-900">
-                        {String.fromCharCode(65 + index)}. {option}
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-3">
+                  {currentSlide.question.options.map((option, index) => {
+                    const selectedAnswer = questionAnswers[currentSlide.id]
+                    const isSelected = selectedAnswer === index
+                    const hasAnswered = selectedAnswer !== undefined
+                    const isCorrect = currentSlide.question.correct === index
+
+                    // Determine styling based on state
+                    let borderColor = 'border-gray-300'
+                    let bgColor = 'bg-white hover:bg-gray-50'
+                    let textColor = 'text-gray-900'
+
+                    if (hasAnswered) {
+                      if (isSelected) {
+                        // Show feedback for selected answer
+                        if (isCorrect) {
+                          borderColor = 'border-green-500'
+                          bgColor = 'bg-green-50'
+                          textColor = 'text-green-900'
+                        } else {
+                          borderColor = 'border-red-500'
+                          bgColor = 'bg-red-50'
+                          textColor = 'text-red-900'
+                        }
+                      } else if (isCorrect) {
+                        // Show correct answer even if not selected
+                        borderColor = 'border-green-400'
+                        bgColor = 'bg-green-50'
+                        textColor = 'text-green-800'
+                      }
+                    }
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => !hasAnswered && handleAnswerQuestion(index)}
+                        disabled={hasAnswered}
+                        className={`w-full p-4 border-2 ${borderColor} ${bgColor} rounded-lg text-left transition-all ${
+                          !hasAnswered ? 'cursor-pointer hover:scale-[1.02]' : 'cursor-not-allowed'
+                        }`}
+                      >
+                        <span className={`text-lg font-medium ${textColor} flex items-center justify-between`}>
+                          <span>
+                            {String.fromCharCode(65 + index)}. {option}
+                          </span>
+                          {hasAnswered && (
+                            <span className="ml-2">
+                              {isSelected && isCorrect && '✅'}
+                              {isSelected && !isCorrect && '❌'}
+                              {!isSelected && isCorrect && '✓'}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {questionAnswers[currentSlide.id] !== undefined && (
+                <div className={`mt-4 p-3 rounded-lg ${
+                  currentSlide.question.correct === questionAnswers[currentSlide.id]
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {currentSlide.question.correct === questionAnswers[currentSlide.id]
+                    ? '🎉 Correct! Great job!'
+                    : '❌ Incorrect. The correct answer is highlighted above.'}
                 </div>
               )}
             </div>

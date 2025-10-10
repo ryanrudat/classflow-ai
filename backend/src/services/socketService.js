@@ -192,6 +192,33 @@ export function setupSocketIO(io) {
       console.log(`✅ Student ${studentId} completed slide ${slideId}`)
     })
 
+    // Student answered a question on a slide
+    socket.on('student-answered-question', async ({ slideId, slideNumber, studentId: providedStudentId, selectedOption, isCorrect, timestamp }) => {
+      const sessionId = socket.sessionId
+      const studentId = providedStudentId || socket.studentId
+      const studentName = socket.studentName
+
+      console.log(`📝 Student ${studentName} (${studentId}) answered question on slide ${slideNumber}:`, {
+        selectedOption,
+        isCorrect
+      })
+
+      // Broadcast to teacher (and other connected sockets in room)
+      socket.to(`session-${sessionId}`).emit('student-question-answered', {
+        studentId,
+        studentName,
+        slideId,
+        slideNumber,
+        selectedOption,
+        isCorrect,
+        timestamp
+      })
+
+      // TODO: Optionally store in database for analytics
+      // const db = (await import('../database/db.js')).default
+      // await db.query(...)
+    })
+
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {

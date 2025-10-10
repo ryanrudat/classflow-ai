@@ -13,9 +13,13 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   const [showStudentPanel, setShowStudentPanel] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  // Track question responses: { slideId: [{ studentId, studentName, isCorrect, timestamp }, ...] }
+  const [questionResponses, setQuestionResponses] = useState({})
+
   // WebSocket functions now received as props - NO second connection created!
 
   const totalSlides = deck?.slides?.length || 0
+  const currentSlide = deck?.slides?.find(s => s.slideNumber === currentSlideNumber)
 
   useEffect(() => {
     if (!deck?.id) return
@@ -85,11 +89,29 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       setStudentProgress(prev => prev.filter(s => s.studentId !== studentId))
     }
 
+    // Listen for student question answers
+    const handleQuestionAnswered = ({ studentId, studentName, slideId, slideNumber, selectedOption, isCorrect, timestamp }) => {
+      console.log('📝 Teacher received question answer:', {
+        studentName,
+        slideNumber,
+        isCorrect
+      })
+
+      setQuestionResponses(prev => ({
+        ...prev,
+        [slideId]: [
+          ...(prev[slideId] || []),
+          { studentId, studentName, selectedOption, isCorrect, timestamp }
+        ]
+      }))
+    }
+
     on('student-slide-changed', handleStudentSlideChanged)
     on('student-slide-completed', handleStudentSlideCompleted)
     on('user-joined', handleUserJoined)
     on('user-left', handleUserLeft)
     on('student-removed', handleStudentRemoved)
+    on('student-question-answered', handleQuestionAnswered)
 
     return () => {
       off('student-slide-changed', handleStudentSlideChanged)
@@ -97,6 +119,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       off('user-joined', handleUserJoined)
       off('user-left', handleUserLeft)
       off('student-removed', handleStudentRemoved)
+      off('student-question-answered', handleQuestionAnswered)
     }
   }, [deck?.id, on, off])
 
@@ -314,6 +337,45 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
                 </div>
               )}
             </div>
+
+            {/* Question Responses for Current Slide */}
+            {currentSlide?.question && questionResponses[currentSlide.id] && (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <h3 className="font-medium text-gray-900 mb-3">
+                  Question Responses (Slide {currentSlideNumber})
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-sm text-gray-700 mb-2">
+                    <strong>Q:</strong> {currentSlide.question.text}
+                  </div>
+                  <div className="flex gap-4 mb-3">
+                    <div className="text-sm">
+                      ✅ Correct: {questionResponses[currentSlide.id].filter(r => r.isCorrect).length}
+                    </div>
+                    <div className="text-sm">
+                      ❌ Incorrect: {questionResponses[currentSlide.id].filter(r => !r.isCorrect).length}
+                    </div>
+                    <div className="text-sm">
+                      📊 Total: {questionResponses[currentSlide.id].length}
+                    </div>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {questionResponses[currentSlide.id].map((response, idx) => (
+                      <div
+                        key={idx}
+                        className={`text-sm px-2 py-1 rounded ${
+                          response.isCorrect
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {response.isCorrect ? '✅' : '❌'} {response.studentName} - Answer: {String.fromCharCode(65 + response.selectedOption)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
