@@ -8,34 +8,62 @@ export function useSocket() {
   const [isConnected, setIsConnected] = useState(false)
 
   useEffect(() => {
+    console.log('🔌 Initializing WebSocket connection to:', WS_URL)
+
     // Initialize socket connection
     socketRef.current = io(WS_URL, {
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
       reconnection: true,
       reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 10, // Increased attempts
+      timeout: 20000,
+      forceNew: true,
+      path: '/socket.io/',
+      autoConnect: true
     })
 
     const socket = socketRef.current
 
     socket.on('connect', () => {
-      console.log('✅ WebSocket connected:', socket.id)
+      console.log('✅ WebSocket connected successfully!')
+      console.log('   Socket ID:', socket.id)
+      console.log('   Transport:', socket.io.engine.transport.name)
       setIsConnected(true)
     })
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', (reason) => {
       console.log('❌ WebSocket disconnected')
+      console.log('   Reason:', reason)
       setIsConnected(false)
     })
 
     socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error)
+      console.error('❌ WebSocket connection error:', error.message)
+      console.error('   Attempting to reconnect...')
       setIsConnected(false)
+    })
+
+    socket.on('reconnect', (attemptNumber) => {
+      console.log('✅ WebSocket reconnected after', attemptNumber, 'attempts')
+    })
+
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log('🔄 Reconnection attempt', attemptNumber)
+    })
+
+    socket.on('reconnect_failed', () => {
+      console.error('❌ WebSocket reconnection failed after all attempts')
+    })
+
+    socket.io.on('error', (error) => {
+      console.error('❌ WebSocket transport error:', error)
     })
 
     // Cleanup on unmount
     return () => {
       if (socket) {
+        console.log('🔌 Disconnecting WebSocket')
         socket.disconnect()
       }
     }

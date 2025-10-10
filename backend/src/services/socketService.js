@@ -195,19 +195,13 @@ export function setupSocketIO(io) {
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {
-        // Remove student from database when they disconnect
-        try {
-          const db = (await import('../database/db.js')).default
-          await db.query(
-            'DELETE FROM session_students WHERE id = $1',
-            [socket.studentId]
-          )
-          console.log(`🗑️ Removed student ${socket.studentId} from database`)
-        } catch (err) {
-          console.error('Failed to remove student from database:', err)
-        }
+        // DON'T remove from database - just emit user-left event
+        // Students should persist in the session until they explicitly leave
+        // or teacher ends the session. Temporary disconnects shouldn't remove them.
 
-        // Emit user-left event
+        console.log(`⚠️ Student ${socket.studentId} disconnected from WebSocket (still in session)`)
+
+        // Emit user-left event so UI can show them as offline
         io.to(`session-${socket.sessionId}`).emit('user-left', {
           socketId: socket.id,
           role: socket.role,

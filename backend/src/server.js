@@ -103,17 +103,25 @@ app.get('/health', async (req, res) => {
     const requiredTables = ['slide_decks', 'slides', 'uploaded_images', 'student_slide_progress']
     const missingTables = requiredTables.filter(t => !existingTables.includes(t))
 
+    // Get WebSocket connection count
+    const connectedSockets = await io.fetchSockets()
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       database: 'connected',
+      websocket: {
+        status: 'running',
+        connectedClients: connectedSockets.length
+      },
       tables: {
         existing: existingTables,
         missing: missingTables.length > 0 ? missingTables : null
       },
       env: {
         claudeApiKey: process.env.CLAUDE_API_KEY ? 'set' : 'missing',
-        nodeEnv: process.env.NODE_ENV
+        nodeEnv: process.env.NODE_ENV,
+        frontendUrl: process.env.FRONTEND_URL
       }
     })
   } catch (error) {

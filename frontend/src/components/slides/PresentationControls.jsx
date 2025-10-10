@@ -20,9 +20,8 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   useEffect(() => {
     if (!deck?.id) return
 
-    // Start with empty student list - populate via WebSocket only
-    // This ensures we only show currently connected students
-    setStudentProgress([])
+    // Load students from database first (they persist across disconnects)
+    loadStudentProgress()
 
     // Listen for student progress updates
     const handleStudentSlideChanged = ({ studentId, slideNumber }) => {
