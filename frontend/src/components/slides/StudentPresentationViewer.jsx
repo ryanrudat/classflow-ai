@@ -17,6 +17,8 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
   // Listen for presentation events
+  // CRITICAL FIX: Removed currentSlideNumber and currentSlide?.id from dependencies
+  // to prevent event listener re-registration on every navigation
   useEffect(() => {
     console.log('🎧 StudentPresentationViewer setting up event listeners')
     console.log('   Session ID:', sessionId)
@@ -26,7 +28,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
 
     const handleTeacherNavigated = ({ slideNumber }) => {
       console.log('📡 Student received teacher-navigated event:', slideNumber)
-      // Get current mode from state
+      // Use functional update to get current mode without dependency
       setMode(currentMode => {
         console.log('  Current mode:', currentMode)
         if (currentMode === 'teacher') {
@@ -44,12 +46,14 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
       console.log('   Event mode:', newMode)
       console.log('   Event deckId:', eventDeckId)
       console.log('   Current deck:', deck?.id)
-      console.log('   Current mode (before update):', mode)
 
-      setMode(newMode)
+      setMode(currentMode => {
+        console.log('   Current mode (before update):', currentMode)
+        console.log('   ✅ Mode state updated to:', newMode)
+        return newMode
+      })
+
       setCanNavigate(newMode !== 'teacher')
-
-      console.log('   ✅ Mode state updated to:', newMode)
       console.log('   ✅ Can navigate:', newMode !== 'teacher')
 
       // Verify state update by logging after a tick
@@ -70,10 +74,15 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
         // Announce this student's presence by emitting current slide
         if (studentId) {
           setTimeout(() => {
-            console.log('  📢 Student announcing presence on slide', currentSlideNumber)
-            emit('student-navigated', {
-              slideNumber: currentSlideNumber,
-              slideId: currentSlide?.id
+            // Use functional update to get current slide number without dependency
+            setCurrentSlideNumber(currentNum => {
+              console.log('  📢 Student announcing presence on slide', currentNum)
+              const currentSlideData = deck?.slides?.find(s => s.slideNumber === currentNum)
+              emit('student-navigated', {
+                slideNumber: currentNum,
+                slideId: currentSlideData?.id
+              })
+              return currentNum // Don't change the value
             })
           }, 200)
         }
@@ -86,6 +95,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
     on('user-joined', handleUserJoined)
 
     console.log('🎧 Student registered event listeners')
+    console.log('   ✅ FIX APPLIED: Event listeners will NOT re-register on navigation')
 
     return () => {
       off('teacher-navigated', handleTeacherNavigated)
@@ -94,7 +104,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
       off('user-joined', handleUserJoined)
       console.log('🔇 Student unregistered event listeners')
     }
-  }, [on, off, emit, studentId, currentSlideNumber, currentSlide?.id])
+  }, [on, off, emit, studentId, deck?.id, deck?.slides])
 
   // Track slide progress
   useEffect(() => {

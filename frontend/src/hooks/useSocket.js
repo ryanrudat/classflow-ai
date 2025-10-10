@@ -12,7 +12,7 @@ export function useSocket() {
 
     // Initialize socket connection
     socketRef.current = io(WS_URL, {
-      transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
+      transports: ['websocket', 'polling'], // Match backend: try websocket first, fallback to polling
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
