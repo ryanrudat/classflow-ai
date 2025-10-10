@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
-import { useSocket } from '../../hooks/useSocket'
+// No longer importing useSocket - WebSocket functions come from props
 
 /**
  * StudentPresentationViewer - Student's view during a live presentation
  * Displays slides and handles navigation based on presentation mode
  */
-export default function StudentPresentationViewer({ deck, sessionId, studentId }) {
+export default function StudentPresentationViewer({ deck, sessionId, studentId, on, off, emit }) {
   const [currentSlideNumber, setCurrentSlideNumber] = useState(1)
   const [mode, setMode] = useState(deck?.initialMode || 'student') // 'teacher', 'student', 'bounded'
   const [checkpoints, setCheckpoints] = useState([])
   const [canNavigate, setCanNavigate] = useState(deck?.initialMode !== 'teacher')
 
-  const { on, off, emit } = useSocket()
+  // WebSocket functions now received as props - NO second connection created!
   const currentSlide = deck?.slides?.find(s => s.slideNumber === currentSlideNumber)
   const totalSlides = deck?.slides?.length || 0
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'

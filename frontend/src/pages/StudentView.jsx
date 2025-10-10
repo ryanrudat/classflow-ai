@@ -248,6 +248,9 @@ export default function StudentView() {
         deck={currentDeck}
         sessionId={session.id}
         studentId={student.id}
+        on={on}
+        off={off}
+        emit={emit}
       />
     )
   }
