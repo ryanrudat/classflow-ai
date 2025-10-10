@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 import { presentationAPI } from '../../services/api'
-import { useSocket } from '../../hooks/useSocket'
+// No longer importing useSocket - WebSocket functions come from props
 
 /**
  * PresentationControls - Teacher controls for managing live presentations
  * Handles mode switching, navigation, checkpoints, and student monitoring
  */
-export default function PresentationControls({ deck, currentSlideNumber, onNavigate }) {
+export default function PresentationControls({ deck, currentSlideNumber, onNavigate, on, off, emit }) {
   const [mode, setMode] = useState('student')
   const [checkpoints, setCheckpoints] = useState([])
   const [studentProgress, setStudentProgress] = useState([])
   const [showStudentPanel, setShowStudentPanel] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const { on, off, emit } = useSocket()
+  // WebSocket functions now received as props - NO second connection created!
 
   const totalSlides = deck?.slides?.length || 0
 

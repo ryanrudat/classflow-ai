@@ -12,7 +12,7 @@ import { useAuthStore } from '../stores/authStore'
 export default function Presentation() {
   const { deckId } = useParams()
   const navigate = useNavigate()
-  const { joinSession } = useSocket()
+  const { joinSession, on, off, emit } = useSocket() // Get ALL WebSocket functions here
   const user = useAuthStore(state => state.user)
 
   const [deck, setDeck] = useState(null)
@@ -272,6 +272,9 @@ export default function Presentation() {
         deck={deck}
         currentSlideNumber={currentSlideNumber}
         onNavigate={handleNavigate}
+        on={on}
+        off={off}
+        emit={emit}
       />
 
       {/* Keyboard hints */}
