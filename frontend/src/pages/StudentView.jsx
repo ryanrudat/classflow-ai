@@ -101,39 +101,39 @@ export default function StudentView() {
     }
 
     // Listen for presentation started
-    const handlePresentationStarted = async ({ deckId, mode }) => {
+    const handlePresentationStarted = ({ deckId, mode, deck }) => {
       console.log('📊📊📊 PRESENTATION STARTED EVENT RECEIVED!')
       console.log('  DeckId:', deckId)
       console.log('  Mode:', mode)
       console.log('  Session:', session?.id)
       console.log('  Student:', student?.student_name)
+      console.log('  Deck data included:', deck ? 'YES (' + deck.slides?.length + ' slides)' : 'NO')
+
+      if (!deck) {
+        console.error('  ❌ No deck data in presentation-started event')
+        return
+      }
 
       try {
-        console.log('  Loading deck data...')
-        const deckData = await slidesAPI.getDeck(deckId)
-        console.log('  Deck loaded successfully:', deckData)
-
-        // Restructure the deck data and include the mode
+        // Use deck data from WebSocket event (no API call needed!)
         const restructuredDeck = {
-          id: deckData.deck.id,
-          title: deckData.deck.title,
-          slides: deckData.slides,
+          id: deck.id,
+          title: deck.title,
+          slides: deck.slides,
           initialMode: mode // Pass the initial mode to the viewer
         }
 
         setCurrentDeck(restructuredDeck)
         setPresentationActive(true)
         console.log('  ✅ Presentation view activated with mode:', mode)
+        console.log('  ✅ No authentication required - deck data came via WebSocket')
 
         // Announce presence to teacher (in case teacher joined after student)
-        // Wait a moment for presentation UI to render, then announce presence
         setTimeout(() => {
           console.log('  📢 Student announcing presence to teacher')
-          // Note: We'll use the student-navigated event to announce presence
-          // since we're already on slide 1
         }, 100)
       } catch (err) {
-        console.error('  ❌ Failed to load presentation:', err)
+        console.error('  ❌ Failed to process presentation data:', err)
       }
     }
 

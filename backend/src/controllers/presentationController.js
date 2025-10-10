@@ -43,6 +43,42 @@ export async function startPresentation(req, res) {
       ]
     )
 
+    // Load full deck data with slides for students
+    const slidesResult = await db.query(
+      `SELECT
+        s.*,
+        i.url as image_url,
+        i.alt_text as image_alt
+       FROM slides s
+       LEFT JOIN uploaded_images i ON s.image_id = i.id
+       WHERE s.deck_id = $1 AND s.parent_slide_id IS NULL
+       ORDER BY s.slide_number ASC`,
+      [deckId]
+    )
+
+    const deckData = {
+      id: deck.id,
+      sessionId: deck.session_id,
+      title: deck.title,
+      slides: slidesResult.rows.map(slide => ({
+        id: slide.id,
+        slideNumber: parseFloat(slide.slide_number),
+        type: slide.type,
+        title: slide.title,
+        body: slide.body,
+        template: slide.template,
+        image: slide.image_id ? {
+          id: slide.image_id,
+          url: slide.image_url,
+          alt: slide.image_alt,
+          position: slide.image_position,
+          width: slide.image_width,
+          height: slide.image_height
+        } : null,
+        question: slide.question
+      }))
+    }
+
     const roomName = `session-${deck.session_id}`
     const socketsInRoom = await io.in(roomName).allSockets()
 
@@ -52,12 +88,14 @@ export async function startPresentation(req, res) {
     console.log('  Mode:', mode)
     console.log('  Connected sockets in room:', socketsInRoom.size)
     console.log('  Socket IDs:', Array.from(socketsInRoom))
+    console.log('  Sending full deck data to students (' + deckData.slides.length + ' slides)')
 
-    // Notify all connected students
+    // Notify all connected students with FULL deck data
     io.to(roomName).emit('presentation-started', {
       deckId,
       mode,
-      currentSlide: 1
+      currentSlide: 1,
+      deck: deckData // Include full deck data so students don't need authenticated API call
     })
 
     console.log('✅ presentation-started event emitted to room:', roomName)
