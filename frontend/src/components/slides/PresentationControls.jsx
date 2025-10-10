@@ -20,15 +20,24 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   useEffect(() => {
     if (!deck?.id) return
 
-    loadStudentProgress()
+    // Start with empty student list - populate via WebSocket only
+    // This ensures we only show currently connected students
+    setStudentProgress([])
 
     // Listen for student progress updates
     const handleStudentSlideChanged = ({ studentId, slideNumber }) => {
-      setStudentProgress(prev =>
-        prev.map(s =>
-          s.studentId === studentId ? { ...s, currentSlide: slideNumber } : s
-        )
-      )
+      setStudentProgress(prev => {
+        const existing = prev.find(s => s.studentId === studentId)
+        if (existing) {
+          // Update existing student
+          return prev.map(s =>
+            s.studentId === studentId ? { ...s, currentSlide: slideNumber, currentSlideNumber: slideNumber } : s
+          )
+        } else {
+          // Add new student if they don't exist yet
+          return [...prev, { studentId, currentSlide: slideNumber, currentSlideNumber: slideNumber, name: `Student ${studentId.slice(0, 6)}`, completedSlides: [] }]
+        }
+      })
     }
 
     const handleStudentSlideCompleted = ({ studentId, slideId }) => {
@@ -43,8 +52,20 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
 
     const handleUserJoined = ({ studentId, studentName, role }) => {
       if (role === 'student') {
-        // Reload student progress to include new student
-        loadStudentProgress()
+        // Add student to progress list if not already there
+        setStudentProgress(prev => {
+          const exists = prev.some(s => s.studentId === studentId)
+          if (!exists) {
+            return [...prev, {
+              studentId,
+              name: studentName || `Student ${studentId.slice(0, 6)}`,
+              currentSlide: 1,
+              currentSlideNumber: 1,
+              completedSlides: []
+            }]
+          }
+          return prev
+        })
       }
     }
 
@@ -55,16 +76,23 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       }
     }
 
+    // Listen for student removed event (when teacher removes them)
+    const handleStudentRemoved = ({ studentId }) => {
+      setStudentProgress(prev => prev.filter(s => s.studentId !== studentId))
+    }
+
     on('student-slide-changed', handleStudentSlideChanged)
     on('student-slide-completed', handleStudentSlideCompleted)
     on('user-joined', handleUserJoined)
     on('user-left', handleUserLeft)
+    on('student-removed', handleStudentRemoved)
 
     return () => {
       off('student-slide-changed', handleStudentSlideChanged)
       off('student-slide-completed', handleStudentSlideCompleted)
       off('user-joined', handleUserJoined)
       off('user-left', handleUserLeft)
+      off('student-removed', handleStudentRemoved)
     }
   }, [deck?.id, on, off])
 
@@ -80,14 +108,18 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
   }
 
   const handleModeChange = async (newMode) => {
+    console.log('🎛️ Teacher changing mode to:', newMode)
     setIsLoading(true)
     try {
       await presentationAPI.changeMode(deck.id, newMode)
       setMode(newMode)
 
       // Emit mode change event
+      console.log('📤 Teacher emitting mode-changed event:', newMode)
       emit('mode-changed', { mode: newMode })
+      console.log('✅ Mode changed successfully')
     } catch (err) {
+      console.error('❌ Mode change failed:', err)
       alert(err.response?.data?.message || 'Failed to change mode')
     } finally {
       setIsLoading(false)
@@ -99,13 +131,18 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
     onNavigate(slideNumber)
 
     if (mode === 'teacher') {
+      console.log('🎯 Teacher navigating to slide in teacher-paced mode:', slideNumber)
       try {
         await presentationAPI.navigate(deck.id, slideNumber)
         // Broadcast to students
+        console.log('📤 Teacher emitting teacher-navigated event:', slideNumber)
         emit('teacher-navigated', { slideNumber })
+        console.log('✅ Navigation broadcast successfully')
       } catch (err) {
-        console.error('Failed to broadcast navigation:', err)
+        console.error('❌ Failed to broadcast navigation:', err)
       }
+    } else {
+      console.log('⏭️ Teacher navigating (mode:', mode, ') - not broadcasting to students')
     }
   }
 
