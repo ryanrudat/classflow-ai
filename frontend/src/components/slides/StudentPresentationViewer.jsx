@@ -45,9 +45,27 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
       setCheckpoints(newCheckpoints)
     }
 
+    // When teacher joins, announce student presence
+    const handleUserJoined = ({ role, studentId: joinedStudentId }) => {
+      if (role === 'teacher') {
+        console.log('👨‍🏫 Teacher joined the presentation! Announcing student presence')
+        // Announce this student's presence by emitting current slide
+        if (studentId) {
+          setTimeout(() => {
+            console.log('  📢 Student announcing presence on slide', currentSlideNumber)
+            emit('student-navigated', {
+              slideNumber: currentSlideNumber,
+              slideId: currentSlide?.id
+            })
+          }, 200)
+        }
+      }
+    }
+
     on('teacher-navigated', handleTeacherNavigated)
     on('mode-changed', handleModeChanged)
     on('checkpoints-updated', handleCheckpointsUpdated)
+    on('user-joined', handleUserJoined)
 
     console.log('🎧 Student registered event listeners')
 
@@ -55,9 +73,10 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
       off('teacher-navigated', handleTeacherNavigated)
       off('mode-changed', handleModeChanged)
       off('checkpoints-updated', handleCheckpointsUpdated)
+      off('user-joined', handleUserJoined)
       console.log('🔇 Student unregistered event listeners')
     }
-  }, [on, off])
+  }, [on, off, emit, studentId, currentSlideNumber, currentSlide?.id])
 
   // Track slide progress
   useEffect(() => {

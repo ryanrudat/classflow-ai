@@ -113,11 +113,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
     try {
       await presentationAPI.changeMode(deck.id, newMode)
       setMode(newMode)
-
-      // Emit mode change event
-      console.log('📤 Teacher emitting mode-changed event:', newMode)
-      emit('mode-changed', { mode: newMode })
-      console.log('✅ Mode changed successfully')
+      console.log('✅ Mode changed successfully (backend will broadcast to students)')
     } catch (err) {
       console.error('❌ Mode change failed:', err)
       alert(err.response?.data?.message || 'Failed to change mode')
@@ -134,10 +130,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
       console.log('🎯 Teacher navigating to slide in teacher-paced mode:', slideNumber)
       try {
         await presentationAPI.navigate(deck.id, slideNumber)
-        // Broadcast to students
-        console.log('📤 Teacher emitting teacher-navigated event:', slideNumber)
-        emit('teacher-navigated', { slideNumber })
-        console.log('✅ Navigation broadcast successfully')
+        console.log('✅ Navigation broadcast successfully (backend broadcasting to students)')
       } catch (err) {
         console.error('❌ Failed to broadcast navigation:', err)
       }
@@ -164,9 +157,7 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
     try {
       await presentationAPI.setCheckpoints(deck.id, newCheckpoints)
       setCheckpoints(newCheckpoints)
-
-      // Broadcast checkpoint update
-      emit('checkpoints-updated', { checkpoints: newCheckpoints })
+      console.log('✅ Checkpoints updated (backend will broadcast to students)')
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to update checkpoints')
     }

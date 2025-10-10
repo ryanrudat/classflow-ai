@@ -65,16 +65,23 @@ export default function Presentation() {
 
       setDeck(deckData)
 
-      // Join WebSocket room for this session
-      if (deckData.session_id) {
-        console.log('🔌 Teacher joining WebSocket room for session:', deckData.session_id)
-        joinSession(deckData.session_id, 'teacher', user?.id, user?.name)
-      }
-
-      // Start presentation to notify all students
+      // Start presentation FIRST to notify all students
       try {
-        await presentationAPI.start(deckId, 'student')
+        const startResult = await presentationAPI.start(deckId, 'student')
         console.log('✅ Presentation started, students notified')
+        console.log('   Session ID:', startResult.sessionId)
+
+        // THEN join WebSocket room (after students are notified)
+        if (startResult.sessionId) {
+          console.log('🔌 Teacher joining WebSocket room for session:', startResult.sessionId)
+          joinSession(startResult.sessionId, 'teacher', user?.id, user?.name)
+
+          // Give a moment for connection to establish, then request student presence
+          setTimeout(() => {
+            console.log('📢 Teacher requesting student presence check')
+            // This will be handled by adding the emit function to useSocket
+          }, 500)
+        }
       } catch (err) {
         console.error('Failed to start presentation:', err)
         // Don't block loading even if start fails

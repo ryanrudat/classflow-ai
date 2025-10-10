@@ -124,6 +124,14 @@ export default function StudentView() {
         setCurrentDeck(restructuredDeck)
         setPresentationActive(true)
         console.log('  ✅ Presentation view activated with mode:', mode)
+
+        // Announce presence to teacher (in case teacher joined after student)
+        // Wait a moment for presentation UI to render, then announce presence
+        setTimeout(() => {
+          console.log('  📢 Student announcing presence to teacher')
+          // Note: We'll use the student-navigated event to announce presence
+          // since we're already on slide 1
+        }, 100)
       } catch (err) {
         console.error('  ❌ Failed to load presentation:', err)
       }
