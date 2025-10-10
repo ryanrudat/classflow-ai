@@ -18,6 +18,12 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
 
   // Listen for presentation events
   useEffect(() => {
+    console.log('🎧 StudentPresentationViewer setting up event listeners')
+    console.log('   Session ID:', sessionId)
+    console.log('   Student ID:', studentId)
+    console.log('   Deck ID:', deck?.id)
+    console.log('   Initial mode:', mode)
+
     const handleTeacherNavigated = ({ slideNumber }) => {
       console.log('📡 Student received teacher-navigated event:', slideNumber)
       // Get current mode from state
@@ -33,11 +39,23 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId }
       })
     }
 
-    const handleModeChanged = ({ mode: newMode }) => {
-      console.log('📡 Student received mode-changed event:', newMode)
+    const handleModeChanged = ({ mode: newMode, deckId: eventDeckId }) => {
+      console.log('📡 Student received mode-changed event!')
+      console.log('   Event mode:', newMode)
+      console.log('   Event deckId:', eventDeckId)
+      console.log('   Current deck:', deck?.id)
+      console.log('   Current mode (before update):', mode)
+
       setMode(newMode)
       setCanNavigate(newMode !== 'teacher')
-      console.log('  ✅ Mode updated. Can navigate:', newMode !== 'teacher')
+
+      console.log('   ✅ Mode state updated to:', newMode)
+      console.log('   ✅ Can navigate:', newMode !== 'teacher')
+
+      // Verify state update by logging after a tick
+      setTimeout(() => {
+        console.log('   🔍 Mode state after update:', newMode)
+      }, 100)
     }
 
     const handleCheckpointsUpdated = ({ checkpoints: newCheckpoints }) => {
