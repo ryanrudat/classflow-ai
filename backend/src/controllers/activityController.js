@@ -199,10 +199,10 @@ export async function pushActivity(req, res) {
       targetStudentIds = studentsResult.rows.map(row => row.id)
     }
 
-    // Update activity with push info
+    // Update activity with push info and timestamp
     await db.query(
       `UPDATE activities
-       SET pushed_to = $1, specific_student_ids = $2
+       SET pushed_to = $1, specific_student_ids = $2, pushed_at = NOW()
        WHERE id = $3`,
       [target, targetStudentIds, activityId]
     )
@@ -400,12 +400,13 @@ export async function getActivity(req, res) {
 
 /**
  * Get all activities for a session
- * GET /api/sessions/:sessionId/activities
+ * GET /api/sessions/:sessionId/activities?pushedOnly=true
  * Protected: Teacher only
  */
 export async function getSessionActivities(req, res) {
   try {
     const { sessionId } = req.params
+    const { pushedOnly } = req.query
     const teacherId = req.user.userId
 
     // Verify teacher owns this session
@@ -418,24 +419,31 @@ export async function getSessionActivities(req, res) {
       return res.status(404).json({ message: 'Session not found' })
     }
 
-    // Get all activities for this session
-    const activitiesResult = await db.query(
-      `SELECT
+    // Build query with optional filter for pushed activities
+    let query = `SELECT
         id,
         type,
         prompt,
         content,
         difficulty_level,
         pushed_to,
+        pushed_at,
         created_at,
         ai_generated,
         cached,
         generation_time_ms
        FROM activities
-       WHERE session_id = $1
-       ORDER BY created_at DESC`,
-      [sessionId]
-    )
+       WHERE session_id = $1`
+
+    // Add filter for pushed activities if requested
+    if (pushedOnly === 'true') {
+      query += ` AND pushed_at IS NOT NULL`
+    }
+
+    query += ` ORDER BY created_at DESC`
+
+    // Get all activities for this session
+    const activitiesResult = await db.query(query, [sessionId])
 
     // Parse content for each activity (only parse JSON types, not plain text)
     const activities = activitiesResult.rows.map(activity => {

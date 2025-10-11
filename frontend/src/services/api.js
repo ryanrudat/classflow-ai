@@ -70,8 +70,11 @@ export const sessionsAPI = {
     return response.data
   },
 
-  getActivities: async (sessionId) => {
-    const response = await api.get(`/sessions/${sessionId}/activities`)
+  getActivities: async (sessionId, pushedOnly = false) => {
+    const url = pushedOnly
+      ? `/sessions/${sessionId}/activities?pushedOnly=true`
+      : `/sessions/${sessionId}/activities`
+    const response = await api.get(url)
     return response.data
   },
 

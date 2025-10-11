@@ -307,6 +307,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [students, setStudents] = useState([])
   const [studentResponses, setStudentResponses] = useState([])
   const [sessionActivities, setSessionActivities] = useState([])
+  const [pushedActivities, setPushedActivities] = useState([])
   const [loadingActivities, setLoadingActivities] = useState(false)
   const [analytics, setAnalytics] = useState(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
@@ -337,7 +338,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     setError('')
   }, [session?.id])
 
-  // Load session activities when session changes
+  // Load ALL session activities when session changes (for Activities tab)
   useEffect(() => {
     if (!session?.id) return
 
@@ -354,6 +355,22 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     }
 
     loadActivities()
+  }, [session?.id])
+
+  // Load PUSHED activities only (for Overview tab)
+  useEffect(() => {
+    if (!session?.id) return
+
+    async function loadPushedActivities() {
+      try {
+        const data = await sessionsAPI.getActivities(session.id, true)
+        setPushedActivities(data.activities || [])
+      } catch (err) {
+        console.error('Failed to load pushed activities:', err)
+      }
+    }
+
+    loadPushedActivities()
   }, [session?.id])
 
   // Load slide decks for this session
@@ -540,6 +557,11 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       await activitiesAPI.push(generatedContent.id, 'all')
       // Also push via WebSocket for real-time delivery
       pushActivity(session.id, generatedContent, 'all')
+
+      // Reload pushed activities to show in Overview tab
+      const pushedData = await sessionsAPI.getActivities(session.id, true)
+      setPushedActivities(pushedData.activities || [])
+
       alert('Content pushed to all students!')
     } catch (err) {
       alert('Failed to push content')
@@ -701,7 +723,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               loadingInstance={loadingInstance}
               removeStudent={removeStudent}
               setStudents={setStudents}
-              sessionActivities={sessionActivities}
+              sessionActivities={pushedActivities}
             />
           )}
 
