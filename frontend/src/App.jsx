@@ -8,6 +8,7 @@ import TeacherDashboard from './pages/TeacherDashboard'
 import StudentView from './pages/StudentView'
 import SlideEditor from './pages/SlideEditor'
 import Presentation from './pages/Presentation'
+import ProjectorView from './pages/ProjectorView'
 import StudentMonitoringDashboard from './pages/StudentMonitoringDashboard'
 
 function App() {
@@ -37,6 +38,10 @@ function App() {
           <Route
             path="/present/:deckId"
             element={user ? <Presentation /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/projector/:deckId"
+            element={<ProjectorView />}
           />
           <Route
             path="/slides/monitor/:deckId"

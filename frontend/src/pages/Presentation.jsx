@@ -132,6 +132,19 @@ export default function Presentation() {
     }
   }
 
+  const openProjectorView = () => {
+    const projectorUrl = `/projector/${deckId}`
+    const projectorWindow = window.open(
+      projectorUrl,
+      'projector',
+      'width=1920,height=1080,menubar=no,toolbar=no,location=no,status=no'
+    )
+
+    if (!projectorWindow) {
+      alert('Please allow popups to open the projector view')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -173,18 +186,26 @@ export default function Presentation() {
 
         <div className="flex items-center gap-3">
           <button
+            onClick={openProjectorView}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors"
+            title="Open clean projector view in new window"
+          >
+            Open Projector View
+          </button>
+
+          <button
             onClick={toggleFullscreen}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-colors"
             title="Press 'f' to toggle fullscreen"
           >
-            {isFullscreen ? '⊡ Exit Fullscreen' : '⛶ Fullscreen'}
+            {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           </button>
 
           <button
             onClick={() => navigate(`/slides/monitor/${deckId}`)}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm transition-colors"
           >
-            📊 Monitor Students
+            Monitor Students
           </button>
 
           <button
