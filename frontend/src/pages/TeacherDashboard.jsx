@@ -322,9 +322,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 
   // Tab configuration
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: '📋' },
+    { id: 'overview', label: 'Overview', icon: '📋', badge: students.length },
     { id: 'present', label: 'Present', icon: '📊' },
-    { id: 'students', label: 'Students', icon: '👥', badge: students.length },
     { id: 'activities', label: 'Activities', icon: '✨', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
     { id: 'analytics', label: 'Analytics', icon: '📈' }
   ]
@@ -698,6 +697,11 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               selectedInstance={selectedInstance}
               setSelectedInstance={setSelectedInstance}
               loadInstanceStudents={loadInstanceStudents}
+              studentResponses={studentResponses}
+              loadingInstance={loadingInstance}
+              removeStudent={removeStudent}
+              setStudents={setStudents}
+              sessionActivities={sessionActivities}
             />
           )}
 
@@ -707,19 +711,6 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               loadingSlides={loadingSlides}
               navigate={navigate}
               setShowSlideGenerator={setShowSlideGenerator}
-            />
-          )}
-
-          {activeTab === 'students' && (
-            <StudentsTab
-              students={students}
-              studentResponses={studentResponses}
-              loadingInstance={loadingInstance}
-              selectedInstance={selectedInstance}
-              instances={instances}
-              session={session}
-              removeStudent={removeStudent}
-              setStudents={setStudents}
             />
           )}
 
@@ -772,7 +763,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 }
 
 // Tab Components
-function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents }) {
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities }) {
   return (
     <div className="space-y-6">
       {/* Join Code Card */}
@@ -810,7 +801,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       {/* Class Periods */}
       {instances.length > 1 && (
         <div>
-          <h3 className="text-lg font-bold text-gray-800 mb-3">📅 Class Periods</h3>
+          <h3 className="text-lg font-bold text-gray-800 mb-3">Class Periods</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {instances.map(instance => {
               const instanceDate = new Date(instance.started_at).toLocaleDateString('en-US', {
@@ -859,6 +850,137 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                 This class session ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString()}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Students in this Period */}
+      <div>
+        <h3 className="text-lg font-bold text-gray-800 mb-3">
+          Students
+          {selectedInstance && instances.length > 1 && (
+            <span className="ml-2 text-sm font-normal text-gray-600">
+              - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+            </span>
+          )}
+        </h3>
+
+        {loadingInstance ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+            <span className="ml-3 text-gray-600">Loading student data...</span>
+          </div>
+        ) : students.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+            <div className="text-4xl mb-2">👥</div>
+            <p className="text-gray-600 text-sm">
+              {selectedInstance?.is_current
+                ? 'No students have joined yet. Share the join code above.'
+                : `No students joined ${selectedInstance?.label || 'this period'}.`
+              }
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div className="text-sm text-gray-600 mb-3">
+              {students.filter(s => s.connected !== false).length} / {students.length} online
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {students.map(student => {
+                const hasResponded = studentResponses.some(r => r.studentId === student.id)
+                const isConnected = student.connected !== false
+                return (
+                  <div
+                    key={student.id}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      !isConnected
+                        ? 'border-gray-300 bg-gray-100 opacity-60'
+                        : hasResponded
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                          {student.name}
+                        </span>
+                        {!isConnected && (
+                          <span className="text-xs text-gray-500 font-medium">Offline</span>
+                        )}
+                        {isConnected && hasResponded && (
+                          <span className="text-xs text-green-600 font-medium">Responded</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Remove ${student.name} from this session?`)) {
+                            removeStudent(session.id, student.id)
+                            setStudents(prev => prev.filter(s => s.id !== student.id))
+                          }
+                        }}
+                        className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+                        title="Remove student"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Period Activities */}
+      {selectedInstance && sessionActivities.length > 0 && (
+        <div>
+          <h3 className="text-lg font-bold text-gray-800 mb-3">
+            Activities for {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+          </h3>
+          <div className="space-y-2">
+            {sessionActivities.map(activity => {
+              const typeEmoji = {
+                reading: '📖',
+                questions: '❓',
+                quiz: '📋',
+                discussion: '💬'
+              }[activity.type] || '📄'
+
+              return (
+                <div
+                  key={activity.id}
+                  className="p-3 rounded-lg border-2 border-gray-200 bg-white hover:border-gray-300"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{typeEmoji}</span>
+                        <span className="font-medium text-gray-900 capitalize">
+                          {activity.type}
+                        </span>
+                        {activity.cached && (
+                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                            Cached
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                        {activity.prompt}
+                      </p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                        <span>Difficulty: {activity.difficulty_level}</span>
+                        <span>•</span>
+                        <span>{new Date(activity.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -935,99 +1057,6 @@ function PresentTab({ slideDecks, loadingSlides, navigate, setShowSlideGenerator
           ))}
         </div>
       )}
-    </div>
-  )
-}
-
-function StudentsTab({ students, studentResponses, loadingInstance, selectedInstance, instances, session, removeStudent, setStudents }) {
-  if (loadingInstance) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        <span className="ml-3 text-gray-600">Loading student data...</span>
-      </div>
-    )
-  }
-
-  if (students.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <div className="text-6xl mb-4">👥</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">
-          No students in this period yet
-        </h3>
-        <p className="text-gray-600">
-          {selectedInstance?.is_current
-            ? 'Students will appear here once they join using the join code.'
-            : `No students joined ${selectedInstance?.label || 'this period'}.`
-          }
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-gray-800">
-          Connected Students
-          {selectedInstance && instances.length > 1 && (
-            <span className="ml-2 text-sm font-normal text-gray-600">
-              - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
-            </span>
-          )}
-        </h3>
-        <div className="text-sm text-gray-600">
-          {students.filter(s => s.connected !== false).length} / {students.length} online
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {students.map(student => {
-          const hasResponded = studentResponses.some(r => r.studentId === student.id)
-          const isConnected = student.connected !== false
-          return (
-            <div
-              key={student.id}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                !isConnected
-                  ? 'border-gray-300 bg-gray-100 opacity-60'
-                  : hasResponded
-                  ? 'border-green-500 bg-green-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1">
-                  <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
-                    {student.name}
-                  </span>
-                  {!isConnected && (
-                    <span className="text-xs text-gray-500 font-medium">Offline</span>
-                  )}
-                  {isConnected && hasResponded && (
-                    <span className="text-xs text-green-600 font-medium">✓ Responded</span>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    if (confirm(`Remove ${student.name} from this session?`)) {
-                      removeStudent(session.id, student.id)
-                      setStudents(prev => prev.filter(s => s.id !== student.id))
-                    }
-                  }}
-                  className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
-                  title="Remove student"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </div>
   )
 }
