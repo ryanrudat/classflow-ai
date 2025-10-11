@@ -297,6 +297,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
 
 function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('overview') // Tab navigation state
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
   const [prompt, setPrompt] = useState('')
@@ -318,6 +319,15 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
 
   const { joinSession, pushActivity, on, off, isConnected, removeStudent } = useSocket()
+
+  // Tab configuration
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: '📋' },
+    { id: 'present', label: 'Present', icon: '📊' },
+    { id: 'students', label: 'Students', icon: '👥', badge: students.length },
+    { id: 'activities', label: 'Activities', icon: '✨', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
+    { id: 'analytics', label: 'Analytics', icon: '📈' }
+  ]
 
   // Clear content when session changes
   useEffect(() => {
@@ -602,111 +612,206 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Session Info */}
-      <div className="card bg-primary-50 border-primary-200">
-        <div className="flex justify-between items-start">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{session.title}</h2>
-            <p className="text-gray-600 mt-1">{session.subject}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-sm text-gray-600">
-                {isConnected ? 'Live' : 'Disconnected'} • {students.length} student{students.length !== 1 ? 's' : ''} joined
-              </span>
+    <div className="space-y-4">
+      {/* Sticky Session Header */}
+      <div className="card bg-primary-50 border-primary-200 sticky top-0 z-10 shadow-md">
+        <div className="flex justify-between items-center">
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{session.title}</h2>
+                <p className="text-sm text-gray-600">{session.subject}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className="text-xs text-gray-600">
+                  {isConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
+              <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                {students.length} {students.length === 1 ? 'Student' : 'Students'}
+              </div>
+              <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded font-mono text-sm font-bold">
+                {session.join_code}
+              </div>
             </div>
           </div>
           {session.status === 'ended' ? (
             <button
               onClick={onReactivate}
-              className="text-green-600 hover:text-green-700 text-sm font-medium"
+              className="px-4 py-2 text-green-600 hover:text-green-700 text-sm font-medium border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
             >
-              Reactivate Session
+              Reactivate
             </button>
           ) : (
             <button
               onClick={onEnd}
-              className="text-red-600 hover:text-red-700 text-sm font-medium"
+              className="px-4 py-2 text-red-600 hover:text-red-700 text-sm font-medium border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
             >
               End Session
             </button>
           )}
         </div>
-
-        <div className="mt-4 p-4 bg-white rounded-lg border-2 border-primary-300">
-          <div className="text-sm text-gray-600 mb-1">Students join with code:</div>
-          <div className="text-3xl font-bold font-mono text-primary-600 tracking-wider">
-            {session.join_code}
-          </div>
-          <div className="text-xs text-gray-500 mt-2">
-            Share this code with students to join the session
-          </div>
-        </div>
       </div>
 
-      {/* Slides Section */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold text-gray-800">📊 Presentation Slides</h3>
-          <button
-            onClick={() => setShowSlideGenerator(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + Generate New Slides
-          </button>
-        </div>
-
-        {loadingSlides ? (
-          <p className="text-gray-500 text-sm text-center py-4">Loading slides...</p>
-        ) : slideDecks.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <div className="text-5xl mb-3">📽️</div>
-            <p className="text-gray-600">No slide decks yet</p>
-            <p className="text-gray-500 text-sm mt-2">Generate AI-powered slides for your lessons</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {slideDecks.map(deck => (
-              <div
-                key={deck.id}
-                className="p-4 border-2 border-gray-200 rounded-lg hover:border-blue-400 transition-all"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-bold text-gray-900">{deck.title}</h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {deck.slideCount} slides • {deck.gradeLevel} • {deck.difficulty}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Created {new Date(deck.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => navigate(`/slides/edit/${deck.id}`)}
-                    className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm transition-colors"
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    onClick={() => navigate(`/present/${deck.id}`)}
-                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm transition-colors"
-                  >
-                    ▶️ Present
-                  </button>
-                </div>
+      {/* Tab Navigation */}
+      <div className="card p-0 overflow-hidden">
+        <div className="flex border-b border-gray-200">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-6 py-4 text-sm font-medium transition-all relative ${
+                activeTab === tab.id
+                  ? 'text-blue-600 bg-blue-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.badge !== null && tab.badge !== undefined && tab.badge > 0 && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                    activeTab === tab.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700'
+                  }`}>
+                    {tab.badge}
+                  </span>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === 'overview' && (
+            <OverviewTab
+              session={session}
+              isConnected={isConnected}
+              students={students}
+              instances={instances}
+              selectedInstance={selectedInstance}
+              setSelectedInstance={setSelectedInstance}
+              loadInstanceStudents={loadInstanceStudents}
+            />
+          )}
+
+          {activeTab === 'present' && (
+            <PresentTab
+              slideDecks={slideDecks}
+              loadingSlides={loadingSlides}
+              navigate={navigate}
+              setShowSlideGenerator={setShowSlideGenerator}
+            />
+          )}
+
+          {activeTab === 'students' && (
+            <StudentsTab
+              students={students}
+              studentResponses={studentResponses}
+              loadingInstance={loadingInstance}
+              selectedInstance={selectedInstance}
+              instances={instances}
+              session={session}
+              removeStudent={removeStudent}
+              setStudents={setStudents}
+            />
+          )}
+
+          {activeTab === 'activities' && (
+            <ActivitiesTab
+              session={session}
+              generatedContent={generatedContent}
+              setGeneratedContent={setGeneratedContent}
+              generating={generating}
+              setGenerating={setGenerating}
+              prompt={prompt}
+              setPrompt={setPrompt}
+              type={type}
+              setType={setType}
+              difficulty={difficulty}
+              setDifficulty={setDifficulty}
+              error={error}
+              setError={setError}
+              sessionActivities={sessionActivities}
+              setSessionActivities={setSessionActivities}
+              loadingActivities={loadingActivities}
+              handleGenerate={handleGenerate}
+              handlePush={handlePush}
+              handleGenerateFromContent={handleGenerateFromContent}
+              handleSelectPreviousActivity={handleSelectPreviousActivity}
+            />
+          )}
+
+          {activeTab === 'analytics' && (
+            <AnalyticsTab
+              analytics={analytics}
+              loadingAnalytics={loadingAnalytics}
+              selectedInstance={selectedInstance}
+            />
+          )}
+        </div>
       </div>
 
-      {/* Session Instances (Class Periods) */}
+      {/* Slide Generator Modal */}
+      {showSlideGenerator && (
+        <SlideGeneratorModal
+          onClose={() => setShowSlideGenerator(false)}
+          onGenerate={handleGenerateSlides}
+          loading={generatingSlides}
+          subject={session.subject}
+        />
+      )}
+    </div>
+  )
+}
+
+// Tab Components
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents }) {
+  return (
+    <div className="space-y-6">
+      {/* Join Code Card */}
+      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-2 border-blue-200">
+        <div className="text-sm font-medium text-gray-700 mb-2">Students join with code:</div>
+        <div className="text-5xl font-bold font-mono text-blue-600 tracking-wider text-center my-4">
+          {session.join_code}
+        </div>
+        <div className="text-xs text-gray-600 text-center">
+          Share this code with students to join the session
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
+          <div className="text-2xl font-bold text-gray-900">{students.length}</div>
+          <div className="text-sm text-gray-600">Students Joined</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+            <div className="text-2xl font-bold text-gray-900">
+              {isConnected ? 'Live' : 'Offline'}
+            </div>
+          </div>
+          <div className="text-sm text-gray-600">Connection Status</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
+          <div className="text-2xl font-bold text-gray-900">{session.subject}</div>
+          <div className="text-sm text-gray-600">Subject</div>
+        </div>
+      </div>
+
+      {/* Class Periods */}
       {instances.length > 1 && (
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">📅 Class Periods</h3>
-          <div className="flex gap-2 flex-wrap">
+        <div>
+          <h3 className="text-lg font-bold text-gray-800 mb-3">📅 Class Periods</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {instances.map(instance => {
               const instanceDate = new Date(instance.started_at).toLocaleDateString('en-US', {
                 month: 'short',
@@ -719,7 +824,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
                     setSelectedInstance(instance)
                     loadInstanceStudents(instance.id)
                   }}
-                  className={`px-4 py-3 rounded-lg font-medium transition-all ${
+                  className={`p-4 rounded-lg font-medium transition-all text-left ${
                     selectedInstance?.id === instance.id
                       ? 'bg-indigo-600 text-white shadow-lg'
                       : instance.is_current
@@ -727,14 +832,12 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
                       : 'bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200'
                   }`}
                 >
-                  <div className="flex flex-col items-start">
-                    <div className="font-semibold">
-                      {instance.label || `Period ${instance.instance_number}`}
-                      {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
-                    </div>
-                    <div className="text-xs opacity-75 mt-0.5">
-                      {instanceDate} • {instance.student_count || 0} students
-                    </div>
+                  <div className="font-semibold">
+                    {instance.label || `Period ${instance.instance_number}`}
+                    {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
+                  </div>
+                  <div className="text-xs opacity-75 mt-1">
+                    {instanceDate} • {instance.student_count || 0} students
                   </div>
                 </button>
               )
@@ -743,9 +846,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
         </div>
       )}
 
-      {/* Period Indicator Banner (when viewing non-current period) */}
+      {/* Period Warning Banner */}
       {selectedInstance && !selectedInstance.is_current && (
-        <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4 mb-4">
+        <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <span className="text-2xl">📅</span>
             <div>
@@ -759,243 +862,186 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
 
-      {/* Loading Indicator */}
-      {loadingInstance && (
-        <div className="card">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-            <span className="ml-3 text-gray-600">Loading period data...</span>
-          </div>
+function PresentTab({ slideDecks, loadingSlides, navigate, setShowSlideGenerator }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800">Presentation Slides</h3>
+          <p className="text-sm text-gray-600 mt-1">Create and manage AI-powered slide decks for your lessons</p>
         </div>
-      )}
+        <button
+          onClick={() => setShowSlideGenerator(true)}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+        >
+          + Generate New Slides
+        </button>
+      </div>
 
-      {/* Student List */}
-      {!loadingInstance && students.length > 0 && (
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            Connected Students
-            {selectedInstance && instances.length > 1 && (
-              <span className="ml-2 text-sm font-normal text-gray-600">
-                - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
-              </span>
-            )}
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {students.map(student => {
-              const hasResponded = studentResponses.some(r => r.studentId === student.id)
-              const isConnected = student.connected !== false // Default to true for backward compatibility
-              return (
-                <div
-                  key={student.id}
-                  className={`p-3 rounded-lg border-2 ${
-                    !isConnected
-                      ? 'border-gray-300 bg-gray-100 opacity-60'
-                      : hasResponded
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-200 bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1">
-                      <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
-                        {student.name}
-                      </span>
-                      {!isConnected && (
-                        <span className="text-xs text-gray-500 font-medium">Disconnected</span>
-                      )}
-                      {isConnected && hasResponded && (
-                        <span className="text-xs text-green-600 font-medium">✓ Responded</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Remove ${student.name} from this session?`)) {
-                          // Emit WebSocket event to forcefully disconnect the student
-                          removeStudent(session.id, student.id)
-                          // Update local state
-                          setStudents(prev => prev.filter(s => s.id !== student.id))
-                        }
-                      }}
-                      className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
-                      title="Remove student"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
+      {loadingSlides ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Loading slides...</span>
+        </div>
+      ) : slideDecks.length === 0 ? (
+        <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+          <div className="text-6xl mb-4">📽️</div>
+          <h4 className="text-lg font-semibold text-gray-700 mb-2">No slide decks yet</h4>
+          <p className="text-gray-500 text-sm mb-6">Generate AI-powered slides for your lessons</p>
+          <button
+            onClick={() => setShowSlideGenerator(true)}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          >
+            ✨ Create Your First Deck
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {slideDecks.map(deck => (
+            <div
+              key={deck.id}
+              className="p-5 border-2 border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-lg transition-all bg-white"
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900 text-lg">{deck.title}</h4>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {deck.slideCount} slides • {deck.gradeLevel} • {deck.difficulty}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Created {new Date(deck.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State - No Students */}
-      {!loadingInstance && students.length === 0 && selectedInstance && (
-        <div className="card">
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">👥</div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              No students in this period yet
-            </h3>
-            <p className="text-gray-600">
-              {selectedInstance.is_current
-                ? 'Students will appear here once they join using the code above.'
-                : `No students joined ${selectedInstance.label || `Period ${selectedInstance.instance_number}`}.`
-              }
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Session History */}
-      {sessionActivities.length > 0 && (
-        <div className="card">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            📚 Session History ({sessionActivities.length} {sessionActivities.length === 1 ? 'activity' : 'activities'})
-          </h3>
-          {loadingActivities ? (
-            <p className="text-gray-500 text-sm text-center py-4">Loading activities...</p>
-          ) : (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
-              {sessionActivities.map(activity => {
-                const isSelected = generatedContent?.id === activity.id
-                const typeEmoji = {
-                  reading: '📖',
-                  questions: '❓',
-                  quiz: '📋',
-                  discussion: '💬'
-                }[activity.type] || '📄'
-
-                return (
-                  <div
-                    key={activity.id}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      isSelected
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                    onClick={() => handleSelectPreviousActivity(activity)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{typeEmoji}</span>
-                          <span className="font-medium text-gray-900 capitalize">
-                            {activity.type}
-                          </span>
-                          {activity.cached && (
-                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                              Cached
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {activity.prompt}
-                        </p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                          <span>Difficulty: {activity.difficulty_level}</span>
-                          <span>•</span>
-                          <span>{new Date(activity.created_at).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      {isSelected && (
-                        <div className="ml-2 flex-shrink-0">
-                          <div className="w-2 h-2 bg-primary-500 rounded-full" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => navigate(`/slides/edit/${deck.id}`)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  onClick={() => navigate(`/present/${deck.id}`)}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                >
+                  ▶️ Present
+                </button>
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StudentsTab({ students, studentResponses, loadingInstance, selectedInstance, instances, session, removeStudent, setStudents }) {
+  if (loadingInstance) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <span className="ml-3 text-gray-600">Loading student data...</span>
+      </div>
+    )
+  }
+
+  if (students.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">👥</div>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">
+          No students in this period yet
+        </h3>
+        <p className="text-gray-600">
+          {selectedInstance?.is_current
+            ? 'Students will appear here once they join using the join code.'
+            : `No students joined ${selectedInstance?.label || 'this period'}.`
+          }
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-bold text-gray-800">
+          Connected Students
+          {selectedInstance && instances.length > 1 && (
+            <span className="ml-2 text-sm font-normal text-gray-600">
+              - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+            </span>
           )}
+        </h3>
+        <div className="text-sm text-gray-600">
+          {students.filter(s => s.connected !== false).length} / {students.length} online
         </div>
-      )}
+      </div>
 
-      {/* Session Analytics */}
-      {analytics && (
-        <div className="card">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">📊 Session Analytics</h3>
-
-          {/* Summary Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{analytics.summary.totalStudents}</div>
-              <div className="text-sm text-gray-600">Total Students</div>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{analytics.summary.activeStudents}</div>
-              <div className="text-sm text-gray-600">Active Students</div>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">{analytics.summary.avgCorrectness}%</div>
-              <div className="text-sm text-gray-600">Avg Correctness</div>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">{analytics.summary.strugglingCount}</div>
-              <div className="text-sm text-gray-600">Need Help</div>
-            </div>
-          </div>
-
-          {/* Student Performance List */}
-          <h4 className="font-bold text-gray-800 mb-3">Student Performance</h4>
-          <div className="space-y-2">
-            {analytics.students.map(student => {
-              const getPerformanceColor = (level) => {
-                switch (level) {
-                  case 'advanced': return 'bg-green-100 border-green-300 text-green-800'
-                  case 'on-track': return 'bg-blue-100 border-blue-300 text-blue-800'
-                  case 'struggling': return 'bg-red-100 border-red-300 text-red-800'
-                  case 'limited-data': return 'bg-yellow-100 border-yellow-300 text-yellow-800'
-                  default: return 'bg-gray-100 border-gray-300 text-gray-600'
-                }
-              }
-
-              const getPerformanceLabel = (level) => {
-                switch (level) {
-                  case 'advanced': return '🌟 Advanced'
-                  case 'on-track': return '✓ On Track'
-                  case 'struggling': return '⚠️ Needs Help'
-                  case 'limited-data': return '📊 Limited Data'
-                  default: return 'No Data'
-                }
-              }
-
-              return (
-                <div
-                  key={student.id}
-                  className={`p-3 rounded-lg border-2 ${getPerformanceColor(student.performanceLevel)}`}
-                >
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{student.name}</div>
-                      <div className="text-xs mt-1">
-                        {student.totalResponses > 0 ? (
-                          <>
-                            {student.correctResponses}/{student.totalResponses} correct
-                            {student.correctnessRate !== null && ` (${student.correctnessRate}%)`}
-                          </>
-                        ) : (
-                          'No responses yet'
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-sm font-medium">
-                      {getPerformanceLabel(student.performanceLevel)}
-                    </div>
-                  </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {students.map(student => {
+          const hasResponded = studentResponses.some(r => r.studentId === student.id)
+          const isConnected = student.connected !== false
+          return (
+            <div
+              key={student.id}
+              className={`p-4 rounded-lg border-2 transition-all ${
+                !isConnected
+                  ? 'border-gray-300 bg-gray-100 opacity-60'
+                  : hasResponded
+                  ? 'border-green-500 bg-green-50'
+                  : 'border-gray-200 bg-white hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-1">
+                  <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
+                    {student.name}
+                  </span>
+                  {!isConnected && (
+                    <span className="text-xs text-gray-500 font-medium">Offline</span>
+                  )}
+                  {isConnected && hasResponded && (
+                    <span className="text-xs text-green-600 font-medium">✓ Responded</span>
+                  )}
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+                <button
+                  onClick={() => {
+                    if (confirm(`Remove ${student.name} from this session?`)) {
+                      removeStudent(session.id, student.id)
+                      setStudents(prev => prev.filter(s => s.id !== student.id))
+                    }
+                  }}
+                  className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+                  title="Remove student"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
+function ActivitiesTab({
+  session, generatedContent, setGeneratedContent, generating, setGenerating,
+  prompt, setPrompt, type, setType, difficulty, setDifficulty, error, setError,
+  sessionActivities, setSessionActivities, loadingActivities,
+  handleGenerate, handlePush, handleGenerateFromContent, handleSelectPreviousActivity
+}) {
+  return (
+    <div className="space-y-6">
       {/* AI Content Generator */}
-      <div className="card">
+      <div>
         <h3 className="text-xl font-bold text-gray-800 mb-4">Generate AI Content</h3>
 
         {error && (
@@ -1068,17 +1114,15 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
           <div className="mt-6 border-t pt-6">
             <div className="flex justify-between items-center mb-4">
               <h4 className="font-bold text-gray-800">Generated Content:</h4>
-              <div className="flex gap-2">
-                <button
-                  onClick={handlePush}
-                  className="btn-primary text-sm"
-                >
-                  Push to All Students
-                </button>
-              </div>
+              <button
+                onClick={handlePush}
+                className="btn-primary text-sm"
+              >
+                Push to All Students
+              </button>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto border border-gray-200">
               <ContentPreview content={generatedContent.content} type={generatedContent.type} />
             </div>
 
@@ -1110,15 +1154,183 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
         )}
       </div>
 
-      {/* Slide Generator Modal */}
-      {showSlideGenerator && (
-        <SlideGeneratorModal
-          onClose={() => setShowSlideGenerator(false)}
-          onGenerate={handleGenerateSlides}
-          loading={generatingSlides}
-          subject={session.subject}
-        />
+      {/* Session History */}
+      {sessionActivities.length > 0 && (
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">
+            📚 Session History ({sessionActivities.length} {sessionActivities.length === 1 ? 'activity' : 'activities'})
+          </h3>
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading activities...</span>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {sessionActivities.map(activity => {
+                const isSelected = generatedContent?.id === activity.id
+                const typeEmoji = {
+                  reading: '📖',
+                  questions: '❓',
+                  quiz: '📋',
+                  discussion: '💬'
+                }[activity.type] || '📄'
+
+                return (
+                  <div
+                    key={activity.id}
+                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                    onClick={() => handleSelectPreviousActivity(activity)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{typeEmoji}</span>
+                          <span className="font-medium text-gray-900 capitalize">
+                            {activity.type}
+                          </span>
+                          {activity.cached && (
+                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                              Cached
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                          {activity.prompt}
+                        </p>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                          <span>Difficulty: {activity.difficulty_level}</span>
+                          <span>•</span>
+                          <span>{new Date(activity.created_at).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="ml-2 flex-shrink-0">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
+    </div>
+  )
+}
+
+function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance }) {
+  if (loadingAnalytics) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <span className="ml-3 text-gray-600">Loading analytics...</span>
+      </div>
+    )
+  }
+
+  if (!analytics) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">📊</div>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">No analytics data yet</h3>
+        <p className="text-gray-600">
+          Analytics will appear here once students start responding to activities
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Session Analytics</h3>
+        {selectedInstance && (
+          <p className="text-sm text-gray-600 mb-6">
+            Showing data for: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+          </p>
+        )}
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 p-5 rounded-lg border border-blue-200">
+          <div className="text-3xl font-bold text-blue-600">{analytics.summary.totalStudents}</div>
+          <div className="text-sm text-gray-600 mt-1">Total Students</div>
+        </div>
+        <div className="bg-green-50 p-5 rounded-lg border border-green-200">
+          <div className="text-3xl font-bold text-green-600">{analytics.summary.activeStudents}</div>
+          <div className="text-sm text-gray-600 mt-1">Active Students</div>
+        </div>
+        <div className="bg-purple-50 p-5 rounded-lg border border-purple-200">
+          <div className="text-3xl font-bold text-purple-600">{analytics.summary.avgCorrectness}%</div>
+          <div className="text-sm text-gray-600 mt-1">Avg Correctness</div>
+        </div>
+        <div className="bg-orange-50 p-5 rounded-lg border border-orange-200">
+          <div className="text-3xl font-bold text-orange-600">{analytics.summary.strugglingCount}</div>
+          <div className="text-sm text-gray-600 mt-1">Need Help</div>
+        </div>
+      </div>
+
+      {/* Student Performance List */}
+      <div>
+        <h4 className="font-bold text-gray-800 mb-3">Student Performance</h4>
+        <div className="space-y-2">
+          {analytics.students.map(student => {
+            const getPerformanceColor = (level) => {
+              switch (level) {
+                case 'advanced': return 'bg-green-100 border-green-300 text-green-800'
+                case 'on-track': return 'bg-blue-100 border-blue-300 text-blue-800'
+                case 'struggling': return 'bg-red-100 border-red-300 text-red-800'
+                case 'limited-data': return 'bg-yellow-100 border-yellow-300 text-yellow-800'
+                default: return 'bg-gray-100 border-gray-300 text-gray-600'
+              }
+            }
+
+            const getPerformanceLabel = (level) => {
+              switch (level) {
+                case 'advanced': return '🌟 Advanced'
+                case 'on-track': return '✓ On Track'
+                case 'struggling': return '⚠️ Needs Help'
+                case 'limited-data': return '📊 Limited Data'
+                default: return 'No Data'
+              }
+            }
+
+            return (
+              <div
+                key={student.id}
+                className={`p-4 rounded-lg border-2 ${getPerformanceColor(student.performanceLevel)}`}
+              >
+                <div className="flex justify-between items-center">
+                  <div>
+                    <div className="font-medium text-lg">{student.name}</div>
+                    <div className="text-sm mt-1">
+                      {student.totalResponses > 0 ? (
+                        <>
+                          {student.correctResponses}/{student.totalResponses} correct
+                          {student.correctnessRate !== null && ` (${student.correctnessRate}%)`}
+                        </>
+                      ) : (
+                        'No responses yet'
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-sm font-bold">
+                    {getPerformanceLabel(student.performanceLevel)}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
