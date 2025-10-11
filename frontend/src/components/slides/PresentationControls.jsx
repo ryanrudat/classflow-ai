@@ -342,37 +342,89 @@ export default function PresentationControls({ deck, currentSlideNumber, onNavig
             {currentSlide?.question && questionResponses[currentSlide.id] && (
               <div className="mt-4 border-t border-gray-200 pt-4">
                 <h3 className="font-medium text-gray-900 mb-3">
-                  Question Responses (Slide {currentSlideNumber})
+                  📊 Question Responses (Slide {currentSlideNumber})
                 </h3>
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="text-sm text-gray-700 mb-2">
-                    <strong>Q:</strong> {currentSlide.question.text}
+                  {/* Question text */}
+                  <div className="text-sm text-gray-700 mb-3 font-medium">
+                    Q: {currentSlide.question.text}
                   </div>
-                  <div className="flex gap-4 mb-3">
+
+                  {/* Summary stats */}
+                  <div className="flex gap-4 mb-4 p-3 bg-white rounded-lg">
                     <div className="text-sm">
-                      ✅ Correct: {questionResponses[currentSlide.id].filter(r => r.isCorrect).length}
+                      <span className="text-green-600 font-bold">✅ {questionResponses[currentSlide.id].filter(r => r.isCorrect).length}</span>
+                      <span className="text-gray-600 ml-1">Correct</span>
                     </div>
                     <div className="text-sm">
-                      ❌ Incorrect: {questionResponses[currentSlide.id].filter(r => !r.isCorrect).length}
+                      <span className="text-red-600 font-bold">❌ {questionResponses[currentSlide.id].filter(r => !r.isCorrect).length}</span>
+                      <span className="text-gray-600 ml-1">Incorrect</span>
                     </div>
                     <div className="text-sm">
-                      📊 Total: {questionResponses[currentSlide.id].length}
+                      <span className="text-blue-600 font-bold">📊 {questionResponses[currentSlide.id].length}</span>
+                      <span className="text-gray-600 ml-1">Total</span>
                     </div>
                   </div>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {questionResponses[currentSlide.id].map((response, idx) => (
-                      <div
-                        key={idx}
-                        className={`text-sm px-2 py-1 rounded ${
-                          response.isCorrect
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
-                      >
-                        {response.isCorrect ? '✅' : '❌'} {response.studentName} - Answer: {String.fromCharCode(65 + response.selectedOption)}
-                      </div>
-                    ))}
-                  </div>
+
+                  {/* Answer distribution bar chart */}
+                  {currentSlide.question.type === 'multiple_choice' && currentSlide.question.options && (
+                    <div className="space-y-2 mb-4">
+                      <h4 className="text-xs font-semibold text-gray-700 uppercase">Answer Distribution</h4>
+                      {currentSlide.question.options.map((option, idx) => {
+                        const responses = questionResponses[currentSlide.id]
+                        const count = responses.filter(r => r.selectedOption === idx).length
+                        const percentage = responses.length > 0 ? (count / responses.length) * 100 : 0
+                        const isCorrect = currentSlide.question.correct === idx
+
+                        return (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className={`font-medium ${isCorrect ? 'text-green-700' : 'text-gray-700'}`}>
+                                {String.fromCharCode(65 + idx)}. {option}
+                                {isCorrect && <span className="ml-2 text-green-600">✓</span>}
+                              </span>
+                              <span className="text-gray-600 text-xs">
+                                {count} ({percentage.toFixed(0)}%)
+                              </span>
+                            </div>
+                            <div className="w-full bg-gray-200 h-6 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-500 flex items-center justify-end pr-2 ${
+                                  isCorrect ? 'bg-green-500' : 'bg-blue-400'
+                                }`}
+                                style={{ width: `${percentage}%` }}
+                              >
+                                {percentage > 15 && (
+                                  <span className="text-xs font-bold text-white">{percentage.toFixed(0)}%</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Individual student responses */}
+                  <details className="mt-3">
+                    <summary className="text-xs font-semibold text-gray-700 uppercase cursor-pointer hover:text-gray-900">
+                      Individual Responses ({questionResponses[currentSlide.id].length})
+                    </summary>
+                    <div className="space-y-1 mt-2 max-h-32 overflow-y-auto">
+                      {questionResponses[currentSlide.id].map((response, idx) => (
+                        <div
+                          key={idx}
+                          className={`text-sm px-2 py-1 rounded ${
+                            response.isCorrect
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {response.isCorrect ? '✅' : '❌'} {response.studentName} - Answer: {String.fromCharCode(65 + response.selectedOption)}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
               </div>
             )}

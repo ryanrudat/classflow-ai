@@ -230,14 +230,33 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
       {/* Top bar */}
-      <header className="bg-gray-800 px-4 py-3 flex items-center justify-between text-white">
-        <div>
-          <h1 className="text-lg font-bold">{deck.title}</h1>
-          <p className="text-sm text-gray-400">Slide {currentSlideNumber} / {totalSlides}</p>
+      <header className="bg-gray-800 px-4 py-3 text-white">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h1 className="text-lg font-bold">{deck.title}</h1>
+            <p className="text-sm text-gray-400">Slide {currentSlideNumber} / {totalSlides}</p>
+          </div>
+
+          <div className={`${getModeColor()} text-white px-4 py-2 rounded-lg text-sm font-medium`}>
+            {getModeText()}
+          </div>
         </div>
 
-        <div className={`${getModeColor()} text-white px-4 py-2 rounded-lg text-sm font-medium`}>
-          {getModeText()}
+        {/* Progress dots */}
+        <div className="flex items-center gap-1.5 justify-center mt-2">
+          {Array.from({ length: totalSlides }).map((_, index) => (
+            <div
+              key={index}
+              className={`h-2 rounded-full transition-all ${
+                index + 1 === currentSlideNumber
+                  ? 'w-8 bg-blue-500' // Current slide - wider and blue
+                  : index + 1 < currentSlideNumber
+                  ? 'w-2 bg-green-500' // Completed - green dot
+                  : 'w-2 bg-gray-600' // Not yet viewed - gray dot
+              }`}
+              title={`Slide ${index + 1}`}
+            />
+          ))}
         </div>
       </header>
 
@@ -333,10 +352,10 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
                             {String.fromCharCode(65 + index)}. {option}
                           </span>
                           {hasAnswered && (
-                            <span className="ml-2">
-                              {isSelected && isCorrect && '✅'}
-                              {isSelected && !isCorrect && '❌'}
-                              {!isSelected && isCorrect && '✓'}
+                            <span className="ml-2 flex items-center gap-2">
+                              {isSelected && isCorrect && <><span className="text-2xl">✅</span><span className="text-sm font-bold">You!</span></>}
+                              {isSelected && !isCorrect && <><span className="text-2xl">❌</span><span className="text-sm font-bold">You!</span></>}
+                              {!isSelected && isCorrect && <span className="text-green-600 text-xl">✓</span>}
                             </span>
                           )}
                         </span>
