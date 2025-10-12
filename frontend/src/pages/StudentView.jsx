@@ -582,7 +582,6 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
                 {currentQuestion.options.map((option, index) => {
                   const isSelectedAnswer = selectedAnswer === index
                   const isCorrectAnswer = currentQuestion.correct === index
-                  const showFeedback = submitted
 
                   return (
                     <label
@@ -592,11 +591,14 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
                           ? 'cursor-not-allowed'
                           : 'cursor-pointer'
                       } ${
-                        showFeedback && isCorrectAnswer
+                        // Only show green if student got it right
+                        isCorrect === true && isSelectedAnswer && isCorrectAnswer
                           ? 'border-green-500 bg-green-50'
-                          : showFeedback && isSelectedAnswer && !isCorrectAnswer
+                          // Show red only on their incorrect selection
+                          : isCorrect === false && isSelectedAnswer
                           ? 'border-red-500 bg-red-50'
-                          : isSelectedAnswer
+                          // Normal selection state
+                          : isSelectedAnswer && !submitted
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
@@ -614,7 +616,8 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
                           />
                           <span>{String.fromCharCode(65 + index)}. {option}</span>
                         </div>
-                        {showFeedback && isCorrectAnswer && (
+                        {/* Only show green checkmark if they got it right */}
+                        {isCorrect === true && isSelectedAnswer && (
                           <span className="text-green-600 font-semibold flex items-center gap-1">
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -622,7 +625,8 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
                             Correct
                           </span>
                         )}
-                        {showFeedback && isSelectedAnswer && !isCorrectAnswer && (
+                        {/* Only show red X on their wrong selection */}
+                        {isCorrect === false && isSelectedAnswer && (
                           <span className="text-red-600 font-semibold flex items-center gap-1">
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
