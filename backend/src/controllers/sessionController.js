@@ -521,3 +521,155 @@ export async function getInstanceDetails(req, res) {
     res.status(500).json({ message: 'Failed to get instance details' })
   }
 }
+
+/**
+ * Get live student progress for an activity
+ * GET /api/sessions/:sessionId/activities/:activityId/progress
+ * Protected: Teacher only
+ */
+export async function getActivityProgress(req, res) {
+  try {
+    const { sessionId, activityId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const sessionCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [sessionId, teacherId]
+    )
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Verify activity belongs to this session
+    const activityCheck = await db.query(
+      'SELECT id, type, content FROM activities WHERE id = $1 AND session_id = $2',
+      [activityId, sessionId]
+    )
+
+    if (activityCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    const activity = activityCheck.rows[0]
+    const totalQuestions = activity.content?.questions?.length || activity.content?.quiz?.length || 0
+
+    // Get all students in session
+    const studentsResult = await db.query(
+      `SELECT ss.id, ss.student_name, ss.joined_at
+       FROM session_students ss
+       WHERE ss.session_id = $1
+       ORDER BY ss.student_name ASC`,
+      [sessionId]
+    )
+
+    // Get detailed progress for each student
+    const progressPromises = studentsResult.rows.map(async (student) => {
+      // Get all responses for this student and activity
+      const responsesResult = await db.query(
+        `SELECT
+          sr.id,
+          sr.question_number,
+          sr.is_correct,
+          sr.attempt_number,
+          sr.help_received,
+          sr.time_spent_seconds,
+          sr.response,
+          sr.created_at
+         FROM student_responses sr
+         WHERE sr.student_id = $1
+           AND sr.activity_id = $2
+           AND sr.session_id = $3
+         ORDER BY sr.question_number ASC, sr.attempt_number ASC`,
+        [student.id, activityId, sessionId]
+      )
+
+      // Group responses by question number (to get latest attempt for each question)
+      const questionProgress = {}
+      let correctCount = 0
+      let totalAttempts = 0
+      let helpRequestCount = 0
+
+      responsesResult.rows.forEach(response => {
+        const qNum = response.question_number
+
+        // Track attempts across all questions
+        totalAttempts++
+
+        // Track help requests
+        if (response.help_received) {
+          helpRequestCount++
+        }
+
+        // Keep track of the latest status for each question
+        if (!questionProgress[qNum] || response.attempt_number > questionProgress[qNum].attempt_number) {
+          questionProgress[qNum] = {
+            questionNumber: qNum,
+            isCorrect: response.is_correct,
+            attemptNumber: response.attempt_number,
+            helpReceived: response.help_received,
+            timeSpent: response.time_spent_seconds,
+            lastAttemptAt: response.created_at
+          }
+        }
+      })
+
+      // Count correct answers (latest attempt for each question)
+      Object.values(questionProgress).forEach(q => {
+        if (q.isCorrect) correctCount++
+      })
+
+      const questionsAttempted = Object.keys(questionProgress).length
+      const currentQuestion = questionsAttempted < totalQuestions ? questionsAttempted + 1 : totalQuestions
+      const isComplete = questionsAttempted >= totalQuestions
+      const score = totalQuestions > 0 ? Math.round((correctCount / questionsAttempted) * 100) || 0 : 0
+
+      // Determine status
+      let status = 'active'
+      if (isComplete) {
+        status = 'completed'
+      } else if (helpRequestCount > 0) {
+        status = 'needs-help'
+      } else if (totalAttempts > questionsAttempted * 1.5) {
+        status = 'struggling'
+      }
+
+      // Calculate time elapsed (from first response to last)
+      let timeElapsed = 0
+      if (responsesResult.rows.length > 0) {
+        const firstResponse = responsesResult.rows[0].created_at
+        const lastResponse = responsesResult.rows[responsesResult.rows.length - 1].created_at
+        timeElapsed = Math.round((new Date(lastResponse) - new Date(firstResponse)) / 1000)
+      }
+
+      return {
+        studentId: student.id,
+        studentName: student.student_name,
+        currentQuestion,
+        questionsAttempted,
+        totalQuestions,
+        correctCount,
+        score,
+        totalAttempts,
+        helpRequestCount,
+        status,
+        timeElapsed,
+        isComplete,
+        questionProgress: Object.values(questionProgress)
+      }
+    })
+
+    const studentProgress = await Promise.all(progressPromises)
+
+    res.json({
+      activityId,
+      totalQuestions,
+      studentProgress
+    })
+
+  } catch (error) {
+    console.error('Get activity progress error:', error)
+    res.status(500).json({ message: 'Failed to get activity progress' })
+  }
+}

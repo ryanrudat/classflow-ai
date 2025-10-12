@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
+import LiveMonitoring from '../components/LiveMonitoring'
+import StudentDetailModal from '../components/StudentDetailModal'
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()

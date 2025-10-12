@@ -255,6 +255,38 @@ export function setupSocketIO(io) {
       console.log(`📉 Student ${studentId} requested simpler version for question ${questionId}`)
     })
 
+    // Student progress update (for live monitoring)
+    socket.on('student-progress-update', ({
+      studentId,
+      studentName,
+      sessionId,
+      activityId,
+      questionNumber,
+      totalQuestions,
+      isCorrect,
+      attemptNumber,
+      helpReceived,
+      score,
+      questionsAttempted
+    }) => {
+      // Broadcast progress update to teacher and other monitors
+      socket.to(`session-${sessionId}`).emit('live-progress-update', {
+        studentId,
+        studentName,
+        activityId,
+        questionNumber,
+        totalQuestions,
+        isCorrect,
+        attemptNumber,
+        helpReceived,
+        score,
+        questionsAttempted,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`📊 Progress update: ${studentName} - Q${questionNumber}/${totalQuestions} - ${isCorrect ? '✅' : '❌'} (attempt ${attemptNumber})`)
+    })
+
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {

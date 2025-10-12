@@ -304,6 +304,7 @@ export default function StudentView() {
         {currentActivity ? (
           <ActivityDisplay
             activity={currentActivity}
+            student={student}
             studentId={student.id}
             sessionId={session.id}
             emit={emit}
@@ -329,7 +330,7 @@ export default function StudentView() {
 }
 
 // Activity Display Component with Help System
-function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
+function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubmit }) {
   const [response, setResponse] = useState('')
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -369,6 +370,32 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
 
       // Calculate time spent
       const timeSpent = Math.floor((Date.now() - startTime) / 1000)
+
+      // Send progress update via WebSocket for teacher's live monitoring
+      if (emit) {
+        // Calculate current score
+        const correctSoFar = answers.filter((ans, idx) => {
+          const q = questions[idx]
+          return q && q.correct === ans
+        }).length + (correct ? 1 : 0)
+
+        const questionsAttempted = currentQuestionIndex + 1
+        const score = Math.round((correctSoFar / questionsAttempted) * 100)
+
+        emit('student-progress-update', {
+          studentId,
+          studentName: student.student_name,
+          sessionId,
+          activityId: activity.id,
+          questionNumber: currentQuestionIndex + 1,
+          totalQuestions: questions.length,
+          isCorrect: correct,
+          attemptNumber,
+          helpReceived: help !== null,
+          score,
+          questionsAttempted
+        })
+      }
 
       if (correct) {
         // Correct answer - celebrate and continue

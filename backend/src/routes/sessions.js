@@ -8,7 +8,8 @@ import {
   joinSession,
   getTeacherSessions,
   getSessionInstances,
-  getInstanceDetails
+  getInstanceDetails,
+  getActivityProgress
 } from '../controllers/sessionController.js'
 import { getSessionActivities } from '../controllers/activityController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -22,6 +23,7 @@ router.get('/:id', authenticateToken, getSession)
 router.get('/:id/instances', authenticateToken, getSessionInstances)
 router.get('/:sessionId/instances/:instanceId', authenticateToken, getInstanceDetails)
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
+router.get('/:sessionId/activities/:activityId/progress', authenticateToken, getActivityProgress)
 router.post('/:id/end', authenticateToken, endSession)
 router.post('/:id/reactivate', authenticateToken, reactivateSession)
 router.delete('/:id', authenticateToken, deleteSession)
