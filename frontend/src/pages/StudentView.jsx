@@ -512,6 +512,13 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
     newAnswers[currentQuestionIndex] = selectedAnswer
     setAnswers(newAnswers)
 
+    // Reset question state for next question
+    setSubmitted(false)
+    setIsCorrect(null)
+    setHelp(null)
+    setShowHelp(false)
+    setAttemptNumber(1)
+
     // Move to next question
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1)
@@ -668,14 +675,16 @@ function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
           </div>
         )}
 
-        {/* Help Modal */}
-        <StudentHelpModal
-          help={help}
-          onTryAgain={handleTryAgain}
-          onRequestSimpler={handleRequestSimpler}
-          onDismiss={handleDismissHelp}
-          loading={helpLoading}
-        />
+        {/* Help Modal - Only show when showHelp is true */}
+        {showHelp && (
+          <StudentHelpModal
+            help={help}
+            onTryAgain={handleTryAgain}
+            onRequestSimpler={handleRequestSimpler}
+            onDismiss={handleDismissHelp}
+            loading={helpLoading}
+          />
+        )}
       </div>
     )
   }
