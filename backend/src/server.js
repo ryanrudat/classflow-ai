@@ -1,3 +1,4 @@
+// v1.1.0 - Added live progress monitoring endpoint
 import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
