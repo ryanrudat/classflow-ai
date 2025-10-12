@@ -322,8 +322,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
   const [helpHistory, setHelpHistory] = useState([])
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
 
-  const { joinSession, pushActivity, on, off, isConnected, removeStudent } = useSocket()
+  const { joinSession, pushActivity, on, off, isConnected, removeStudent, emit } = useSocket()
 
   // Tab configuration
   const tabs = [
@@ -505,16 +506,26 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       setStudents(prev => prev.filter(s => s.id !== studentId))
     }
 
+    // Listen for live progress updates
+    const handleLiveProgressUpdate = (update) => {
+      // Call the global handler if it exists (set by LiveMonitoring component)
+      if (window.handleLiveProgressUpdate) {
+        window.handleLiveProgressUpdate(update)
+      }
+    }
+
     on('user-joined', handleUserJoined)
     on('student-responded', handleStudentResponded)
     on('user-left', handleUserLeft)
     on('student-removed', handleStudentRemoved)
+    on('live-progress-update', handleLiveProgressUpdate)
 
     return () => {
       off('user-joined', handleUserJoined)
       off('student-responded', handleStudentResponded)
       off('user-left', handleUserLeft)
       off('student-removed', handleStudentRemoved)
+      off('live-progress-update', handleLiveProgressUpdate)
     }
   }, [session, joinSession, on, off])
 
@@ -728,6 +739,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               removeStudent={removeStudent}
               setStudents={setStudents}
               sessionActivities={pushedActivities}
+              selectedStudentDetail={selectedStudentDetail}
+              setSelectedStudentDetail={setSelectedStudentDetail}
             />
           )}
 
@@ -789,7 +802,12 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 }
 
 // Tab Components
-function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities }) {
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail }) {
+  // Find active quiz/questions activities for live monitoring
+  const activeMonitoringActivity = sessionActivities.find(a =>
+    (a.type === 'quiz' || a.type === 'questions') && a.pushed_to
+  )
+
   return (
     <div className="space-y-6">
       {/* Join Code Card */}
@@ -1009,6 +1027,31 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
             })}
           </div>
         </div>
+      )}
+
+      {/* Live Monitoring Dashboard */}
+      {activeMonitoringActivity && (
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 mb-4">
+            📊 Live Progress Monitoring
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Real-time student progress for: <span className="font-medium">{activeMonitoringActivity.prompt}</span>
+          </p>
+          <LiveMonitoring
+            sessionId={session.id}
+            activityId={activeMonitoringActivity.id}
+            onStudentClick={(student) => setSelectedStudentDetail(student)}
+          />
+        </div>
+      )}
+
+      {/* Student Detail Modal */}
+      {selectedStudentDetail && (
+        <StudentDetailModal
+          student={selectedStudentDetail}
+          onClose={() => setSelectedStudentDetail(null)}
+        />
       )}
     </div>
   )
