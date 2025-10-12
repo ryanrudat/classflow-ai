@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { sessionsAPI, slidesAPI } from '../services/api'
+import { sessionsAPI, slidesAPI, studentHelpAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
+import StudentHelpModal from '../components/StudentHelpModal'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -304,6 +305,8 @@ export default function StudentView() {
           <ActivityDisplay
             activity={currentActivity}
             studentId={student.id}
+            sessionId={session.id}
+            emit={emit}
             onSubmit={(response) => {
               submitResponse(currentActivity.id, student.id, response)
               setCurrentActivity(null)
@@ -325,26 +328,180 @@ export default function StudentView() {
   )
 }
 
-// Activity Display Component
-function ActivityDisplay({ activity, studentId, onSubmit }) {
+// Activity Display Component with Help System
+function ActivityDisplay({ activity, studentId, sessionId, emit, onSubmit }) {
   const [response, setResponse] = useState('')
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState([])
 
-  const handleSubmit = (e) => {
+  // Help system state
+  const [attemptNumber, setAttemptNumber] = useState(1)
+  const [help, setHelp] = useState(null)
+  const [showHelp, setShowHelp] = useState(false)
+  const [helpLoading, setHelpLoading] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [isCorrect, setIsCorrect] = useState(null)
+  const [startTime] = useState(Date.now())
+
+  // Enhanced handleSubmit with help system
+  const handleSubmit = async (e) => {
     e.preventDefault()
 
-    let submitData
+    // For reading activities, just mark as complete
     if (activity.type === 'reading') {
-      submitData = { type: 'reading_completed', timestamp: new Date().toISOString() }
-    } else if (activity.type === 'questions' || activity.type === 'quiz') {
-      submitData = { questionIndex: currentQuestionIndex, selectedOption: selectedAnswer, text: response }
-    } else {
-      submitData = { text: response }
+      const submitData = { type: 'reading_completed', timestamp: new Date().toISOString() }
+      onSubmit(submitData)
+      return
     }
 
-    onSubmit(submitData)
+    // For questions/quiz, check correctness and offer help if wrong
+    if (activity.type === 'questions' || activity.type === 'quiz') {
+      const questions = activity.content?.questions || activity.content?.quiz || []
+      const currentQuestion = questions[currentQuestionIndex]
+
+      if (!currentQuestion) return
+
+      // Check if answer is correct
+      const correct = currentQuestion.correct === selectedAnswer
+      setIsCorrect(correct)
+      setSubmitted(true)
+
+      // Calculate time spent
+      const timeSpent = Math.floor((Date.now() - startTime) / 1000)
+
+      if (correct) {
+        // Correct answer - celebrate and continue
+        setTimeout(() => {
+          // Auto-advance or submit
+          if (currentQuestionIndex < questions.length - 1) {
+            handleNextQuestion()
+          } else {
+            // Submit final quiz
+            const submitData = {
+              answers: [...answers, selectedAnswer],
+              attemptNumber,
+              timeSpent
+            }
+            onSubmit(submitData)
+          }
+        }, 1500) // Show success message briefly
+      } else {
+        // Wrong answer - request AI help
+        await requestHelp(currentQuestion, timeSpent)
+      }
+    } else {
+      // Discussion prompts - just submit
+      const submitData = { text: response }
+      onSubmit(submitData)
+    }
+  }
+
+  // Request help from AI when student gets question wrong
+  const requestHelp = async (question, timeSpent) => {
+    try {
+      setHelpLoading(true)
+
+      const response = await studentHelpAPI.requestHelp({
+        studentId,
+        sessionId,
+        activityId: activity.id,
+        questionText: question.question,
+        questionNumber: currentQuestionIndex + 1,
+        correctAnswer: question.options[question.correct],
+        studentAnswer: question.options[selectedAnswer],
+        attemptNumber,
+        timeSpent
+      })
+
+      setHelp(response.help)
+      setShowHelp(true)
+
+      // Emit WebSocket event to notify teacher
+      if (emit) {
+        emit('help-shown', {
+          studentId,
+          sessionId,
+          questionId: `${activity.id}-q${currentQuestionIndex + 1}`,
+          helpType: response.help.helpType
+        })
+      }
+    } catch (error) {
+      console.error('Error requesting help:', error)
+      // Fallback: show generic help
+      setHelp({
+        feedback: "Not quite right, but good effort!",
+        explanation: "Take another look at the question and think it through carefully.",
+        hint: "Consider all the options and what the question is really asking.",
+        helpType: "generic",
+        encouragement: "You can do this - try again!",
+        offerSimplerVersion: attemptNumber >= 2
+      })
+      setShowHelp(true)
+    } finally {
+      setHelpLoading(false)
+    }
+  }
+
+  // Handle "Try Again" from help modal
+  const handleTryAgain = () => {
+    setShowHelp(false)
+    setSubmitted(false)
+    setSelectedAnswer(null)
+    setIsCorrect(null)
+    setAttemptNumber(prev => prev + 1)
+
+    // Notify teacher that student is trying again
+    if (emit) {
+      emit('student-tried-again', {
+        studentId,
+        sessionId,
+        questionId: `${activity.id}-q${currentQuestionIndex + 1}`,
+        attemptNumber: attemptNumber + 1
+      })
+    }
+  }
+
+  // Handle "Simpler Version" request
+  const handleRequestSimpler = async () => {
+    try {
+      setHelpLoading(true)
+
+      const questions = activity.content?.questions || activity.content?.quiz || []
+      const currentQuestion = questions[currentQuestionIndex]
+
+      const response = await studentHelpAPI.acceptSimplerVersion({
+        studentId,
+        sessionId,
+        activityId: activity.id,
+        questionText: currentQuestion.question,
+        correctAnswer: currentQuestion.options[currentQuestion.correct]
+      })
+
+      // Notify teacher
+      if (emit) {
+        emit('simpler-version-requested', {
+          studentId,
+          sessionId,
+          questionId: `${activity.id}-q${currentQuestionIndex + 1}`
+        })
+      }
+
+      // TODO: Replace current question with simpler version
+      // For now, just show success message
+      alert('Simpler version generated! (Feature coming soon: will replace the question)')
+      setShowHelp(false)
+    } catch (error) {
+      console.error('Error requesting simpler version:', error)
+      alert('Failed to generate simpler version. Please try again or ask your teacher.')
+    } finally {
+      setHelpLoading(false)
+    }
+  }
+
+  // Handle dismissing help modal
+  const handleDismissHelp = () => {
+    setShowHelp(false)
   }
 
   const handleNextQuestion = () => {
@@ -415,26 +572,61 @@ function ActivityDisplay({ activity, studentId, onSubmit }) {
 
             {currentQuestion.options ? (
               <div className="space-y-2">
-                {currentQuestion.options.map((option, index) => (
-                  <label
-                    key={index}
-                    className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      selectedAnswer === index
-                        ? 'border-primary-500 bg-primary-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="answer"
-                      value={index}
-                      checked={selectedAnswer === index}
-                      onChange={() => setSelectedAnswer(index)}
-                      className="mr-3"
-                    />
-                    {String.fromCharCode(65 + index)}. {option}
-                  </label>
-                ))}
+                {currentQuestion.options.map((option, index) => {
+                  const isSelectedAnswer = selectedAnswer === index
+                  const isCorrectAnswer = currentQuestion.correct === index
+                  const showFeedback = submitted
+
+                  return (
+                    <label
+                      key={index}
+                      className={`block p-4 border-2 rounded-lg transition-all ${
+                        submitted
+                          ? 'cursor-not-allowed'
+                          : 'cursor-pointer'
+                      } ${
+                        showFeedback && isCorrectAnswer
+                          ? 'border-green-500 bg-green-50'
+                          : showFeedback && isSelectedAnswer && !isCorrectAnswer
+                          ? 'border-red-500 bg-red-50'
+                          : isSelectedAnswer
+                          ? 'border-primary-500 bg-primary-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center flex-1">
+                          <input
+                            type="radio"
+                            name="answer"
+                            value={index}
+                            checked={isSelectedAnswer}
+                            onChange={() => !submitted && setSelectedAnswer(index)}
+                            disabled={submitted}
+                            className="mr-3"
+                          />
+                          <span>{String.fromCharCode(65 + index)}. {option}</span>
+                        </div>
+                        {showFeedback && isCorrectAnswer && (
+                          <span className="text-green-600 font-semibold flex items-center gap-1">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Correct
+                          </span>
+                        )}
+                        {showFeedback && isSelectedAnswer && !isCorrectAnswer && (
+                          <span className="text-red-600 font-semibold flex items-center gap-1">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            Incorrect
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  )
+                })}
               </div>
             ) : (
               <textarea
@@ -445,36 +637,45 @@ function ActivityDisplay({ activity, studentId, onSubmit }) {
               />
             )}
 
-            <div className="flex gap-2">
-              {currentQuestionIndex > 0 && (
-                <button
-                  onClick={handlePreviousQuestion}
-                  className="btn-secondary flex-1"
-                >
-                  Previous
-                </button>
-              )}
+            {/* Success message when answer is correct */}
+            {isCorrect === true && (
+              <div className="bg-green-50 border-l-4 border-green-500 rounded-r-lg p-4 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-green-900">Excellent work!</p>
+                    <p className="text-sm text-green-800">Moving to the next question...</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-              {!isLastQuestion ? (
-                <button
-                  onClick={handleNextQuestion}
-                  className="btn-primary flex-1"
-                  disabled={currentQuestion.options ? selectedAnswer === null : !response.trim()}
-                >
-                  Next Question
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmitQuiz}
-                  className="btn-primary flex-1"
-                  disabled={currentQuestion.options ? selectedAnswer === null : !response.trim()}
-                >
-                  Submit Quiz
-                </button>
-              )}
+            <div className="flex gap-2">
+              <button
+                onClick={handleSubmit}
+                className="btn-primary flex-1"
+                disabled={submitted || (currentQuestion.options ? selectedAnswer === null : !response.trim())}
+              >
+                {submitted ? (
+                  helpLoading ? 'Getting Help...' : 'Processing...'
+                ) : (
+                  'Submit Answer'
+                )}
+              </button>
             </div>
           </div>
         )}
+
+        {/* Help Modal */}
+        <StudentHelpModal
+          help={help}
+          onTryAgain={handleTryAgain}
+          onRequestSimpler={handleRequestSimpler}
+          onDismiss={handleDismissHelp}
+          loading={helpLoading}
+        />
       </div>
     )
   }

@@ -76,9 +76,12 @@ async function runMigrations() {
 
         console.log(`✅ Completed migration: ${file}`)
       } catch (migrationError) {
-        // Check if error is because tables already exist
-        if (migrationError.code === '42P07' || migrationError.code === '42710') {
-          // Table or object already exists - mark as executed and continue
+        // Check if error is because objects already exist
+        // 42P07 = table already exists
+        // 42710 = object already exists
+        // 42701 = column already exists
+        if (migrationError.code === '42P07' || migrationError.code === '42710' || migrationError.code === '42701') {
+          // Object already exists - mark as executed and continue
           console.log(`⚠️  Migration ${file} contains already-existing objects, marking as executed`)
 
           await client.query(

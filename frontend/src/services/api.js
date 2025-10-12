@@ -240,4 +240,28 @@ export const presentationAPI = {
   }
 }
 
+// Student Help API
+export const studentHelpAPI = {
+  // Request help when student gets a question wrong
+  requestHelp: async (data) => {
+    const response = await api.post('/student-help/request', data)
+    return response.data
+  },
+
+  // Accept simpler version of question
+  acceptSimplerVersion: async (data) => {
+    const response = await api.post('/student-help/accept-simpler', data)
+    return response.data
+  },
+
+  // Get help history for a session (teacher only)
+  getHistory: async (sessionId, studentId = null, limit = 50) => {
+    const url = studentId
+      ? `/student-help/history/${sessionId}?studentId=${studentId}&limit=${limit}`
+      : `/student-help/history/${sessionId}?limit=${limit}`
+    const response = await api.get(url)
+    return response.data
+  }
+}
+
 export default api

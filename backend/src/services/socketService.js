@@ -219,6 +219,42 @@ export function setupSocketIO(io) {
       // await db.query(...)
     })
 
+    // Student help events
+    socket.on('help-shown', ({ studentId, sessionId, questionId, helpType }) => {
+      // Notify teacher that a student received help
+      socket.to(`session-${sessionId}`).emit('student-help-shown', {
+        studentId,
+        questionId,
+        helpType,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`💡 Student ${studentId} received help (${helpType}) for question ${questionId}`)
+    })
+
+    socket.on('student-tried-again', ({ studentId, sessionId, questionId, attemptNumber }) => {
+      // Notify teacher that student is trying again after help
+      socket.to(`session-${sessionId}`).emit('student-retry', {
+        studentId,
+        questionId,
+        attemptNumber,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`🔄 Student ${studentId} trying again (attempt #${attemptNumber}) for question ${questionId}`)
+    })
+
+    socket.on('simpler-version-requested', ({ studentId, sessionId, questionId }) => {
+      // Notify teacher that student requested simpler version
+      socket.to(`session-${sessionId}`).emit('student-requested-simpler', {
+        studentId,
+        questionId,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`📉 Student ${studentId} requested simpler version for question ${questionId}`)
+    })
+
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {

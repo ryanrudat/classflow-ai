@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI } from '../services/api'
+import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 
 export default function TeacherDashboard() {
@@ -318,6 +318,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const [loadingSlides, setLoadingSlides] = useState(false)
   const [generatingSlides, setGeneratingSlides] = useState(false)
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
+  const [helpHistory, setHelpHistory] = useState([])
+  const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
 
   const { joinSession, pushActivity, on, off, isConnected, removeStudent } = useSocket()
 
