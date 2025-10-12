@@ -17,7 +17,7 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
     const fetchProgress = async () => {
       try {
         setLoading(true)
-        const token = localStorage.getItem('token')
+        const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
         const response = await fetch(
           `${import.meta.env.VITE_API_URL}/api/sessions/${sessionId}/activities/${activityId}/progress`,
           {
