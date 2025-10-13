@@ -5,10 +5,11 @@ import { useState, useEffect } from 'react'
  * Displays real-time student progress during an active activity
  * Shows student cards with at-a-glance metrics and status indicators
  */
-export default function LiveMonitoring({ sessionId, activityId, onStudentClick }) {
+export default function LiveMonitoring({ sessionId, activityId, instanceId, onStudentClick, onRemoveStudent, onProgressDataChange, studentIdToRemove }) {
   const [studentProgress, setStudentProgress] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showOffline, setShowOffline] = useState(true) // Toggle to show/hide offline students
 
   // Fetch initial progress data
   useEffect(() => {
@@ -18,19 +19,30 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
       try {
         setLoading(true)
         const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/api/sessions/${sessionId}/activities/${activityId}/progress`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
+
+        // Build URL with optional instanceId filter
+        let url = `${import.meta.env.VITE_API_URL}/api/sessions/${sessionId}/activities/${activityId}/progress`
+        if (instanceId) {
+          url += `?instanceId=${instanceId}`
+        }
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
-        )
+        })
 
         if (!response.ok) throw new Error('Failed to fetch progress')
 
         const data = await response.json()
-        setStudentProgress(data.studentProgress || [])
+        // Mark all non-completed students as offline initially
+        // They'll be marked as active when they send progress updates
+        const progressWithOfflineStatus = (data.studentProgress || []).map(student => ({
+          ...student,
+          status: student.status === 'completed' ? 'completed' : 'offline',
+          lastActivity: Date.now()
+        }))
+        setStudentProgress(progressWithOfflineStatus)
       } catch (err) {
         console.error('Error fetching progress:', err)
         setError(err.message)
@@ -40,7 +52,7 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
     }
 
     fetchProgress()
-  }, [sessionId, activityId])
+  }, [sessionId, activityId, instanceId])
 
   // Handle real-time updates via props (to be connected to WebSocket)
   const handleProgressUpdate = (update) => {
@@ -60,7 +72,8 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
           totalAttempts: (student.totalAttempts || 0) + 1,
           helpRequestCount: update.helpReceived ? (student.helpRequestCount || 0) + 1 : student.helpRequestCount,
           isComplete: update.questionsAttempted >= update.totalQuestions,
-          status: determineStatus(update)
+          status: determineStatus(update),
+          lastActivity: Date.now() // Track last activity time
         }
 
         return updated
@@ -78,7 +91,8 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
           helpRequestCount: update.helpReceived ? 1 : 0,
           status: determineStatus(update),
           timeElapsed: 0,
-          isComplete: false
+          isComplete: false,
+          lastActivity: Date.now() // Track when student first appeared
         }]
       }
     })
@@ -107,6 +121,50 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
     }
   }, [])
 
+  // Expose studentProgress data to parent component for real-time modal updates
+  useEffect(() => {
+    if (onProgressDataChange) {
+      onProgressDataChange(studentProgress)
+    }
+  }, [studentProgress, onProgressDataChange])
+
+  // Periodically check for inactive students and mark them as offline
+  useEffect(() => {
+    const INACTIVITY_THRESHOLD = 2 * 60 * 1000 // 2 minutes in milliseconds
+
+    const checkInactivity = () => {
+      setStudentProgress(prev => prev.map(student => {
+        // Skip if already completed or already offline
+        if (student.status === 'completed' || student.status === 'offline') {
+          return student
+        }
+
+        // Check if last activity was more than threshold ago
+        const timeSinceLastActivity = Date.now() - (student.lastActivity || 0)
+        if (timeSinceLastActivity > INACTIVITY_THRESHOLD) {
+          return {
+            ...student,
+            status: 'offline'
+          }
+        }
+
+        return student
+      }))
+    }
+
+    // Check every 30 seconds
+    const interval = setInterval(checkInactivity, 30000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Handle external removal requests (from parent component)
+  useEffect(() => {
+    if (studentIdToRemove) {
+      handleRemoveStudent(studentIdToRemove)
+    }
+  }, [studentIdToRemove])
+
   // Get status color and icon
   const getStatusDisplay = (status) => {
     switch (status) {
@@ -128,6 +186,12 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
           icon: '!',
           label: 'Struggling'
         }
+      case 'offline':
+        return {
+          color: 'text-gray-600 bg-gray-100',
+          icon: '○',
+          label: 'Offline'
+        }
       default:
         return {
           color: 'text-blue-600 bg-blue-100',
@@ -136,6 +200,19 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
         }
     }
   }
+
+  // Handle remove student from monitoring view
+  const handleRemoveStudent = (studentId) => {
+    setStudentProgress(prev => prev.filter(s => s.studentId !== studentId))
+    if (onRemoveStudent) {
+      onRemoveStudent(studentId)
+    }
+  }
+
+  // Filter students based on showOffline toggle
+  const filteredStudents = showOffline
+    ? studentProgress
+    : studentProgress.filter(s => s.status !== 'offline')
 
   // Format time (seconds to MM:SS)
   const formatTime = (seconds) => {
@@ -175,6 +252,19 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
 
   return (
     <div className="space-y-4">
+      {/* Filter Toggle */}
+      <div className="flex justify-end items-center gap-2 mb-4">
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showOffline}
+            onChange={(e) => setShowOffline(e.target.checked)}
+            className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+          />
+          Show offline students ({studentProgress.filter(s => s.status === 'offline').length})
+        </label>
+      </div>
+
       {/* Summary Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg border p-4">
@@ -205,7 +295,7 @@ export default function LiveMonitoring({ sessionId, activityId, onStudentClick }
 
       {/* Student Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {studentProgress.map((student) => {
+        {filteredStudents.map((student) => {
           const statusDisplay = getStatusDisplay(student.status)
 
           return (

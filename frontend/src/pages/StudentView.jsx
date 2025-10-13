@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
-import { sessionsAPI, slidesAPI, studentHelpAPI } from '../services/api'
+import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
@@ -395,6 +395,23 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
           score,
           questionsAttempted
         })
+      }
+
+      // Save response to database for persistence
+      try {
+        await activitiesAPI.submitQuestion(activity.id, {
+          studentId,
+          sessionId,
+          questionNumber: currentQuestionIndex + 1,
+          selectedAnswer,
+          isCorrect: correct,
+          attemptNumber,
+          helpReceived: help !== null,
+          timeSpent
+        })
+      } catch (error) {
+        console.error('Failed to save question response:', error)
+        // Don't block the student - continue even if save fails
       }
 
       if (correct) {

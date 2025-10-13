@@ -115,6 +115,11 @@ export const activitiesAPI = {
       response: responseData
     })
     return response.data
+  },
+
+  submitQuestion: async (activityId, data) => {
+    const response = await api.post(`/activities/${activityId}/submit-question`, data)
+    return response.data
   }
 }
 

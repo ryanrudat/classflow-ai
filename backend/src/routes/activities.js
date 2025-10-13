@@ -2,7 +2,8 @@ import express from 'express'
 import {
   pushActivity,
   submitResponse,
-  getActivity
+  getActivity,
+  submitQuestionResponse
 } from '../controllers/activityController.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -14,5 +15,6 @@ router.get('/:activityId', authenticateToken, getActivity)
 
 // Public routes (students)
 router.post('/:activityId/respond', submitResponse)
+router.post('/:activityId/submit-question', submitQuestionResponse)
 
 export default router

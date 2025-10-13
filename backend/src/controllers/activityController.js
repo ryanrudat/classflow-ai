@@ -475,3 +475,86 @@ export async function getSessionActivities(req, res) {
     res.status(500).json({ message: 'Failed to get session activities' })
   }
 }
+
+/**
+ * Submit individual question response with metadata
+ * POST /api/activities/:activityId/submit-question
+ * Body: { studentId, sessionId, questionNumber, selectedAnswer, isCorrect, attemptNumber, helpReceived, timeSpent }
+ * Public: No auth required (students)
+ */
+export async function submitQuestionResponse(req, res) {
+  try {
+    const { activityId } = req.params
+    const {
+      studentId,
+      sessionId,
+      questionNumber,
+      selectedAnswer,
+      isCorrect,
+      attemptNumber = 1,
+      helpReceived = false,
+      timeSpent = 0
+    } = req.body
+
+    // Validation
+    if (!studentId || !sessionId || questionNumber === undefined) {
+      return res.status(400).json({
+        message: 'Student ID, session ID, and question number are required'
+      })
+    }
+
+    // Save question response with all metadata
+    const result = await db.query(
+      `INSERT INTO student_responses (
+        activity_id,
+        student_id,
+        session_id,
+        question_number,
+        is_correct,
+        attempt_number,
+        help_received,
+        time_spent_seconds,
+        response
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *`,
+      [
+        activityId,
+        studentId,
+        sessionId,
+        questionNumber,
+        isCorrect,
+        attemptNumber,
+        helpReceived,
+        timeSpent,
+        JSON.stringify({ selectedAnswer, questionNumber })
+      ]
+    )
+
+    // Log analytics
+    await db.query(
+      `INSERT INTO analytics_events (event_type, session_id, properties)
+       VALUES ($1, $2, $3)`,
+      [
+        'question_answered',
+        sessionId,
+        JSON.stringify({
+          activityId,
+          questionNumber,
+          isCorrect,
+          attemptNumber,
+          helpReceived
+        })
+      ]
+    )
+
+    res.json({
+      message: 'Question response saved successfully',
+      response: result.rows[0]
+    })
+
+  } catch (error) {
+    console.error('Submit question response error:', error)
+    res.status(500).json({ message: 'Failed to save question response' })
+  }
+}

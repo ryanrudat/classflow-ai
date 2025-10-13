@@ -416,7 +416,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     loadAnalytics()
   }, [session?.id, selectedInstance?.id])
 
-  // Load session instances
+  // Load session instances (reload when status changes, e.g., after reactivation)
   useEffect(() => {
     if (!session?.id) return
 
@@ -438,7 +438,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
     }
 
     loadInstances()
-  }, [session?.id])
+  }, [session?.id, session?.status])
 
   // Function to load students for a specific instance
   async function loadInstanceStudents(instanceId) {
@@ -803,10 +803,23 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 
 // Tab Components
 function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail }) {
+  const [studentProgressData, setStudentProgressData] = useState([])
+  const [studentIdToRemove, setStudentIdToRemove] = useState(null)
+
   // Find active quiz/questions activities for live monitoring
   const activeMonitoringActivity = sessionActivities.find(a =>
     (a.type === 'quiz' || a.type === 'questions') && a.pushed_to
   )
+
+  // Shared handler for removing students from live monitoring
+  const handleRemoveFromMonitoring = (studentId) => {
+    // Update local state
+    setStudentProgressData(prev => prev.filter(s => s.studentId !== studentId))
+    // Trigger LiveMonitoring to remove the student
+    setStudentIdToRemove(studentId)
+    // Reset the trigger after a brief moment to allow future removals
+    setTimeout(() => setStudentIdToRemove(null), 100)
+  }
 
   return (
     <div className="space-y-6">
@@ -1041,7 +1054,11 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           <LiveMonitoring
             sessionId={session.id}
             activityId={activeMonitoringActivity.id}
-            onStudentClick={(student) => setSelectedStudentDetail(student)}
+            instanceId={selectedInstance?.id}
+            onStudentClick={(student) => setSelectedStudentDetail(student.studentId)}
+            onRemoveStudent={handleRemoveFromMonitoring}
+            onProgressDataChange={setStudentProgressData}
+            studentIdToRemove={studentIdToRemove}
           />
         </div>
       )}
@@ -1049,8 +1066,13 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       {/* Student Detail Modal */}
       {selectedStudentDetail && (
         <StudentDetailModal
-          student={selectedStudentDetail}
+          studentId={selectedStudentDetail}
+          studentProgress={studentProgressData}
           onClose={() => setSelectedStudentDetail(null)}
+          onRemoveStudent={(studentId) => {
+            handleRemoveFromMonitoring(studentId)
+            setSelectedStudentDetail(null)
+          }}
         />
       )}
     </div>

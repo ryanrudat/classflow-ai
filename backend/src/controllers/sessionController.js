@@ -524,12 +524,13 @@ export async function getInstanceDetails(req, res) {
 
 /**
  * Get live student progress for an activity
- * GET /api/sessions/:sessionId/activities/:activityId/progress
+ * GET /api/sessions/:sessionId/activities/:activityId/progress?instanceId=xxx
  * Protected: Teacher only
  */
 export async function getActivityProgress(req, res) {
   try {
     const { sessionId, activityId } = req.params
+    const { instanceId } = req.query // Optional - filter by specific instance
     const teacherId = req.user.userId
 
     // Verify teacher owns this session
@@ -555,14 +556,22 @@ export async function getActivityProgress(req, res) {
     const activity = activityCheck.rows[0]
     const totalQuestions = activity.content?.questions?.length || activity.content?.quiz?.length || 0
 
-    // Get all students in session
-    const studentsResult = await db.query(
-      `SELECT ss.id, ss.student_name, ss.joined_at
-       FROM session_students ss
-       WHERE ss.session_id = $1
-       ORDER BY ss.student_name ASC`,
-      [sessionId]
-    )
+    // Get students in session - filter by instance if provided
+    let studentsQuery = `
+      SELECT ss.id, ss.student_name, ss.joined_at, ss.instance_id
+      FROM session_students ss
+      WHERE ss.session_id = $1
+    `
+    const queryParams = [sessionId]
+
+    if (instanceId) {
+      studentsQuery += ' AND ss.instance_id = $2'
+      queryParams.push(instanceId)
+    }
+
+    studentsQuery += ' ORDER BY ss.student_name ASC'
+
+    const studentsResult = await db.query(studentsQuery, queryParams)
 
     // Get detailed progress for each student
     const progressPromises = studentsResult.rows.map(async (student) => {
