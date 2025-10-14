@@ -1221,6 +1221,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
             sessionId={session.id}
             activityId={activeMonitoringActivity.id}
             instanceId={selectedInstance?.id}
+            allowedStudentIds={students.map(s => s.id)}
             onStudentClick={(student) => setSelectedStudentDetail(student.studentId)}
             onRemoveStudent={handleRemoveFromMonitoring}
             onProgressDataChange={setStudentProgressData}

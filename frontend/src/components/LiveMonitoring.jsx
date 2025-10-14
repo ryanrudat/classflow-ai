@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react'
  * Displays real-time student progress during an active activity
  * Shows student cards with at-a-glance metrics and status indicators
  */
-export default function LiveMonitoring({ sessionId, activityId, instanceId, onStudentClick, onRemoveStudent, onProgressDataChange, studentIdToRemove }) {
+export default function LiveMonitoring({ sessionId, activityId, instanceId, allowedStudentIds = [], onStudentClick, onRemoveStudent, onProgressDataChange, studentIdToRemove }) {
   const [studentProgress, setStudentProgress] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -56,6 +56,12 @@ export default function LiveMonitoring({ sessionId, activityId, instanceId, onSt
 
   // Handle real-time updates via props (to be connected to WebSocket)
   const handleProgressUpdate = (update) => {
+    // Filter: Only show students from the currently selected period
+    if (allowedStudentIds.length > 0 && !allowedStudentIds.includes(update.studentId)) {
+      console.log(`[LiveMonitoring] Filtered out student ${update.studentId} - not in current period`)
+      return
+    }
+
     setStudentProgress(prev => {
       const existingIndex = prev.findIndex(s => s.studentId === update.studentId)
 
