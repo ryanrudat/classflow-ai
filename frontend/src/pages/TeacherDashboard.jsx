@@ -1217,9 +1217,6 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           <h3 className="text-xl font-bold text-gray-800 mb-4">
             📊 Live Progress Monitoring
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Real-time student progress for: <span className="font-medium">{activeMonitoringActivity.prompt}</span>
-          </p>
           <LiveMonitoring
             sessionId={session.id}
             activityId={activeMonitoringActivity.id}
