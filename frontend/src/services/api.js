@@ -222,6 +222,27 @@ export const slidesAPI = {
   getSessionDecks: async (sessionId) => {
     const response = await api.get(`/slides/sessions/${sessionId}/decks`)
     return response.data
+  },
+
+  // Create a blank slide
+  createBlankSlide: async (deckId, title = 'Untitled Slide', position = null) => {
+    const response = await api.post(`/slides/decks/${deckId}/slides`, {
+      title,
+      position
+    })
+    return response.data
+  },
+
+  // Duplicate an existing slide
+  duplicateSlide: async (slideId) => {
+    const response = await api.post(`/slides/${slideId}/duplicate`)
+    return response.data
+  },
+
+  // Reorder slides in a deck
+  reorderSlides: async (deckId, slides) => {
+    const response = await api.put(`/slides/decks/${deckId}/reorder`, { slides })
+    return response.data
   }
 }
 

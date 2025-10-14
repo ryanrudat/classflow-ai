@@ -14,7 +14,9 @@ export default function ResizableImage({
   initialY = 0,
   onResize,
   onDragStop,
-  editable = true
+  editable = true,
+  objectFit = 'contain', // 'contain', 'cover', 'fill', 'none', 'scale-down'
+  lockAspectRatio = false
 }) {
   const [size, setSize] = useState({ width: initialWidth, height: initialHeight })
   const [position, setPosition] = useState({ x: initialX, y: initialY })
@@ -50,7 +52,7 @@ export default function ResizableImage({
           width: size.width,
           height: size.height,
           maxWidth: '100%',
-          objectFit: 'contain'
+          objectFit: objectFit
         }}
         className="rounded-lg shadow-md"
       />
@@ -69,7 +71,7 @@ export default function ResizableImage({
       maxWidth={1000}
       maxHeight={800}
       bounds="parent"
-      lockAspectRatio={false}
+      lockAspectRatio={lockAspectRatio}
       className="resizable-image-container"
       enableResizing={{
         top: true,
@@ -86,7 +88,7 @@ export default function ResizableImage({
         <img
           src={imageUrl}
           alt={alt}
-          className="w-full h-full object-contain rounded-lg shadow-lg border-2 border-gray-300 group-hover:border-blue-500 transition-colors"
+          className={`w-full h-full object-${objectFit} rounded-lg shadow-lg border-2 border-gray-300 group-hover:border-blue-500 transition-colors`}
           draggable={false}
         />
 

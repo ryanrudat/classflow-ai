@@ -182,7 +182,9 @@ export async function getDeck(req, res) {
           alt: slide.image_alt,
           position: slide.image_position,
           width: slide.image_width,
-          height: slide.image_height
+          height: slide.image_height,
+          objectFit: slide.image_object_fit || 'contain',
+          lockAspectRatio: slide.image_lock_aspect_ratio || false
         } : null,
         question: slide.question,
         createdAt: slide.created_at,
@@ -211,6 +213,8 @@ export async function updateSlide(req, res) {
       imagePosition,
       imageWidth,
       imageHeight,
+      imageObjectFit,
+      imageLockAspectRatio,
       template
     } = req.body
 
@@ -258,6 +262,14 @@ export async function updateSlide(req, res) {
     if (imageHeight !== undefined) {
       updates.push(`image_height = $${paramCount++}`)
       values.push(imageHeight)
+    }
+    if (imageObjectFit !== undefined) {
+      updates.push(`image_object_fit = $${paramCount++}`)
+      values.push(imageObjectFit)
+    }
+    if (imageLockAspectRatio !== undefined) {
+      updates.push(`image_lock_aspect_ratio = $${paramCount++}`)
+      values.push(imageLockAspectRatio)
     }
     if (template !== undefined) {
       updates.push(`template = $${paramCount++}`)
@@ -432,5 +444,182 @@ export async function getSessionDecks(req, res) {
       message: 'Failed to get session decks',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
+  }
+}
+
+/**
+ * Create a blank slide
+ * POST /api/slides/decks/:deckId/slides
+ * Body: { title, position }
+ */
+export async function createBlankSlide(req, res) {
+  try {
+    const { deckId } = req.params
+    const { title = 'Untitled Slide', position } = req.body
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT d.id
+       FROM slide_decks d
+       JOIN sessions s ON d.session_id = s.id
+       WHERE d.id = $1 AND s.teacher_id = $2`,
+      [deckId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Deck not found or unauthorized' })
+    }
+
+    // Get the current max slide number
+    const maxSlideResult = await db.query(
+      'SELECT MAX(slide_number) as max_num FROM slides WHERE deck_id = $1',
+      [deckId]
+    )
+
+    const slideNumber = position !== undefined
+      ? position
+      : (maxSlideResult.rows[0]?.max_num || 0) + 1
+
+    // Create the blank slide
+    const result = await db.query(
+      `INSERT INTO slides (
+        deck_id, slide_number, type, title, body, template, difficulty_level
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *`,
+      [deckId, slideNumber, 'content', title, '', 'default', 'medium']
+    )
+
+    res.json({
+      slide: result.rows[0],
+      message: 'Blank slide created successfully'
+    })
+
+  } catch (error) {
+    console.error('Create blank slide error:', error)
+    res.status(500).json({ message: 'Failed to create blank slide' })
+  }
+}
+
+/**
+ * Duplicate a slide
+ * POST /api/slides/:slideId/duplicate
+ */
+export async function duplicateSlide(req, res) {
+  try {
+    const { slideId } = req.params
+    const teacherId = req.user.userId
+
+    // Get original slide and verify ownership
+    const slideResult = await db.query(
+      `SELECT sl.*
+       FROM slides sl
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE sl.id = $1 AND s.teacher_id = $2`,
+      [slideId, teacherId]
+    )
+
+    if (slideResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Slide not found or unauthorized' })
+    }
+
+    const original = slideResult.rows[0]
+
+    // Get max slide number to append duplicate at the end
+    const maxSlideResult = await db.query(
+      'SELECT MAX(slide_number) as max_num FROM slides WHERE deck_id = $1',
+      [original.deck_id]
+    )
+
+    const newSlideNumber = (maxSlideResult.rows[0]?.max_num || 0) + 1
+
+    // Create duplicate
+    const result = await db.query(
+      `INSERT INTO slides (
+        deck_id, slide_number, type, title, body, template, difficulty_level,
+        image_id, image_position, image_width, image_height, question
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING *`,
+      [
+        original.deck_id,
+        newSlideNumber,
+        original.type,
+        `${original.title} (Copy)`,
+        original.body,
+        original.template,
+        original.difficulty_level,
+        original.image_id,
+        original.image_position,
+        original.image_width,
+        original.image_height,
+        original.question
+      ]
+    )
+
+    res.json({
+      slide: result.rows[0],
+      message: 'Slide duplicated successfully'
+    })
+
+  } catch (error) {
+    console.error('Duplicate slide error:', error)
+    res.status(500).json({ message: 'Failed to duplicate slide' })
+  }
+}
+
+/**
+ * Reorder slides
+ * PUT /api/slides/decks/:deckId/reorder
+ * Body: { slides: [{ id, slideNumber }] }
+ */
+export async function reorderSlides(req, res) {
+  try {
+    const { deckId } = req.params
+    const { slides } = req.body
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT d.id
+       FROM slide_decks d
+       JOIN sessions s ON d.session_id = s.id
+       WHERE d.id = $1 AND s.teacher_id = $2`,
+      [deckId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Deck not found or unauthorized' })
+    }
+
+    // Update slide numbers in a transaction
+    const client = await db.connect()
+
+    try {
+      await client.query('BEGIN')
+
+      for (const slide of slides) {
+        await client.query(
+          'UPDATE slides SET slide_number = $1 WHERE id = $2',
+          [slide.slideNumber, slide.id]
+        )
+      }
+
+      await client.query('COMMIT')
+
+      res.json({ message: 'Slides reordered successfully' })
+
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+
+  } catch (error) {
+    console.error('Reorder slides error:', error)
+    res.status(500).json({ message: 'Failed to reorder slides' })
   }
 }

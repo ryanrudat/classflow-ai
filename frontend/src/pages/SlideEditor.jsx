@@ -61,6 +61,8 @@ export default function SlideEditor() {
         imagePosition: currentSlide.image?.position,
         imageWidth: currentSlide.image?.width,
         imageHeight: currentSlide.image?.height,
+        imageObjectFit: currentSlide.image?.objectFit,
+        imageLockAspectRatio: currentSlide.image?.lockAspectRatio,
         template: currentSlide.template
       })
 
@@ -110,6 +112,36 @@ export default function SlideEditor() {
       setError(err.response?.data?.message || 'Failed to generate variant')
     } finally {
       setIsGeneratingVariant(false)
+    }
+  }
+
+  const handleCreateBlankSlide = async () => {
+    try {
+      const result = await slidesAPI.createBlankSlide(deckId)
+
+      // Reload deck to show new slide
+      await loadDeck()
+
+      // Navigate to the new slide (it will be at the end)
+      setCurrentSlideIndex(deck.slides.length)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create blank slide')
+    }
+  }
+
+  const handleDuplicateSlide = async () => {
+    if (!currentSlide) return
+
+    try {
+      const result = await slidesAPI.duplicateSlide(currentSlide.id)
+
+      // Reload deck to show duplicated slide
+      await loadDeck()
+
+      // Navigate to the duplicated slide (it will be at the end)
+      setCurrentSlideIndex(deck.slides.length)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to duplicate slide')
     }
   }
 
@@ -170,13 +202,13 @@ export default function SlideEditor() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Slide thumbnails sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+      <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-bold text-lg text-gray-900">Slides</h2>
           <p className="text-sm text-gray-600">{deck.slides.length} slides</p>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="flex-1 p-4 space-y-3">
           {deck.slides.map((slide, index) => (
             <SlidePreview
               key={slide.id}
@@ -185,6 +217,19 @@ export default function SlideEditor() {
               onClick={() => setCurrentSlideIndex(index)}
             />
           ))}
+        </div>
+
+        {/* New Blank Slide button */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleCreateBlankSlide}
+            className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            New Blank Slide
+          </button>
         </div>
       </aside>
 
@@ -290,23 +335,57 @@ export default function SlideEditor() {
               {currentSlide?.image ? (
                 <div className="space-y-4">
                   {/* Image controls */}
-                  <div className="flex items-center gap-3">
-                    <select
-                      value={currentSlide.image.position || 'right'}
-                      onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, position: e.target.value })}
-                      className="px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="left">Left</option>
-                      <option value="center">Center</option>
-                      <option value="right">Right</option>
-                    </select>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Position
+                      </label>
+                      <select
+                        value={currentSlide.image.position || 'right'}
+                        onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, position: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
 
-                    <button
-                      onClick={handleRemoveImage}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                    >
-                      Remove Image
-                    </button>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Fit Style
+                      </label>
+                      <select
+                        value={currentSlide.image.objectFit || 'contain'}
+                        onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, objectFit: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="contain">Contain (fit inside)</option>
+                        <option value="cover">Cover (fill, crop edges)</option>
+                        <option value="fill">Fill (stretch to fit)</option>
+                        <option value="scale-down">Scale Down</option>
+                        <option value="none">None (original size)</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-2 flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlide.image.lockAspectRatio || false}
+                          onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, lockAspectRatio: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Lock aspect ratio when resizing</span>
+                      </label>
+
+                      <button
+                        onClick={handleRemoveImage}
+                        className="ml-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        Remove Image
+                      </button>
+                    </div>
                   </div>
 
                   {/* Resizable image */}
@@ -318,6 +397,8 @@ export default function SlideEditor() {
                       initialHeight={currentSlide.image.height}
                       onResize={handleImageResize}
                       editable={true}
+                      objectFit={currentSlide.image.objectFit || 'contain'}
+                      lockAspectRatio={currentSlide.image.lockAspectRatio || false}
                     />
                   </div>
                 </div>
@@ -330,30 +411,44 @@ export default function SlideEditor() {
             </div>
 
             {/* Slide actions */}
-            <div className="border-t border-gray-200 pt-6 flex items-center justify-between">
-              <div className="flex gap-2">
+            <div className="border-t border-gray-200 pt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleGenerateVariant('easier')}
+                    disabled={isGeneratingVariant}
+                    className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors text-sm"
+                  >
+                    Generate Easier Variant
+                  </button>
+                  <button
+                    onClick={() => handleGenerateVariant('harder')}
+                    disabled={isGeneratingVariant}
+                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors text-sm"
+                  >
+                    Generate Harder Variant
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => handleGenerateVariant('easier')}
-                  disabled={isGeneratingVariant}
-                  className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 disabled:opacity-50 transition-colors"
+                  onClick={handleDuplicateSlide}
+                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2 text-sm"
                 >
-                  Generate Easier Variant
-                </button>
-                <button
-                  onClick={() => handleGenerateVariant('harder')}
-                  disabled={isGeneratingVariant}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
-                >
-                  Generate Harder Variant
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Duplicate Slide
                 </button>
               </div>
 
-              <button
-                onClick={handleDeleteSlide}
-                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Delete Slide
-              </button>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleDeleteSlide}
+                  className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
+                >
+                  Delete Slide
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -5,7 +5,10 @@ import {
   updateSlide,
   deleteSlide,
   generateVariant,
-  getSessionDecks
+  getSessionDecks,
+  createBlankSlide,
+  duplicateSlide,
+  reorderSlides
 } from '../controllers/slidesController.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -31,5 +34,14 @@ router.post('/:slideId/variant', generateVariant)
 
 // Get all decks for a session
 router.get('/sessions/:sessionId/decks', getSessionDecks)
+
+// Create a blank slide
+router.post('/decks/:deckId/slides', createBlankSlide)
+
+// Duplicate an existing slide
+router.post('/:slideId/duplicate', duplicateSlide)
+
+// Reorder slides in a deck
+router.put('/decks/:deckId/reorder', reorderSlides)
 
 export default router
