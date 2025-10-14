@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI } from '../services/api'
+import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI, completionAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import LiveMonitoring from '../components/LiveMonitoring'
 import StudentDetailModal from '../components/StudentDetailModal'
+import ReactivateDialog from '../components/ReactivateDialog'
+import ActivityStatusBadge from '../components/ActivityStatusBadge'
+import UnlockActivityModal from '../components/UnlockActivityModal'
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()
@@ -15,6 +18,9 @@ export default function TeacherDashboard() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false)
+  const [sessionToReactivate, setSessionToReactivate] = useState(null)
+  const [reactivateInstances, setReactivateInstances] = useState([])
 
   // Load sessions on mount
   useEffect(() => {
@@ -60,17 +66,47 @@ export default function TeacherDashboard() {
   }
 
   async function reactivateSession(sessionId) {
-    if (!confirm('Reactivate this session? Students will be able to join again with the same code.')) return
+    try {
+      // Load instances for this session
+      const data = await sessionsAPI.getInstances(sessionId)
+      setReactivateInstances(data.instances || [])
+      setSessionToReactivate(sessions.find(s => s.id === sessionId))
+      setShowReactivateDialog(true)
+    } catch (err) {
+      console.error('Failed to load instances:', err)
+      alert('Failed to load session data')
+    }
+  }
+
+  async function handleResumeInstance(instanceId) {
+    if (!sessionToReactivate) return
 
     try {
-      const result = await sessionsAPI.reactivate(sessionId)
+      const result = await sessionsAPI.reactivate(sessionToReactivate.id, instanceId)
       loadSessions()
-      // Update the active session to reflect the new status
-      if (activeSession?.id === sessionId) {
+      if (activeSession?.id === sessionToReactivate.id) {
         setActiveSession(result.session)
       }
+      setShowReactivateDialog(false)
+      setSessionToReactivate(null)
     } catch (err) {
-      alert('Failed to reactivate session')
+      alert('Failed to resume session')
+    }
+  }
+
+  async function handleStartNewInstance() {
+    if (!sessionToReactivate) return
+
+    try {
+      const result = await sessionsAPI.reactivate(sessionToReactivate.id)
+      loadSessions()
+      if (activeSession?.id === sessionToReactivate.id) {
+        setActiveSession(result.session)
+      }
+      setShowReactivateDialog(false)
+      setSessionToReactivate(null)
+    } catch (err) {
+      alert('Failed to start new period')
     }
   }
 
@@ -214,6 +250,20 @@ export default function TeacherDashboard() {
           onCreate={createSession}
           loading={loading}
           error={error}
+        />
+      )}
+
+      {/* Reactivate Session Dialog */}
+      {showReactivateDialog && sessionToReactivate && (
+        <ReactivateDialog
+          session={sessionToReactivate}
+          instances={reactivateInstances}
+          onResume={handleResumeInstance}
+          onStartNew={handleStartNewInstance}
+          onCancel={() => {
+            setShowReactivateDialog(false)
+            setSessionToReactivate(null)
+          }}
         />
       )}
     </div>
@@ -450,7 +500,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       setStudents(data.students.map(s => ({
         id: s.id,
         name: s.student_name,
-        connected: false // Will be updated to true when they join via WebSocket
+        connected: false, // Will be updated to true when they join via WebSocket
+        account_id: s.account_id // Include account_id for authenticated students
       })) || [])
 
       console.log(`📚 Loaded ${data.students.length} students from database for instance ${instanceId}`)
@@ -783,6 +834,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               analytics={analytics}
               loadingAnalytics={loadingAnalytics}
               selectedInstance={selectedInstance}
+              session={session}
+              instances={instances}
             />
           )}
         </div>
@@ -805,6 +858,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail }) {
   const [studentProgressData, setStudentProgressData] = useState([])
   const [studentIdToRemove, setStudentIdToRemove] = useState(null)
+  const [studentCompletions, setStudentCompletions] = useState({}) // Map of studentId -> completions
+  const [loadingCompletions, setLoadingCompletions] = useState(false)
+  const [unlockModal, setUnlockModal] = useState(null) // { studentId, studentName, activityId, activityName }
+  const [unlocking, setUnlocking] = useState(false)
 
   // Find active quiz/questions activities for live monitoring
   const activeMonitoringActivity = sessionActivities.find(a =>
@@ -819,6 +876,63 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
     setStudentIdToRemove(studentId)
     // Reset the trigger after a brief moment to allow future removals
     setTimeout(() => setStudentIdToRemove(null), 100)
+  }
+
+  // Load completions for authenticated students
+  useEffect(() => {
+    if (!students || students.length === 0 || !session?.id) return
+
+    async function loadCompletions() {
+      setLoadingCompletions(true)
+      const completionsMap = {}
+
+      for (const student of students) {
+        // Only load for students with account_id (authenticated students)
+        if (student.account_id) {
+          try {
+            const data = await completionAPI.getStudentCompletions(student.account_id, session.id)
+            completionsMap[student.id] = data.completions || []
+          } catch (error) {
+            console.error(`Failed to load completions for student ${student.id}:`, error)
+            completionsMap[student.id] = []
+          }
+        }
+      }
+
+      setStudentCompletions(completionsMap)
+      setLoadingCompletions(false)
+    }
+
+    loadCompletions()
+  }, [students, session?.id])
+
+  // Handle unlock activity
+  const handleUnlock = async (reason) => {
+    if (!unlockModal) return
+
+    try {
+      setUnlocking(true)
+      await completionAPI.unlockActivity(
+        unlockModal.activityId,
+        unlockModal.studentAccountId,
+        reason
+      )
+
+      // Reload completions for this student
+      const data = await completionAPI.getStudentCompletions(unlockModal.studentAccountId, session.id)
+      setStudentCompletions(prev => ({
+        ...prev,
+        [unlockModal.studentId]: data.completions || []
+      }))
+
+      setUnlockModal(null)
+      alert(`Successfully unlocked "${unlockModal.activityName}" for ${unlockModal.studentName}`)
+    } catch (error) {
+      console.error('Failed to unlock activity:', error)
+      alert('Failed to unlock activity: ' + (error.response?.data?.message || error.message))
+    } finally {
+      setUnlocking(false)
+    }
   }
 
   return (
@@ -942,26 +1056,34 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
             <div className="text-sm text-gray-600 mb-3">
               {students.filter(s => s.connected !== false).length} / {students.length} online
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="space-y-4">
               {students.map(student => {
                 const hasResponded = studentResponses.some(r => r.studentId === student.id)
                 const isConnected = student.connected !== false
+                const completions = studentCompletions[student.id] || []
+                const hasAccount = !!student.account_id
+
                 return (
                   <div
                     key={student.id}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       !isConnected
-                        ? 'border-gray-300 bg-gray-100 opacity-60'
+                        ? 'border-gray-300 bg-gray-100'
                         : hasResponded
                         ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 flex-1">
                         <span className={`font-medium ${isConnected ? 'text-gray-900' : 'text-gray-500 line-through'}`}>
                           {student.name}
                         </span>
+                        {hasAccount && (
+                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded font-medium">
+                            Account
+                          </span>
+                        )}
                         {!isConnected && (
                           <span className="text-xs text-gray-500 font-medium">Offline</span>
                         )}
@@ -984,6 +1106,53 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                         </svg>
                       </button>
                     </div>
+
+                    {/* Activity Completions for Authenticated Students */}
+                    {hasAccount && completions.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="text-xs font-semibold text-gray-700 mb-2">Activity Completions:</div>
+                        <div className="space-y-2">
+                          {completions.map((completion) => {
+                            const activityName = completion.activity_prompt || `Activity ${completion.activity_id.slice(0, 8)}`
+                            return (
+                              <div key={completion.activity_id} className="flex items-center justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-medium text-gray-900 truncate">
+                                    {activityName}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                      completion.is_locked
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                    }`}>
+                                      {completion.is_locked ? '🔒 Locked' : '✓ Complete'}
+                                    </span>
+                                    <span className="text-xs text-gray-600">
+                                      Score: {completion.score}%
+                                    </span>
+                                  </div>
+                                </div>
+                                {completion.is_locked && (
+                                  <button
+                                    onClick={() => setUnlockModal({
+                                      studentId: student.id,
+                                      studentName: student.name,
+                                      studentAccountId: student.account_id,
+                                      activityId: completion.activity_id,
+                                      activityName
+                                    })}
+                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded transition-colors flex-shrink-0"
+                                  >
+                                    Unlock
+                                  </button>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -1073,6 +1242,17 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
             handleRemoveFromMonitoring(studentId)
             setSelectedStudentDetail(null)
           }}
+        />
+      )}
+
+      {/* Unlock Activity Modal */}
+      {unlockModal && (
+        <UnlockActivityModal
+          studentName={unlockModal.studentName}
+          activityName={unlockModal.activityName}
+          onConfirm={handleUnlock}
+          onCancel={() => setUnlockModal(null)}
+          loading={unlocking}
         />
       )}
     </div>
@@ -1345,7 +1525,24 @@ function ActivitiesTab({
   )
 }
 
-function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance }) {
+function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance, session, instances }) {
+  const [exporting, setExporting] = useState(false)
+
+  const handleExportGrades = async (exportAllPeriods = false) => {
+    try {
+      setExporting(true)
+      if (exportAllPeriods) {
+        await sessionsAPI.exportGrades(session.id)
+      } else {
+        await sessionsAPI.exportGrades(session.id, selectedInstance?.id)
+      }
+    } catch (err) {
+      alert('Failed to export grades: ' + err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loadingAnalytics) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1370,12 +1567,42 @@ function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Session Analytics</h3>
-        {selectedInstance && (
-          <p className="text-sm text-gray-600 mb-6">
-            Showing data for: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
-          </p>
-        )}
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Session Analytics</h3>
+            {selectedInstance && (
+              <p className="text-sm text-gray-600 mt-1">
+                Showing data for: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+              </p>
+            )}
+          </div>
+
+          {/* Export Buttons */}
+          <div className="flex gap-2">
+            {instances && instances.length > 1 && (
+              <button
+                onClick={() => handleExportGrades(true)}
+                disabled={exporting}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                {exporting ? 'Exporting...' : 'Export All Periods'}
+              </button>
+            )}
+            <button
+              onClick={() => handleExportGrades(false)}
+              disabled={exporting}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {exporting ? 'Exporting...' : `Export ${selectedInstance?.label || 'Current Period'}`}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Summary Stats */}

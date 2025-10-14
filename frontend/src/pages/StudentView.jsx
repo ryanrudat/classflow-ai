@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
+import { useStudentAuthStore } from '../stores/studentAuthStore'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
+import CreateAccountBanner from '../components/CreateAccountBanner'
 
 export default function StudentView() {
   const { joinCode } = useParams()
+  const { isAuthenticated } = useStudentAuthStore()
   const [step, setStep] = useState('join') // 'join', 'active'
   const [session, setSession] = useState(null)
   const [student, setStudent] = useState(null)
@@ -258,6 +261,9 @@ export default function StudentView() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Create Account Banner - Only show for anonymous students */}
+      {!isAuthenticated() && <CreateAccountBanner sessionId={session?.id} />}
+
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
@@ -345,6 +351,10 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
   const [isCorrect, setIsCorrect] = useState(null)
   const [startTime] = useState(Date.now())
 
+  // Locked activity state
+  const [showLockedModal, setShowLockedModal] = useState(false)
+  const [lockMessage, setLockMessage] = useState('')
+
   // Enhanced handleSubmit with help system
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -411,7 +421,15 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
         })
       } catch (error) {
         console.error('Failed to save question response:', error)
-        // Don't block the student - continue even if save fails
+
+        // Check if activity is locked (403 error)
+        if (error.response?.status === 403) {
+          setLockMessage(error.response?.data?.message || 'This activity has been completed and locked.')
+          setShowLockedModal(true)
+          setSubmitted(false) // Reset so they can see their answer but not continue
+          return // Don't continue if locked
+        }
+        // For other errors, don't block the student - continue even if save fails
       }
 
       if (correct) {
@@ -732,6 +750,37 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
             onDismiss={handleDismissHelp}
             loading={helpLoading}
           />
+        )}
+
+        {/* Locked Activity Modal */}
+        {showLockedModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+              <div className="text-center">
+                <div className="text-6xl mb-4">🔒</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">Activity Locked</h3>
+                <p className="text-gray-700 mb-4">
+                  {lockMessage}
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    <strong>Why is this locked?</strong><br />
+                    You've completed this activity and it has been automatically locked to preserve your work.
+                    If you need to retake it, please contact your teacher.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowLockedModal(false)
+                    // Optionally navigate away or reset activity
+                  }}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors w-full"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     )

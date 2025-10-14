@@ -55,8 +55,11 @@ export const sessionsAPI = {
     return response.data
   },
 
-  reactivate: async (sessionId) => {
-    const response = await api.post(`/sessions/${sessionId}/reactivate`)
+  reactivate: async (sessionId, resumeInstanceId = null, label = null) => {
+    const response = await api.post(`/sessions/${sessionId}/reactivate`, {
+      resumeInstanceId,
+      label
+    })
     return response.data
   },
 
@@ -86,6 +89,44 @@ export const sessionsAPI = {
   getInstanceDetails: async (sessionId, instanceId) => {
     const response = await api.get(`/sessions/${sessionId}/instances/${instanceId}`)
     return response.data
+  },
+
+  exportGrades: async (sessionId, instanceId = null) => {
+    const url = instanceId
+      ? `/sessions/${sessionId}/export-grades?instanceId=${instanceId}&format=csv`
+      : `/sessions/${sessionId}/export-grades?format=csv`
+
+    // Use raw fetch instead of axios to handle CSV download
+    const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+
+    const response = await fetch(`${API_URL}/api${url}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to export grades')
+    }
+
+    // Get the filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition')
+    const filename = contentDisposition
+      ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+      : 'grades.csv'
+
+    // Create blob and download
+    const blob = await response.blob()
+    const downloadUrl = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.URL.revokeObjectURL(downloadUrl)
+
+    return { success: true, filename }
   }
 }
 
@@ -265,6 +306,54 @@ export const studentHelpAPI = {
       ? `/student-help/history/${sessionId}?studentId=${studentId}&limit=${limit}`
       : `/student-help/history/${sessionId}?limit=${limit}`
     const response = await api.get(url)
+    return response.data
+  }
+}
+
+// Student Auth API
+export const studentAuthAPI = {
+  // Register new student account
+  register: async (data) => {
+    const response = await api.post('/students/register', data)
+    return response.data
+  },
+
+  // Login student
+  login: async (email, password) => {
+    const response = await api.post('/students/login', { email, password })
+    return response.data
+  },
+
+  // Get current student profile
+  me: async () => {
+    const response = await api.get('/students/me')
+    return response.data
+  },
+
+  // Get student's completions for a session
+  getCompletions: async (sessionId) => {
+    const response = await api.get(`/students/completions/${sessionId}`)
+    return response.data
+  }
+}
+
+// Activity Completion API (teacher controls)
+export const completionAPI = {
+  // Get completion status for a student (teacher view)
+  getStudentCompletions: async (studentAccountId, sessionId = null) => {
+    const url = sessionId
+      ? `/activities/completions/${studentAccountId}?sessionId=${sessionId}`
+      : `/activities/completions/${studentAccountId}`
+    const response = await api.get(url)
+    return response.data
+  },
+
+  // Unlock activity for retakes (teacher only)
+  unlockActivity: async (activityId, studentAccountId, reason = null) => {
+    const response = await api.post(`/activities/${activityId}/unlock`, {
+      studentAccountId,
+      reason
+    })
     return response.data
   }
 }

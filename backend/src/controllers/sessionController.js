@@ -187,15 +187,17 @@ export async function endSession(req, res) {
 }
 
 /**
- * Reactivate ended session (creates new instance for new class period)
+ * Reactivate ended session (resume existing period or create new one)
  * POST /api/sessions/:id/reactivate
- * Body: { label } (optional - e.g., "Period 2", "Class B")
+ * Body: { resumeInstanceId, label } (optional)
+ *   - If resumeInstanceId provided: Resume that period
+ *   - Otherwise: Create new period with optional label
  * Protected: Teacher only
  */
 export async function reactivateSession(req, res) {
   try {
     const { id } = req.params
-    const { label } = req.body
+    const { resumeInstanceId, label } = req.body
     const teacherId = req.user.userId
 
     // Verify teacher owns this session
@@ -212,26 +214,67 @@ export async function reactivateSession(req, res) {
       return res.status(400).json({ message: 'Session is already active' })
     }
 
-    // Mark all existing instances as not current
+    let instanceResult
+
+    // Mark all existing instances as not current first
     await db.query(
       'UPDATE session_instances SET is_current = false WHERE session_id = $1',
       [id]
     )
 
-    // Get the next instance number
-    const instanceCountResult = await db.query(
-      'SELECT COALESCE(MAX(instance_number), 0) + 1 as next_number FROM session_instances WHERE session_id = $1',
-      [id]
-    )
-    const nextInstanceNumber = instanceCountResult.rows[0].next_number
+    if (resumeInstanceId) {
+      // RESUME MODE: Verify instance exists and belongs to this session
+      const instanceCheck = await db.query(
+        'SELECT * FROM session_instances WHERE id = $1 AND session_id = $2',
+        [resumeInstanceId, id]
+      )
 
-    // Create new instance
-    const instanceResult = await db.query(
-      `INSERT INTO session_instances (session_id, instance_number, label, is_current)
-       VALUES ($1, $2, $3, true)
-       RETURNING *`,
-      [id, nextInstanceNumber, label || `Period ${nextInstanceNumber}`]
-    )
+      if (instanceCheck.rows.length === 0) {
+        return res.status(404).json({ message: 'Instance not found' })
+      }
+
+      // Mark the existing instance as current
+      instanceResult = await db.query(
+        'UPDATE session_instances SET is_current = true WHERE id = $1 RETURNING *',
+        [resumeInstanceId]
+      )
+
+      // Log analytics for resume
+      await db.query(
+        `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+         VALUES ($1, $2, $3, $4)`,
+        ['session_resumed', teacherId, id, JSON.stringify({
+          instanceId: resumeInstanceId,
+          instanceNumber: instanceResult.rows[0].instance_number,
+          label: instanceResult.rows[0].label
+        })]
+      )
+    } else {
+      // START NEW MODE: Get the next instance number
+      const instanceCountResult = await db.query(
+        'SELECT COALESCE(MAX(instance_number), 0) + 1 as next_number FROM session_instances WHERE session_id = $1',
+        [id]
+      )
+      const nextInstanceNumber = instanceCountResult.rows[0].next_number
+
+      // Create new instance
+      instanceResult = await db.query(
+        `INSERT INTO session_instances (session_id, instance_number, label, is_current)
+         VALUES ($1, $2, $3, true)
+         RETURNING *`,
+        [id, nextInstanceNumber, label || `Period ${nextInstanceNumber}`]
+      )
+
+      // Log analytics for new period
+      await db.query(
+        `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+         VALUES ($1, $2, $3, $4)`,
+        ['session_reactivated', teacherId, id, JSON.stringify({
+          instanceNumber: nextInstanceNumber,
+          label: label || `Period ${nextInstanceNumber}`
+        })]
+      )
+    }
 
     // Reactivate session
     const result = await db.query(
@@ -242,17 +285,13 @@ export async function reactivateSession(req, res) {
       [id]
     )
 
-    // Log analytics
-    await db.query(
-      `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
-       VALUES ($1, $2, $3, $4)`,
-      ['session_reactivated', teacherId, id, JSON.stringify({ instanceNumber: nextInstanceNumber, label: label || `Period ${nextInstanceNumber}` })]
-    )
+    const instance = instanceResult.rows[0]
+    const action = resumeInstanceId ? 'resumed' : 'reactivated'
 
     res.json({
       session: result.rows[0],
-      instance: instanceResult.rows[0],
-      message: `Session reactivated for ${label || `Period ${nextInstanceNumber}`}`
+      instance,
+      message: `Session ${action} for ${instance.label}`
     })
 
   } catch (error) {
@@ -308,11 +347,13 @@ export async function deleteSession(req, res) {
  * Join session as student
  * POST /api/sessions/join
  * Body: { joinCode, studentName, deviceType }
- * Public: No authentication required
+ * Public: No authentication required (but optional - see req.student from middleware)
+ * If student is authenticated, links session_student to student_account_id
  */
 export async function joinSession(req, res) {
   try {
     const { joinCode, studentName, deviceType } = req.body
+    const studentAccountId = req.student?.studentId || null // From optional auth middleware
 
     // Validation
     if (!joinCode || !studentName) {
@@ -360,12 +401,36 @@ export async function joinSession(req, res) {
 
     const currentInstanceId = instanceResult.rows[0].id
 
+    // If authenticated student, check if they already joined this instance
+    if (studentAccountId) {
+      const existingStudent = await db.query(
+        `SELECT id, session_id, student_name, device_type, joined_at
+         FROM session_students
+         WHERE session_id = $1 AND instance_id = $2 AND student_account_id = $3`,
+        [session.id, currentInstanceId, studentAccountId]
+      )
+
+      if (existingStudent.rows.length > 0) {
+        // Student already joined this instance - return existing record
+        return res.json({
+          session: {
+            id: session.id,
+            title: session.title,
+            subject: session.subject
+          },
+          student: existingStudent.rows[0],
+          rejoined: true,
+          message: 'Rejoined session successfully'
+        })
+      }
+    }
+
     // Add student to session with current instance
     const result = await db.query(
-      `INSERT INTO session_students (session_id, instance_id, student_name, device_type, current_screen_state)
-       VALUES ($1, $2, $3, $4, 'free')
+      `INSERT INTO session_students (session_id, instance_id, student_name, device_type, current_screen_state, student_account_id)
+       VALUES ($1, $2, $3, $4, 'free', $5)
        RETURNING id, session_id, student_name, device_type, joined_at`,
-      [session.id, currentInstanceId, studentName, deviceType || 'unknown']
+      [session.id, currentInstanceId, studentName, deviceType || 'unknown', studentAccountId]
     )
 
     const student = result.rows[0]
@@ -374,7 +439,11 @@ export async function joinSession(req, res) {
     await db.query(
       `INSERT INTO analytics_events (event_type, session_id, properties)
        VALUES ($1, $2, $3)`,
-      ['student_joined', session.id, JSON.stringify({ deviceType, studentName })]
+      ['student_joined', session.id, JSON.stringify({
+        deviceType,
+        studentName,
+        authenticated: !!studentAccountId
+      })]
     )
 
     res.json({
@@ -680,5 +749,112 @@ export async function getActivityProgress(req, res) {
   } catch (error) {
     console.error('Get activity progress error:', error)
     res.status(500).json({ message: 'Failed to get activity progress' })
+  }
+}
+
+/**
+ * Export grades for a session as CSV
+ * GET /api/sessions/:sessionId/export-grades?instanceId=xxx&format=csv
+ * Protected: Teacher only
+ */
+export async function exportGrades(req, res) {
+  try {
+    const { sessionId } = req.params
+    const { instanceId, format = 'csv' } = req.query
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const sessionCheck = await db.query(
+      'SELECT id, title FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [sessionId, teacherId]
+    )
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    const session = sessionCheck.rows[0]
+
+    // Build query to get all student responses
+    let query = `
+      SELECT
+        ss.student_name,
+        si.label as period,
+        a.type as activity_type,
+        a.prompt as activity_name,
+        COUNT(DISTINCT sr.question_number) as questions_attempted,
+        SUM(CASE WHEN sr.is_correct THEN 1 ELSE 0 END) as questions_correct,
+        COUNT(*) as total_attempts,
+        ROUND(AVG(CASE WHEN sr.is_correct THEN 100 ELSE 0 END)) as score,
+        SUM(sr.time_spent_seconds) as total_time_seconds,
+        MAX(sr.created_at) as last_activity
+      FROM session_students ss
+      JOIN session_instances si ON ss.instance_id = si.id
+      LEFT JOIN student_responses sr ON sr.student_id = ss.id AND sr.session_id = ss.session_id
+      LEFT JOIN activities a ON sr.activity_id = a.id
+      WHERE ss.session_id = $1
+    `
+
+    const params = [sessionId]
+
+    if (instanceId) {
+      query += ' AND ss.instance_id = $2'
+      params.push(instanceId)
+    }
+
+    query += `
+      GROUP BY ss.id, ss.student_name, si.label, a.id, a.type, a.prompt
+      HAVING COUNT(DISTINCT sr.question_number) > 0
+      ORDER BY ss.student_name ASC, a.created_at ASC
+    `
+
+    const result = await db.query(query, params)
+
+    // Format as CSV
+    if (format === 'csv') {
+      // CSV Header
+      const csvHeader = 'Student Name,Period,Activity Type,Activity Name,Questions Attempted,Questions Correct,Score (%),Total Attempts,Time Spent (min),Last Activity\n'
+
+      // CSV Rows
+      const csvRows = result.rows.map(row => {
+        const timeMinutes = Math.round(row.total_time_seconds / 60) || 0
+        const lastActivity = row.last_activity ? new Date(row.last_activity).toLocaleString() : 'N/A'
+
+        return [
+          `"${row.student_name}"`,
+          `"${row.period || 'N/A'}"`,
+          `"${row.activity_type || 'N/A'}"`,
+          `"${row.activity_name || 'N/A'}"`,
+          row.questions_attempted || 0,
+          row.questions_correct || 0,
+          row.score || 0,
+          row.total_attempts || 0,
+          timeMinutes,
+          `"${lastActivity}"`
+        ].join(',')
+      }).join('\n')
+
+      const csv = csvHeader + csvRows
+
+      // Set headers for CSV download
+      const filename = instanceId
+        ? `${session.title}_Period_${instanceId}_Grades.csv`
+        : `${session.title}_All_Periods_Grades.csv`
+
+      res.setHeader('Content-Type', 'text/csv')
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      res.send(csv)
+    } else {
+      // Return JSON format
+      res.json({
+        session: session.title,
+        instanceId: instanceId || 'all',
+        grades: result.rows
+      })
+    }
+
+  } catch (error) {
+    console.error('Export grades error:', error)
+    res.status(500).json({ message: 'Failed to export grades' })
   }
 }

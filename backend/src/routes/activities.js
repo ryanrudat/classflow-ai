@@ -3,7 +3,9 @@ import {
   pushActivity,
   submitResponse,
   getActivity,
-  submitQuestionResponse
+  submitQuestionResponse,
+  unlockActivity,
+  getStudentCompletions
 } from '../controllers/activityController.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -11,7 +13,9 @@ const router = express.Router()
 
 // Protected routes (teacher only)
 router.post('/:activityId/push', authenticateToken, pushActivity)
+router.post('/:activityId/unlock', authenticateToken, unlockActivity)
 router.get('/:activityId', authenticateToken, getActivity)
+router.get('/completions/:studentAccountId', authenticateToken, getStudentCompletions)
 
 // Public routes (students)
 router.post('/:activityId/respond', submitResponse)

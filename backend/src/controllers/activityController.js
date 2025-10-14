@@ -503,6 +503,41 @@ export async function submitQuestionResponse(req, res) {
       })
     }
 
+    // Get student info (check if authenticated)
+    const studentCheck = await db.query(
+      `SELECT ss.student_account_id, ss.instance_id
+       FROM session_students ss
+       WHERE ss.id = $1`,
+      [studentId]
+    )
+
+    if (studentCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Student not found' })
+    }
+
+    const studentAccountId = studentCheck.rows[0].student_account_id
+    const instanceId = studentCheck.rows[0].instance_id
+
+    // If student is authenticated, check completion status
+    if (studentAccountId) {
+      const completionCheck = await db.query(
+        `SELECT status, locked_at
+         FROM activity_completions
+         WHERE student_account_id = $1
+           AND activity_id = $2
+           AND instance_id = $3`,
+        [studentAccountId, activityId, instanceId]
+      )
+
+      if (completionCheck.rows.length > 0 && completionCheck.rows[0].status === 'locked') {
+        return res.status(403).json({
+          message: 'This activity has been completed and locked. Contact your teacher to unlock for retakes.',
+          locked: true,
+          lockedAt: completionCheck.rows[0].locked_at
+        })
+      }
+    }
+
     // Save question response with all metadata
     const result = await db.query(
       `INSERT INTO student_responses (
@@ -531,6 +566,106 @@ export async function submitQuestionResponse(req, res) {
       ]
     )
 
+    // If authenticated, update activity completion tracking
+    if (studentAccountId) {
+      // Get activity details to know total questions
+      const activityResult = await db.query(
+        `SELECT content FROM activities WHERE id = $1`,
+        [activityId]
+      )
+
+      if (activityResult.rows.length > 0) {
+        const content = typeof activityResult.rows[0].content === 'string'
+          ? JSON.parse(activityResult.rows[0].content)
+          : activityResult.rows[0].content
+
+        const totalQuestions = content?.questions?.length || content?.quiz?.length || 0
+
+        // Get current progress for this student
+        const progressResult = await db.query(
+          `SELECT
+             COUNT(DISTINCT sr.question_number) as questions_attempted,
+             SUM(CASE WHEN sr.is_correct THEN 1 ELSE 0 END) as questions_correct,
+             SUM(sr.time_spent_seconds) as total_time
+           FROM student_responses sr
+           WHERE sr.student_id = $1
+             AND sr.activity_id = $2
+             AND sr.session_id = $3`,
+          [studentId, activityId, sessionId]
+        )
+
+        const progress = progressResult.rows[0]
+        const questionsAttempted = parseInt(progress.questions_attempted) || 0
+        const questionsCorrect = parseInt(progress.questions_correct) || 0
+        const totalTime = parseInt(progress.total_time) || 0
+        const scorePercentage = questionsAttempted > 0
+          ? Math.round((questionsCorrect / questionsAttempted) * 100)
+          : 0
+
+        // Determine if activity is complete
+        const isComplete = questionsAttempted >= totalQuestions && totalQuestions > 0
+        const newStatus = isComplete ? 'locked' : 'in_progress'
+
+        // Upsert completion record
+        await db.query(
+          `INSERT INTO activity_completions (
+             student_account_id,
+             activity_id,
+             session_id,
+             instance_id,
+             status,
+             questions_attempted,
+             questions_correct,
+             score_percentage,
+             time_spent_seconds,
+             completed_at,
+             locked_at
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           ON CONFLICT (student_account_id, activity_id, instance_id)
+           DO UPDATE SET
+             questions_attempted = $6,
+             questions_correct = $7,
+             score_percentage = $8,
+             time_spent_seconds = $9,
+             status = $5,
+             completed_at = CASE WHEN $5 = 'locked' THEN NOW() ELSE activity_completions.completed_at END,
+             locked_at = CASE WHEN $5 = 'locked' THEN NOW() ELSE activity_completions.locked_at END`,
+          [
+            studentAccountId,
+            activityId,
+            sessionId,
+            instanceId,
+            newStatus,
+            questionsAttempted,
+            questionsCorrect,
+            scorePercentage,
+            totalTime,
+            isComplete ? new Date() : null,
+            isComplete ? new Date() : null
+          ]
+        )
+
+        // Log completion event if activity was just completed
+        if (isComplete) {
+          await db.query(
+            `INSERT INTO analytics_events (event_type, session_id, properties)
+             VALUES ($1, $2, $3)`,
+            [
+              'activity_completed',
+              sessionId,
+              JSON.stringify({
+                activityId,
+                studentAccountId,
+                score: scorePercentage,
+                timeSpent: totalTime
+              })
+            ]
+          )
+        }
+      }
+    }
+
     // Log analytics
     await db.query(
       `INSERT INTO analytics_events (event_type, session_id, properties)
@@ -556,5 +691,146 @@ export async function submitQuestionResponse(req, res) {
   } catch (error) {
     console.error('Submit question response error:', error)
     res.status(500).json({ message: 'Failed to save question response' })
+  }
+}
+
+/**
+ * Unlock completed activity for retakes (teacher only)
+ * POST /api/activities/:activityId/unlock
+ * Body: { studentAccountId, reason }
+ * Protected: Teacher only
+ */
+export async function unlockActivity(req, res) {
+  try {
+    const { activityId } = req.params
+    const { studentAccountId, reason } = req.body
+    const teacherId = req.user.userId
+
+    // Validation
+    if (!studentAccountId) {
+      return res.status(400).json({
+        message: 'Student account ID is required'
+      })
+    }
+
+    // Verify activity belongs to teacher's session
+    const activityCheck = await db.query(
+      `SELECT a.session_id, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1`,
+      [activityId]
+    )
+
+    if (activityCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    if (activityCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Unlock the activity by setting status to 'in_progress' and logging unlock info
+    const result = await db.query(
+      `UPDATE activity_completions
+       SET status = 'in_progress',
+           unlocked_by = $1,
+           unlocked_at = NOW(),
+           unlock_reason = $2,
+           locked_at = NULL
+       WHERE activity_id = $3
+         AND student_account_id = $4
+       RETURNING *`,
+      [teacherId, reason || 'Teacher unlocked for retake', activityId, studentAccountId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: 'No completion record found for this student and activity'
+      })
+    }
+
+    // Log analytics
+    await db.query(
+      `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        'activity_unlocked',
+        teacherId,
+        activityCheck.rows[0].session_id,
+        JSON.stringify({
+          activityId,
+          studentAccountId,
+          reason: reason || 'Teacher unlocked for retake'
+        })
+      ]
+    )
+
+    res.json({
+      message: 'Activity unlocked successfully',
+      completion: result.rows[0]
+    })
+
+  } catch (error) {
+    console.error('Unlock activity error:', error)
+    res.status(500).json({ message: 'Failed to unlock activity' })
+  }
+}
+
+/**
+ * Get completion status for a student (teacher view)
+ * GET /api/activities/completions/:studentAccountId?sessionId=xxx
+ * Protected: Teacher only
+ */
+export async function getStudentCompletions(req, res) {
+  try {
+    const { studentAccountId } = req.params
+    const { sessionId } = req.query
+    const teacherId = req.user.userId
+
+    // Verify teacher owns the session
+    if (sessionId) {
+      const sessionCheck = await db.query(
+        'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+        [sessionId, teacherId]
+      )
+
+      if (sessionCheck.rows.length === 0) {
+        return res.status(404).json({ message: 'Session not found' })
+      }
+    }
+
+    // Get completions with activity details
+    let query = `
+      SELECT
+        ac.*,
+        a.type as activity_type,
+        a.prompt as activity_name,
+        a.content as activity_content,
+        u.name as unlocked_by_name
+      FROM activity_completions ac
+      JOIN activities a ON ac.activity_id = a.id
+      LEFT JOIN users u ON ac.unlocked_by = u.id
+      WHERE ac.student_account_id = $1
+    `
+
+    const params = [studentAccountId]
+
+    if (sessionId) {
+      query += ' AND ac.session_id = $2'
+      params.push(sessionId)
+    }
+
+    query += ' ORDER BY ac.started_at DESC'
+
+    const result = await db.query(query, params)
+
+    res.json({
+      completions: result.rows
+    })
+
+  } catch (error) {
+    console.error('Get student completions error:', error)
+    res.status(500).json({ message: 'Failed to get student completions' })
   }
 }

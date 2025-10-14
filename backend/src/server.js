@@ -32,6 +32,7 @@ import slidesRoutes from './routes/slides.js'
 import uploadRoutes from './routes/upload.js'
 import presentationRoutes from './routes/presentation.js'
 import studentHelpRoutes from './routes/studentHelp.js'
+import studentRoutes from './routes/students.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -145,6 +146,7 @@ app.use('/api/slides', slidesRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api/presentation', presentationRoutes)
 app.use('/api/student-help', studentHelpRoutes)
+app.use('/api/students', studentRoutes)
 
 // Setup WebSocket
 setupSocketIO(io)
