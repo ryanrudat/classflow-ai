@@ -5,6 +5,10 @@
 export default function ImageElement({ element, isSelected }) {
   const { imageUrl, objectFit, crop } = element
 
+  // Construct full image URL with API base
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+  const fullImageUrl = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : `${API_URL}${imageUrl}`) : null
+
   const getImageStyle = () => {
     const baseStyle = {
       width: '100%',
@@ -25,9 +29,9 @@ export default function ImageElement({ element, isSelected }) {
 
   return (
     <div className="w-full h-full overflow-hidden bg-gray-100">
-      {imageUrl ? (
+      {fullImageUrl ? (
         <img
-          src={imageUrl}
+          src={fullImageUrl}
           alt="Slide image"
           style={getImageStyle()}
           className={`
