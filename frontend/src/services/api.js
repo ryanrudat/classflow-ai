@@ -243,6 +243,37 @@ export const slidesAPI = {
   reorderSlides: async (deckId, slides) => {
     const response = await api.put(`/slides/decks/${deckId}/reorder`, { slides })
     return response.data
+  },
+
+  // Slide Elements API
+  // Get all elements for a slide
+  getSlideElements: async (slideId) => {
+    const response = await api.get(`/slides/${slideId}/elements`)
+    return response.data
+  },
+
+  // Create a new element
+  createElement: async (slideId, elementData) => {
+    const response = await api.post(`/slides/${slideId}/elements`, elementData)
+    return response.data
+  },
+
+  // Update an element
+  updateElement: async (elementId, updates) => {
+    const response = await api.put(`/slides/elements/${elementId}`, updates)
+    return response.data
+  },
+
+  // Delete an element
+  deleteElement: async (elementId) => {
+    const response = await api.delete(`/slides/elements/${elementId}`)
+    return response.data
+  },
+
+  // Reorder elements (update z-index)
+  reorderElements: async (slideId, elements) => {
+    const response = await api.put(`/slides/${slideId}/elements/reorder`, { elements })
+    return response.data
   }
 }
 

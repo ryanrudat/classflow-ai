@@ -7,7 +7,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import TeacherDashboard from './pages/TeacherDashboard'
 import StudentView from './pages/StudentView'
-import SlideEditor from './pages/SlideEditor'
+import SlideEditorCanvas from './pages/SlideEditorCanvas'
 import Presentation from './pages/Presentation'
 import ProjectorView from './pages/ProjectorView'
 import StudentMonitoringDashboard from './pages/StudentMonitoringDashboard'
@@ -46,7 +46,7 @@ function App() {
           {/* Slides routes */}
           <Route
             path="/slides/edit/:deckId"
-            element={user ? <SlideEditor /> : <Navigate to="/login" />}
+            element={user ? <SlideEditorCanvas /> : <Navigate to="/login" />}
           />
           <Route
             path="/present/:deckId"
