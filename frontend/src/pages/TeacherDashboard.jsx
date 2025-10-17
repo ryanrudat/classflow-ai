@@ -737,21 +737,31 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               </div>
             </div>
           </div>
-          {session.status === 'ended' ? (
+          <div className="flex gap-2">
             <button
-              onClick={onReactivate}
-              className="px-4 py-2 text-green-600 hover:text-green-700 text-sm font-medium border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
+              onClick={() => navigate(`/reverse-tutoring/dashboard/${session.id}`)}
+              className="px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
+              title="Monitor reverse tutoring conversations"
             >
-              Reactivate
+              <span>🤖</span>
+              <span>Reverse Tutoring</span>
             </button>
-          ) : (
-            <button
-              onClick={onEnd}
-              className="px-4 py-2 text-red-600 hover:text-red-700 text-sm font-medium border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
-            >
-              End Session
-            </button>
-          )}
+            {session.status === 'ended' ? (
+              <button
+                onClick={onReactivate}
+                className="px-4 py-2 text-green-600 hover:text-green-700 text-sm font-medium border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
+              >
+                Reactivate
+              </button>
+            ) : (
+              <button
+                onClick={onEnd}
+                className="px-4 py-2 text-red-600 hover:text-red-700 text-sm font-medium border border-red-600 rounded-lg hover:bg-red-50 transition-colors"
+              >
+                End Session
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

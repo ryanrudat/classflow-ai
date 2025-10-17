@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import { useStudentAuthStore } from '../stores/studentAuthStore'
@@ -9,6 +9,7 @@ import CreateAccountBanner from '../components/CreateAccountBanner'
 
 export default function StudentView() {
   const { joinCode } = useParams()
+  const navigate = useNavigate()
   const { isAuthenticated } = useStudentAuthStore()
   const [step, setStep] = useState('join') // 'join', 'active'
   const [session, setSession] = useState(null)
@@ -320,14 +321,42 @@ export default function StudentView() {
             }}
           />
         ) : (
-          <div className="card text-center py-16">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-20 h-20 mx-auto animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+          <div className="space-y-4">
+            <div className="card text-center py-16">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-20 h-20 mx-auto animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-medium text-gray-600">Waiting for teacher...</h3>
+              <p className="text-gray-500 mt-2">Your teacher will push activities or presentations</p>
             </div>
-            <h3 className="text-xl font-medium text-gray-600">Waiting for teacher...</h3>
-            <p className="text-gray-500 mt-2">Your teacher will push activities or presentations</p>
+
+            {/* Reverse Tutoring Option */}
+            <div className="card bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
+              <div className="text-center">
+                <div className="text-4xl mb-3">🤖</div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Teach the AI</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Show what you know by teaching an AI student about today's lesson
+                </p>
+                <button
+                  onClick={() => navigate(`/reverse-tutoring/${session.id}`, {
+                    state: {
+                      studentId: student.id,
+                      studentName: student.student_name,
+                      topic: session.title || 'the lesson',
+                      subject: session.subject || 'Science',
+                      gradeLevel: '7th grade',
+                      keyVocabulary: []
+                    }
+                  })}
+                  className="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium"
+                >
+                  Start Teaching
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
