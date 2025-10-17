@@ -8,7 +8,12 @@ import {
   getSessionDecks,
   createBlankSlide,
   duplicateSlide,
-  reorderSlides
+  reorderSlides,
+  getSlideElements,
+  createElement,
+  updateElement,
+  deleteElement,
+  reorderElements
 } from '../controllers/slidesController.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -43,5 +48,12 @@ router.post('/:slideId/duplicate', duplicateSlide)
 
 // Reorder slides in a deck
 router.put('/decks/:deckId/reorder', reorderSlides)
+
+// Slide elements (canvas-based architecture)
+router.get('/:slideId/elements', getSlideElements)
+router.post('/:slideId/elements', createElement)
+router.put('/elements/:elementId', updateElement)
+router.delete('/elements/:elementId', deleteElement)
+router.put('/:slideId/elements/reorder', reorderElements)
 
 export default router

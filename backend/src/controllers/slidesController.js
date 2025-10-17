@@ -623,3 +623,349 @@ export async function reorderSlides(req, res) {
     res.status(500).json({ message: 'Failed to reorder slides' })
   }
 }
+
+/**
+ * Get all elements for a slide
+ * GET /api/slides/:slideId/elements
+ */
+export async function getSlideElements(req, res) {
+  try {
+    const { slideId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT sl.id
+       FROM slides sl
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE sl.id = $1 AND s.teacher_id = $2`,
+      [slideId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Slide not found or unauthorized' })
+    }
+
+    // Get all elements for this slide
+    const result = await db.query(
+      `SELECT
+        e.*,
+        i.url as image_url,
+        i.alt_text as image_alt
+       FROM slide_elements e
+       LEFT JOIN uploaded_images i ON e.image_id = i.id
+       WHERE e.slide_id = $1
+       ORDER BY e.z_index ASC`,
+      [slideId]
+    )
+
+    const elements = result.rows.map(el => ({
+      id: el.id,
+      type: el.element_type,
+      position: { x: el.position_x, y: el.position_y },
+      size: { width: el.width, height: el.height },
+      zIndex: el.z_index,
+      content: el.content,
+      imageUrl: el.image_url || el.image_url_external,
+      imageAlt: el.image_alt,
+      objectFit: el.object_fit,
+      cropData: el.crop_data,
+      style: el.styles || {},
+      locked: el.locked,
+      hidden: el.hidden,
+      createdAt: el.created_at,
+      updatedAt: el.updated_at
+    }))
+
+    res.json({ elements })
+
+  } catch (error) {
+    console.error('Get slide elements error:', error)
+    res.status(500).json({ message: 'Failed to get slide elements' })
+  }
+}
+
+/**
+ * Create a new element
+ * POST /api/slides/:slideId/elements
+ * Body: { type, position, size, content, imageId, imageUrl, objectFit, styles, zIndex }
+ */
+export async function createElement(req, res) {
+  try {
+    const { slideId } = req.params
+    const {
+      type,
+      position = { x: 100, y: 100 },
+      size = { width: 200, height: 100 },
+      content,
+      imageId,
+      imageUrl,
+      objectFit,
+      cropData,
+      styles = {},
+      zIndex
+    } = req.body
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT sl.id
+       FROM slides sl
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE sl.id = $1 AND s.teacher_id = $2`,
+      [slideId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Slide not found or unauthorized' })
+    }
+
+    // Get max z-index if not provided
+    let finalZIndex = zIndex
+    if (finalZIndex === undefined) {
+      const maxZResult = await db.query(
+        'SELECT MAX(z_index) as max_z FROM slide_elements WHERE slide_id = $1',
+        [slideId]
+      )
+      finalZIndex = (maxZResult.rows[0]?.max_z || 0) + 1
+    }
+
+    // Create element
+    const result = await db.query(
+      `INSERT INTO slide_elements (
+        slide_id, element_type, position_x, position_y, width, height, z_index,
+        content, image_id, image_url, object_fit, crop_data, styles
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *`,
+      [
+        slideId,
+        type,
+        position.x,
+        position.y,
+        size.width,
+        size.height,
+        finalZIndex,
+        content,
+        imageId,
+        imageUrl,
+        objectFit,
+        cropData ? JSON.stringify(cropData) : null,
+        JSON.stringify(styles)
+      ]
+    )
+
+    res.json({
+      element: result.rows[0],
+      message: 'Element created successfully'
+    })
+
+  } catch (error) {
+    console.error('Create element error:', error)
+    res.status(500).json({ message: 'Failed to create element' })
+  }
+}
+
+/**
+ * Update an element
+ * PUT /api/slides/elements/:elementId
+ * Body: { position, size, content, objectFit, cropData, styles, locked, hidden }
+ */
+export async function updateElement(req, res) {
+  try {
+    const { elementId } = req.params
+    const {
+      position,
+      size,
+      content,
+      imageId,
+      imageUrl,
+      objectFit,
+      cropData,
+      styles,
+      locked,
+      hidden,
+      zIndex
+    } = req.body
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT e.id
+       FROM slide_elements e
+       JOIN slides sl ON e.slide_id = sl.id
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE e.id = $1 AND s.teacher_id = $2`,
+      [elementId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Element not found or unauthorized' })
+    }
+
+    // Build dynamic update query
+    const updates = []
+    const values = []
+    let paramCount = 1
+
+    if (position) {
+      updates.push(`position_x = $${paramCount++}`, `position_y = $${paramCount++}`)
+      values.push(position.x, position.y)
+    }
+    if (size) {
+      updates.push(`width = $${paramCount++}`, `height = $${paramCount++}`)
+      values.push(size.width, size.height)
+    }
+    if (content !== undefined) {
+      updates.push(`content = $${paramCount++}`)
+      values.push(content)
+    }
+    if (imageId !== undefined) {
+      updates.push(`image_id = $${paramCount++}`)
+      values.push(imageId)
+    }
+    if (imageUrl !== undefined) {
+      updates.push(`image_url = $${paramCount++}`)
+      values.push(imageUrl)
+    }
+    if (objectFit !== undefined) {
+      updates.push(`object_fit = $${paramCount++}`)
+      values.push(objectFit)
+    }
+    if (cropData !== undefined) {
+      updates.push(`crop_data = $${paramCount++}`)
+      values.push(JSON.stringify(cropData))
+    }
+    if (styles !== undefined) {
+      updates.push(`styles = $${paramCount++}`)
+      values.push(JSON.stringify(styles))
+    }
+    if (locked !== undefined) {
+      updates.push(`locked = $${paramCount++}`)
+      values.push(locked)
+    }
+    if (hidden !== undefined) {
+      updates.push(`hidden = $${paramCount++}`)
+      values.push(hidden)
+    }
+    if (zIndex !== undefined) {
+      updates.push(`z_index = $${paramCount++}`)
+      values.push(zIndex)
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No fields to update' })
+    }
+
+    values.push(elementId)
+
+    const result = await db.query(
+      `UPDATE slide_elements
+       SET ${updates.join(', ')}
+       WHERE id = $${paramCount}
+       RETURNING *`,
+      values
+    )
+
+    res.json({
+      element: result.rows[0],
+      message: 'Element updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Update element error:', error)
+    res.status(500).json({ message: 'Failed to update element' })
+  }
+}
+
+/**
+ * Delete an element
+ * DELETE /api/slides/elements/:elementId
+ */
+export async function deleteElement(req, res) {
+  try {
+    const { elementId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT e.id
+       FROM slide_elements e
+       JOIN slides sl ON e.slide_id = sl.id
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE e.id = $1 AND s.teacher_id = $2`,
+      [elementId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Element not found or unauthorized' })
+    }
+
+    await db.query('DELETE FROM slide_elements WHERE id = $1', [elementId])
+
+    res.json({ message: 'Element deleted successfully' })
+
+  } catch (error) {
+    console.error('Delete element error:', error)
+    res.status(500).json({ message: 'Failed to delete element' })
+  }
+}
+
+/**
+ * Reorder elements (update z-index)
+ * PUT /api/slides/:slideId/elements/reorder
+ * Body: { elements: [{ id, zIndex }] }
+ */
+export async function reorderElements(req, res) {
+  try {
+    const { slideId } = req.params
+    const { elements } = req.body
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const ownershipCheck = await db.query(
+      `SELECT sl.id
+       FROM slides sl
+       JOIN slide_decks d ON sl.deck_id = d.id
+       JOIN sessions s ON d.session_id = s.id
+       WHERE sl.id = $1 AND s.teacher_id = $2`,
+      [slideId, teacherId]
+    )
+
+    if (ownershipCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Slide not found or unauthorized' })
+    }
+
+    // Update z-index in a transaction
+    const client = await db.connect()
+
+    try {
+      await client.query('BEGIN')
+
+      for (const element of elements) {
+        await client.query(
+          'UPDATE slide_elements SET z_index = $1 WHERE id = $2',
+          [element.zIndex, element.id]
+        )
+      }
+
+      await client.query('COMMIT')
+
+      res.json({ message: 'Elements reordered successfully' })
+
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+
+  } catch (error) {
+    console.error('Reorder elements error:', error)
+    res.status(500).json({ message: 'Failed to reorder elements' })
+  }
+}
