@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStudentAuthStore } from '../stores/studentAuthStore'
 import { studentAuthAPI } from '../services/api'
+import { NoRecentSessionsEmpty } from '../components/EmptyState'
 
 export default function StudentDashboard() {
   const navigate = useNavigate()
@@ -134,14 +135,8 @@ export default function StudentDashboard() {
 
         {/* Empty State */}
         {recentSessions.length === 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No sessions yet
-            </h3>
-            <p className="text-gray-600">
-              Enter a session code above to join your first class!
-            </p>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <NoRecentSessionsEmpty />
           </div>
         )}
       </div>

@@ -1,0 +1,429 @@
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useToast } from '../components/Toast'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+/**
+ * Teacher Dashboard for Reverse Tutoring
+ *
+ * Shows all student conversations, understanding levels, and transcripts
+ */
+export default function ReverseTutoringDashboard() {
+  const { sessionId } = useParams()
+  const navigate = useNavigate()
+  const toast = useToast()
+
+  const [conversations, setConversations] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedConversation, setSelectedConversation] = useState(null)
+  const [transcript, setTranscript] = useState(null)
+  const [showTranscript, setShowTranscript] = useState(false)
+  const [filter, setFilter] = useState('all') // 'all', 'mastery', 'progressing', 'struggling', 'needs_help'
+
+  useEffect(() => {
+    loadDashboard()
+    // Poll every 10 seconds for updates
+    const interval = setInterval(loadDashboard, 10000)
+    return () => clearInterval(interval)
+  }, [sessionId])
+
+  /**
+   * Load dashboard data
+   */
+  const loadDashboard = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `${API_URL}/api/reverse-tutoring/session/${sessionId}/dashboard`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      setConversations(response.data.conversations)
+      setLoading(false)
+
+    } catch (error) {
+      console.error('Load dashboard error:', error)
+      if (!loading) { // Only show error if not initial load
+        toast.error('Error', 'Failed to load dashboard')
+      }
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Load full transcript for a conversation
+   */
+  const loadTranscript = async (conversationId) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `${API_URL}/api/reverse-tutoring/${conversationId}/transcript`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      setTranscript(response.data)
+      setShowTranscript(true)
+
+    } catch (error) {
+      console.error('Load transcript error:', error)
+      toast.error('Error', 'Failed to load conversation transcript')
+    }
+  }
+
+  /**
+   * Get status badge
+   */
+  const getStatusBadge = (status, understandingLevel) => {
+    const badges = {
+      mastery: { color: 'bg-green-100 text-green-800', text: 'Mastery', icon: '🌟' },
+      progressing: { color: 'bg-blue-100 text-blue-800', text: 'Progressing', icon: '📈' },
+      struggling: { color: 'bg-yellow-100 text-yellow-800', text: 'Struggling', icon: '⚠️' },
+      needs_help: { color: 'bg-red-100 text-red-800', text: 'Needs Help', icon: '🆘' },
+      just_started: { color: 'bg-gray-100 text-gray-800', text: 'Just Started', icon: '🚀' }
+    }
+
+    const badge = badges[status] || badges.progressing
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${badge.color}`}>
+        <span>{badge.icon}</span>
+        <span>{badge.text}</span>
+        <span className="ml-1 font-bold">{understandingLevel}%</span>
+      </span>
+    )
+  }
+
+  /**
+   * Filter conversations
+   */
+  const filteredConversations = conversations.filter(conv => {
+    if (filter === 'all') return true
+    return conv.status === filter
+  })
+
+  /**
+   * Calculate stats
+   */
+  const stats = {
+    total: conversations.length,
+    mastery: conversations.filter(c => c.status === 'mastery').length,
+    progressing: conversations.filter(c => c.status === 'progressing').length,
+    struggling: conversations.filter(c => c.status === 'struggling').length,
+    needsHelp: conversations.filter(c => c.status === 'needs_help').length,
+    avgUnderstanding: conversations.length > 0
+      ? Math.round(conversations.reduce((sum, c) => sum + c.understandingLevel, 0) / conversations.length)
+      : 0
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Reverse Tutoring Dashboard</h1>
+              <p className="text-gray-600 mt-1">Monitor how well students can teach the AI</p>
+            </div>
+            <button
+              onClick={() => navigate(`/dashboard`)}
+              className="px-4 py-2 text-gray-700 hover:text-gray-900"
+            >
+              ← Back to Dashboard
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+            <div className="text-sm text-gray-600">Total Students</div>
+          </div>
+          <div className="bg-green-50 rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-green-600">{stats.mastery}</div>
+            <div className="text-sm text-gray-600">Mastery</div>
+          </div>
+          <div className="bg-blue-50 rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-blue-600">{stats.progressing}</div>
+            <div className="text-sm text-gray-600">Progressing</div>
+          </div>
+          <div className="bg-yellow-50 rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-yellow-600">{stats.struggling}</div>
+            <div className="text-sm text-gray-600">Struggling</div>
+          </div>
+          <div className="bg-red-50 rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-red-600">{stats.needsHelp}</div>
+            <div className="text-sm text-gray-600">Needs Help</div>
+          </div>
+          <div className="bg-purple-50 rounded-lg shadow p-4">
+            <div className="text-2xl font-bold text-purple-600">{stats.avgUnderstanding}%</div>
+            <div className="text-sm text-gray-600">Avg Understanding</div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex gap-2">
+            {['all', 'mastery', 'progressing', 'struggling', 'needs_help'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {f === 'all' ? 'All Students' : f.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Conversations List */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4">🤖</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No conversations yet
+              </h3>
+              <p className="text-gray-600">
+                Students haven't started reverse tutoring yet
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {filteredConversations.map((conv) => (
+                <div
+                  key={conv.conversationId}
+                  className="p-6 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {conv.studentName}
+                        </h3>
+                        {getStatusBadge(conv.status, conv.understandingLevel)}
+                      </div>
+
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <div className="flex items-center gap-4">
+                          <span>📚 Topic: {conv.topic}</span>
+                          <span>💬 {conv.messageCount} exchanges</span>
+                          <span>⏱️ {conv.durationMinutes} min</span>
+                        </div>
+
+                        {/* Latest Analysis */}
+                        {conv.latestAnalysis && (
+                          <div className="mt-3 bg-gray-50 rounded-lg p-3 space-y-2">
+                            {conv.latestAnalysis.conceptsDemonstrated && conv.latestAnalysis.conceptsDemonstrated.length > 0 && (
+                              <div>
+                                <span className="font-medium text-gray-700">✓ Concepts demonstrated:</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {conv.latestAnalysis.conceptsDemonstrated.map((concept, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                                      {concept}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {conv.latestAnalysis.misconceptions && conv.latestAnalysis.misconceptions.length > 0 && (
+                              <div>
+                                <span className="font-medium text-gray-700">⚠️ Misconceptions:</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {conv.latestAnalysis.misconceptions.map((misc, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
+                                      {misc}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {conv.latestAnalysis.vocabularyUsed && conv.latestAnalysis.vocabularyUsed.length > 0 && (
+                              <div>
+                                <span className="font-medium text-gray-700">📖 Vocabulary used:</span>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {conv.latestAnalysis.vocabularyUsed.map((word, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                                      {word}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {conv.latestAnalysis.teacherSuggestion && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                                <span className="font-medium text-yellow-800">💡 Suggestion: </span>
+                                <span className="text-yellow-700">{conv.latestAnalysis.teacherSuggestion}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => loadTranscript(conv.conversationId)}
+                      className="ml-4 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+                    >
+                      View Transcript
+                    </button>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="mt-4">
+                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          conv.understandingLevel >= 80 ? 'bg-green-500' :
+                          conv.understandingLevel >= 60 ? 'bg-blue-500' :
+                          conv.understandingLevel >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${conv.understandingLevel}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Transcript Modal */}
+      {showTranscript && transcript && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full my-8">
+            {/* Modal Header */}
+            <div className="border-b border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {transcript.studentName || transcript.studentAccountName}
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    {transcript.topic} • {transcript.messageCount} exchanges • {transcript.durationMinutes} minutes
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowTranscript(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Understanding Level */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-gray-600">Final Understanding Level</span>
+                  <span className="font-semibold text-primary-600">{transcript.currentUnderstandingLevel}%</span>
+                </div>
+                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      transcript.currentUnderstandingLevel >= 80 ? 'bg-green-500' :
+                      transcript.currentUnderstandingLevel >= 60 ? 'bg-blue-500' :
+                      transcript.currentUnderstandingLevel >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${transcript.currentUnderstandingLevel}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Transcript Messages */}
+            <div className="p-6 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-4">
+                {transcript.transcript.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${msg.role === 'student' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`flex items-start gap-3 max-w-[80%] ${
+                      msg.role === 'student' ? 'flex-row-reverse' : ''
+                    }`}>
+                      {/* Avatar */}
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                        msg.role === 'ai'
+                          ? 'bg-purple-100 text-purple-600'
+                          : 'bg-blue-100 text-blue-600'
+                      }`}>
+                        {msg.role === 'ai' ? '🤖' : '👤'}
+                      </div>
+
+                      {/* Message */}
+                      <div>
+                        <div className={`rounded-2xl p-4 ${
+                          msg.role === 'ai'
+                            ? 'bg-purple-50 text-gray-800'
+                            : 'bg-blue-500 text-white'
+                        }`}>
+                          <p className="text-sm leading-relaxed">{msg.content}</p>
+                        </div>
+
+                        {/* Analysis (for student messages) */}
+                        {msg.analysis && (
+                          <div className="mt-2 p-3 bg-gray-50 rounded-lg text-xs space-y-1">
+                            <div className="text-gray-600">
+                              Understanding: <span className="font-semibold text-primary-600">{msg.analysis.understandingLevel}%</span>
+                            </div>
+                            {msg.analysis.vocabularyUsed && msg.analysis.vocabularyUsed.length > 0 && (
+                              <div className="text-gray-600">
+                                Vocabulary: {msg.analysis.vocabularyUsed.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-500 mt-1 px-2">
+                          {new Date(msg.timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 p-6">
+              <button
+                onClick={() => setShowTranscript(false)}
+                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

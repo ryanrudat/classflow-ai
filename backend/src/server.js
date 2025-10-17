@@ -33,6 +33,7 @@ import uploadRoutes from './routes/upload.js'
 import presentationRoutes from './routes/presentation.js'
 import studentHelpRoutes from './routes/studentHelp.js'
 import studentRoutes from './routes/students.js'
+import reverseTutoringRoutes from './routes/reverseTutoring.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -147,6 +148,7 @@ app.use('/api/upload', uploadRoutes)
 app.use('/api/presentation', presentationRoutes)
 app.use('/api/student-help', studentHelpRoutes)
 app.use('/api/students', studentRoutes)
+app.use('/api/reverse-tutoring', reverseTutoringRoutes)
 
 // Setup WebSocket
 setupSocketIO(io)

@@ -8,10 +8,21 @@ import StudentDetailModal from '../components/StudentDetailModal'
 import ReactivateDialog from '../components/ReactivateDialog'
 import ActivityStatusBadge from '../components/ActivityStatusBadge'
 import UnlockActivityModal from '../components/UnlockActivityModal'
+import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
+import {
+  LoadingSpinner,
+  StudentListSkeleton,
+  ActivityCardSkeleton,
+  SlideDeckSkeleton,
+  AIGenerationProgress
+} from '../components/LoadingStates'
+import { ErrorMessage, getErrorMessage } from '../components/ErrorMessages'
+import { useNotifications } from '../components/Toast'
 
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const { notifySuccess, notifyError, notifySessionCreated } = useNotifications()
 
   const [sessions, setSessions] = useState([])
   const [activeSession, setActiveSession] = useState(null)
@@ -44,6 +55,7 @@ export default function TeacherDashboard() {
       setSessions([data.session, ...sessions])
       setActiveSession(data.session)
       setShowCreateModal(false)
+      notifySessionCreated()
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create session')
     } finally {
@@ -60,8 +72,9 @@ export default function TeacherDashboard() {
       if (activeSession?.id === sessionId) {
         setActiveSession(null)
       }
+      notifySuccess('Session has been ended successfully')
     } catch (err) {
-      alert('Failed to end session')
+      notifyError('Failed to end session. Please try again.')
     }
   }
 
@@ -74,7 +87,7 @@ export default function TeacherDashboard() {
       setShowReactivateDialog(true)
     } catch (err) {
       console.error('Failed to load instances:', err)
-      alert('Failed to load session data')
+      notifyError('Failed to load session data. Please try again.')
     }
   }
 
@@ -89,8 +102,9 @@ export default function TeacherDashboard() {
       }
       setShowReactivateDialog(false)
       setSessionToReactivate(null)
+      notifySuccess('Session resumed successfully')
     } catch (err) {
-      alert('Failed to resume session')
+      notifyError('Failed to resume session. Please try again.')
     }
   }
 
@@ -105,8 +119,9 @@ export default function TeacherDashboard() {
       }
       setShowReactivateDialog(false)
       setSessionToReactivate(null)
+      notifySuccess('New period started successfully')
     } catch (err) {
-      alert('Failed to start new period')
+      notifyError('Failed to start new period. Please try again.')
     }
   }
 
@@ -119,8 +134,9 @@ export default function TeacherDashboard() {
       if (activeSession?.id === sessionId) {
         setActiveSession(null)
       }
+      notifySuccess('Session deleted successfully')
     } catch (err) {
-      alert('Failed to delete session')
+      notifyError('Failed to delete session. Please try again.')
     }
   }
 
@@ -164,9 +180,7 @@ export default function TeacherDashboard() {
 
               <div className="space-y-2">
                 {sessions.length === 0 && (
-                  <p className="text-gray-500 text-sm text-center py-8">
-                    No sessions yet.<br />Create one to get started!
-                  </p>
+                  <NoSessionsEmpty onCreate={() => setShowCreateModal(true)} />
                 )}
 
                 {sessions.map(session => (
@@ -222,14 +236,8 @@ export default function TeacherDashboard() {
           {/* Main content */}
           <div className="lg:col-span-2">
             {!activeSession ? (
-              <div className="card text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <svg className="w-24 h-24 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-medium text-gray-600">No Session Selected</h3>
-                <p className="text-gray-500 mt-2">Create or select a session to get started</p>
+              <div className="card">
+                <NoSessionSelectedEmpty onCreate={() => setShowCreateModal(true)} />
               </div>
             ) : (
               <ActiveSessionView
@@ -287,8 +295,13 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Create New Session</h2>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
-            {error}
+          <div className="mb-4">
+            <ErrorMessage
+              type="error"
+              title="Error Creating Session"
+              message={error}
+              onDismiss={() => setError('')}
+            />
           </div>
         )}
 
@@ -349,6 +362,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
 
 function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
   const navigate = useNavigate()
+  const { notifySuccess, notifyError, notifyActivityPushed, notifyContentGenerated } = useNotifications()
   const [activeTab, setActiveTab] = useState('overview') // Tab navigation state
   const [generatedContent, setGeneratedContent] = useState(null)
   const [generating, setGenerating] = useState(false)
@@ -628,9 +642,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
       const pushedData = await sessionsAPI.getActivities(session.id, true)
       setPushedActivities(pushedData.activities || [])
 
-      alert('Content pushed to all students!')
+      notifyActivityPushed()
     } catch (err) {
-      alert('Failed to push content')
+      notifyError('Failed to push content. Please try again.')
     }
   }
 
@@ -856,6 +870,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 
 // Tab Components
 function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail }) {
+  const { notifySuccess, notifyError } = useNotifications()
   const [studentProgressData, setStudentProgressData] = useState([])
   const [studentIdToRemove, setStudentIdToRemove] = useState(null)
   const [studentCompletions, setStudentCompletions] = useState({}) // Map of studentId -> completions
@@ -926,10 +941,10 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       }))
 
       setUnlockModal(null)
-      alert(`Successfully unlocked "${unlockModal.activityName}" for ${unlockModal.studentName}`)
+      notifySuccess(`Successfully unlocked "${unlockModal.activityName}" for ${unlockModal.studentName}`)
     } catch (error) {
       console.error('Failed to unlock activity:', error)
-      alert('Failed to unlock activity: ' + (error.response?.data?.message || error.message))
+      notifyError(`Failed to unlock activity: ${error.response?.data?.message || error.message}`)
     } finally {
       setUnlocking(false)
     }
@@ -1037,20 +1052,12 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         </h3>
 
         {loadingInstance ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-            <span className="ml-3 text-gray-600">Loading student data...</span>
-          </div>
+          <StudentListSkeleton count={3} />
         ) : students.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <div className="text-4xl mb-2">👥</div>
-            <p className="text-gray-600 text-sm">
-              {selectedInstance?.is_current
-                ? 'No students have joined yet. Share the join code above.'
-                : `No students joined ${selectedInstance?.label || 'this period'}.`
-              }
-            </p>
-          </div>
+          <NoStudentsEmpty
+            joinCode={session.join_code}
+            isCurrent={selectedInstance?.is_current}
+          />
         ) : (
           <div>
             <div className="text-sm text-gray-600 mb-3">
@@ -1274,22 +1281,9 @@ function PresentTab({ slideDecks, loadingSlides, navigate, setShowSlideGenerator
       </div>
 
       {loadingSlides ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Loading slides...</span>
-        </div>
+        <SlideDeckSkeleton count={2} />
       ) : slideDecks.length === 0 ? (
-        <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <div className="text-6xl mb-4">📽️</div>
-          <h4 className="text-lg font-semibold text-gray-700 mb-2">No slide decks yet</h4>
-          <p className="text-gray-500 text-sm mb-6">Generate AI-powered slides for your lessons</p>
-          <button
-            onClick={() => setShowSlideGenerator(true)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            ✨ Create Your First Deck
-          </button>
-        </div>
+        <NoSlidesEmpty onGenerate={() => setShowSlideGenerator(true)} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {slideDecks.map(deck => (
@@ -1343,8 +1337,15 @@ function ActivitiesTab({
         <h3 className="text-xl font-bold text-gray-800 mb-4">Generate AI Content</h3>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm mb-4">
-            {error}
+          <div className="mb-4">
+            <ErrorMessage
+              type="error"
+              title="Content Generation Failed"
+              message={error}
+              action="Try Again"
+              onAction={() => setError('')}
+              onDismiss={() => setError('')}
+            />
           </div>
         )}
 
@@ -1459,10 +1460,7 @@ function ActivitiesTab({
             📚 Session History ({sessionActivities.length} {sessionActivities.length === 1 ? 'activity' : 'activities'})
           </h3>
           {loadingActivities ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-gray-600">Loading activities...</span>
-            </div>
+            <ActivityCardSkeleton count={3} />
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {sessionActivities.map(activity => {
@@ -1524,6 +1522,7 @@ function ActivitiesTab({
 }
 
 function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance, session, instances }) {
+  const { notifySuccess, notifyError } = useNotifications()
   const [exporting, setExporting] = useState(false)
 
   const handleExportGrades = async (exportAllPeriods = false) => {
@@ -1534,32 +1533,20 @@ function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance, session, 
       } else {
         await sessionsAPI.exportGrades(session.id, selectedInstance?.id)
       }
+      notifySuccess('Grades exported successfully')
     } catch (err) {
-      alert('Failed to export grades: ' + err.message)
+      notifyError(`Failed to export grades: ${err.message}`)
     } finally {
       setExporting(false)
     }
   }
 
   if (loadingAnalytics) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-gray-600">Loading analytics...</span>
-      </div>
-    )
+    return <LoadingSpinner text="Loading analytics..." size="large" />
   }
 
   if (!analytics) {
-    return (
-      <div className="text-center py-16">
-        <div className="text-6xl mb-4">📊</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">No analytics data yet</h3>
-        <p className="text-gray-600">
-          Analytics will appear here once students start responding to activities
-        </p>
-      </div>
-    )
+    return <NoAnalyticsEmpty />
   }
 
   return (
