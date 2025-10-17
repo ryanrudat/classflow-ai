@@ -21,15 +21,16 @@ export default function ReverseTutoring() {
   const navigate = useNavigate()
   const toast = useToast()
 
-  // Get student info and lesson context from location state
+  // Get student info from location state
   const studentId = location.state?.studentId
   const studentName = location.state?.studentName
-  const topic = location.state?.topic ||'the lesson'
-  const subject = location.state?.subject || 'Science'
-  const gradeLevel = location.state?.gradeLevel || '7th grade'
-  const keyVocabulary = location.state?.keyVocabulary || []
 
   // State
+  const [view, setView] = useState('topics') // 'topics' or 'conversation'
+  const [availableTopics, setAvailableTopics] = useState([])
+  const [loadingTopics, setLoadingTopics] = useState(true)
+  const [selectedTopic, setSelectedTopic] = useState(null)
+
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
   const [inputMode, setInputMode] = useState('voice') // 'voice' or 'text'
@@ -57,7 +58,7 @@ export default function ReverseTutoring() {
     scrollToBottom()
   }, [messages])
 
-  // Start conversation on mount
+  // Load topics on mount
   useEffect(() => {
     if (!studentId || !sessionId) {
       toast.error('Error', 'Missing student or session information')
@@ -65,21 +66,52 @@ export default function ReverseTutoring() {
       return
     }
 
-    startConversation()
+    loadAvailableTopics()
   }, [])
 
   /**
-   * Start a new conversation
+   * Load available topics for this student
    */
-  const startConversation = async () => {
+  const loadAvailableTopics = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/reverse-tutoring/session/${sessionId}/topics?studentId=${studentId}`
+      )
+      setAvailableTopics(response.data.topics)
+      setLoadingTopics(false)
+
+      // If only one topic, auto-select it
+      if (response.data.topics.length === 1) {
+        selectTopic(response.data.topics[0])
+      }
+    } catch (error) {
+      console.error('Load topics error:', error)
+      toast.error('Error', 'Failed to load topics')
+      setLoadingTopics(false)
+    }
+  }
+
+  /**
+   * Select a topic and start conversation
+   */
+  const selectTopic = async (topic) => {
+    setSelectedTopic(topic)
+    await startConversation(topic)
+    setView('conversation')
+  }
+
+  /**
+   * Start a new conversation with selected topic
+   */
+  const startConversation = async (topic) => {
     try {
       const response = await axios.post(`${API_URL}/api/reverse-tutoring/start`, {
         sessionId,
         studentId,
-        topic,
-        subject,
-        gradeLevel,
-        keyVocabulary
+        topic: topic.topic,
+        subject: topic.subject,
+        gradeLevel: topic.gradeLevel,
+        keyVocabulary: topic.keyVocabulary
       })
 
       setConversationId(response.data.conversationId)
@@ -90,11 +122,17 @@ export default function ReverseTutoring() {
       }])
       setMessageCount(1)
 
-      toast.success('Ready to start!', `Teach Alex about ${topic}`)
+      toast.success('Ready to start!', `Teach Alex about ${topic.topic}`)
 
     } catch (error) {
       console.error('Start conversation error:', error)
-      toast.error('Error', error.response?.data?.message || 'Failed to start conversation')
+      if (error.response?.status === 409) {
+        // Conversation already exists - try to load it
+        toast.info('Resuming', 'Continuing your previous conversation')
+        // TODO: Load existing conversation
+      } else {
+        toast.error('Error', error.response?.data?.message || 'Failed to start conversation')
+      }
     }
   }
 
@@ -156,7 +194,7 @@ export default function ReverseTutoring() {
       formData.append('audio', audioBlob, 'recording.webm')
 
       const response = await axios.post(
-        `${API_URL}/api/reverse-tutoring/transcribe?language=en&topic=${encodeURIComponent(topic)}`,
+        `${API_URL}/api/reverse-tutoring/transcribe?language=en&topic=${encodeURIComponent(selectedTopic?.topic || 'the lesson')}`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -276,6 +314,96 @@ export default function ReverseTutoring() {
     }
   }
 
+  // Topic Selection View
+  if (view === 'topics') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Choose a Topic</h1>
+                <p className="text-gray-600 mt-1">
+                  Select what you'd like to teach the AI about
+                </p>
+              </div>
+              <button
+                onClick={() => navigate(-1)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {loadingTopics ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600"></div>
+            </div>
+          ) : availableTopics.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+              <div className="text-4xl mb-4">📚</div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No topics available yet
+              </h3>
+              <p className="text-gray-600">
+                Your teacher hasn't set up any topics yet. Check back soon!
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {availableTopics.map((topic) => (
+                <div
+                  key={topic.id}
+                  onClick={() => selectTopic(topic)}
+                  className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:-translate-y-1 border-2 border-transparent hover:border-purple-300"
+                >
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {topic.topic}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 text-sm text-gray-600 mb-3">
+                    <span className="flex items-center gap-1">
+                      📖 {topic.subject}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      🎓 {topic.gradeLevel}
+                    </span>
+                  </div>
+                  {topic.keyVocabulary.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-2">Key vocabulary:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {topic.keyVocabulary.slice(0, 5).map((word, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium"
+                          >
+                            {word}
+                          </span>
+                        ))}
+                        {topic.keyVocabulary.length > 5 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                            +{topic.keyVocabulary.length - 5} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 text-primary-600 font-medium text-sm">
+                    Click to start teaching →
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Conversation View
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       {/* Header */}
@@ -283,13 +411,13 @@ export default function ReverseTutoring() {
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Teach Alex about {topic}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Teach Alex about {selectedTopic?.topic}</h1>
               <p className="text-gray-600 mt-1">
-                Alex is a {gradeLevel} student who needs your help understanding this concept
+                Alex is a {selectedTopic?.gradeLevel} student who needs your help understanding this concept
               </p>
             </div>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => setView('topics')}
               className="text-gray-500 hover:text-gray-700"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -495,11 +623,11 @@ export default function ReverseTutoring() {
         </div>
 
         {/* Key Vocabulary */}
-        {keyVocabulary.length > 0 && (
+        {selectedTopic?.keyVocabulary && selectedTopic.keyVocabulary.length > 0 && (
           <div className="mt-4 bg-white rounded-xl shadow-lg p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-2">Key Vocabulary to Use:</h3>
             <div className="flex flex-wrap gap-2">
-              {keyVocabulary.map((word, index) => (
+              {selectedTopic.keyVocabulary.map((word, index) => (
                 <span
                   key={index}
                   className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium"

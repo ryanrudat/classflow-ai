@@ -8,26 +8,168 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 /**
  * Teacher Dashboard for Reverse Tutoring
  *
- * Shows all student conversations, understanding levels, and transcripts
+ * Shows topic management and all student conversations
  */
 export default function ReverseTutoringDashboard() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
 
+  // Topic management state
+  const [topics, setTopics] = useState([])
+  const [showTopicForm, setShowTopicForm] = useState(false)
+  const [editingTopic, setEditingTopic] = useState(null)
+  const [topicForm, setTopicForm] = useState({
+    topic: '',
+    subject: 'Science',
+    gradeLevel: '7th grade',
+    keyVocabulary: '',
+    assignedStudentIds: []
+  })
+  const [sessionStudents, setSessionStudents] = useState([])
+
+  // Conversation monitoring state
   const [conversations, setConversations] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [transcript, setTranscript] = useState(null)
   const [showTranscript, setShowTranscript] = useState(false)
   const [filter, setFilter] = useState('all') // 'all', 'mastery', 'progressing', 'struggling', 'needs_help'
+  const [activeTab, setActiveTab] = useState('topics') // 'topics' or 'conversations'
 
   useEffect(() => {
+    loadTopics()
+    loadSessionStudents()
     loadDashboard()
-    // Poll every 10 seconds for updates
+    // Poll conversations every 10 seconds for updates
     const interval = setInterval(loadDashboard, 10000)
     return () => clearInterval(interval)
   }, [sessionId])
+
+  /**
+   * Load topics for this session
+   */
+  const loadTopics = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/reverse-tutoring/session/${sessionId}/topics`
+      )
+      setTopics(response.data.topics)
+    } catch (error) {
+      console.error('Load topics error:', error)
+    }
+  }
+
+  /**
+   * Load students in this session
+   */
+  const loadSessionStudents = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `${API_URL}/api/sessions/${sessionId}/students`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+      setSessionStudents(response.data.students || [])
+    } catch (error) {
+      console.error('Load students error:', error)
+    }
+  }
+
+  /**
+   * Create or update a topic
+   */
+  const saveTopic = async () => {
+    try {
+      const token = localStorage.getItem('token')
+
+      // Parse vocabulary from comma-separated string
+      const keyVocabulary = topicForm.keyVocabulary
+        .split(',')
+        .map(v => v.trim())
+        .filter(v => v.length > 0)
+
+      const payload = {
+        sessionId,
+        topic: topicForm.topic,
+        subject: topicForm.subject,
+        gradeLevel: topicForm.gradeLevel,
+        keyVocabulary,
+        assignedStudentIds: topicForm.assignedStudentIds
+      }
+
+      if (editingTopic) {
+        // Update existing topic
+        await axios.put(
+          `${API_URL}/api/reverse-tutoring/topics/${editingTopic.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        toast.success('Success', 'Topic updated successfully')
+      } else {
+        // Create new topic
+        await axios.post(
+          `${API_URL}/api/reverse-tutoring/topics`,
+          payload,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        toast.success('Success', 'Topic created successfully')
+      }
+
+      // Reset form and reload
+      setShowTopicForm(false)
+      setEditingTopic(null)
+      setTopicForm({
+        topic: '',
+        subject: 'Science',
+        gradeLevel: '7th grade',
+        keyVocabulary: '',
+        assignedStudentIds: []
+      })
+      loadTopics()
+
+    } catch (error) {
+      console.error('Save topic error:', error)
+      toast.error('Error', error.response?.data?.message || 'Failed to save topic')
+    }
+  }
+
+  /**
+   * Delete a topic
+   */
+  const deleteTopic = async (topicId) => {
+    if (!confirm('Are you sure you want to delete this topic?')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(
+        `${API_URL}/api/reverse-tutoring/topics/${topicId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('Success', 'Topic deleted successfully')
+      loadTopics()
+    } catch (error) {
+      console.error('Delete topic error:', error)
+      toast.error('Error', 'Failed to delete topic')
+    }
+  }
+
+  /**
+   * Start editing a topic
+   */
+  const startEditTopic = (topic) => {
+    setEditingTopic(topic)
+    setTopicForm({
+      topic: topic.topic,
+      subject: topic.subject,
+      gradeLevel: topic.gradeLevel,
+      keyVocabulary: topic.keyVocabulary.join(', '),
+      assignedStudentIds: topic.assignedStudentIds
+    })
+    setShowTopicForm(true)
+  }
 
   /**
    * Load dashboard data
@@ -140,7 +282,7 @@ export default function ReverseTutoringDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Reverse Tutoring Dashboard</h1>
-              <p className="text-gray-600 mt-1">Monitor how well students can teach the AI</p>
+              <p className="text-gray-600 mt-1">Configure topics and monitor student conversations</p>
             </div>
             <button
               onClick={() => navigate(`/dashboard`)}
@@ -151,7 +293,279 @@ export default function ReverseTutoringDashboard() {
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('topics')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'topics'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              📚 Topics ({topics.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('conversations')}
+              className={`px-6 py-3 font-medium transition-colors ${
+                activeTab === 'conversations'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              💬 Conversations ({conversations.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Topics Tab */}
+        {activeTab === 'topics' && (
+          <div>
+            {/* Create Topic Button */}
+            <div className="mb-6">
+              <button
+                onClick={() => {
+                  setShowTopicForm(true)
+                  setEditingTopic(null)
+                  setTopicForm({
+                    topic: '',
+                    subject: 'Science',
+                    gradeLevel: '7th grade',
+                    keyVocabulary: '',
+                    assignedStudentIds: []
+                  })
+                }}
+                className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 font-medium transition-colors"
+              >
+                + Create New Topic
+              </button>
+            </div>
+
+            {/* Topic Form Modal */}
+            {showTopicForm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                  <div className="p-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                      {editingTopic ? 'Edit Topic' : 'Create New Topic'}
+                    </h2>
+
+                    <div className="space-y-4">
+                      {/* Topic */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Topic *
+                        </label>
+                        <input
+                          type="text"
+                          value={topicForm.topic}
+                          onChange={(e) => setTopicForm({ ...topicForm, topic: e.target.value })}
+                          placeholder="e.g., Photosynthesis"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Subject */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Subject
+                        </label>
+                        <input
+                          type="text"
+                          value={topicForm.subject}
+                          onChange={(e) => setTopicForm({ ...topicForm, subject: e.target.value })}
+                          placeholder="e.g., Science"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Grade Level */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Grade Level
+                        </label>
+                        <select
+                          value={topicForm.gradeLevel}
+                          onChange={(e) => setTopicForm({ ...topicForm, gradeLevel: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        >
+                          <option>Elementary</option>
+                          <option>6th grade</option>
+                          <option>7th grade</option>
+                          <option>8th grade</option>
+                          <option>9th grade</option>
+                          <option>10th grade</option>
+                          <option>11th grade</option>
+                          <option>12th grade</option>
+                        </select>
+                      </div>
+
+                      {/* Key Vocabulary */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Key Vocabulary (comma-separated)
+                        </label>
+                        <textarea
+                          value={topicForm.keyVocabulary}
+                          onChange={(e) => setTopicForm({ ...topicForm, keyVocabulary: e.target.value })}
+                          placeholder="e.g., chlorophyll, glucose, carbon dioxide"
+                          rows={3}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          The AI will listen for these terms and acknowledge when students use them correctly
+                        </p>
+                      </div>
+
+                      {/* Assign to Students */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Assign to Students (optional)
+                        </label>
+                        <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                          <div className="mb-2">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={topicForm.assignedStudentIds.length === 0}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setTopicForm({ ...topicForm, assignedStudentIds: [] })
+                                  }
+                                }}
+                                className="mr-2"
+                              />
+                              <span className="text-sm font-medium text-gray-700">All Students</span>
+                            </label>
+                          </div>
+                          {sessionStudents.map(student => (
+                            <div key={student.id} className="mb-1">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={topicForm.assignedStudentIds.includes(student.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setTopicForm({
+                                        ...topicForm,
+                                        assignedStudentIds: [...topicForm.assignedStudentIds, student.id]
+                                      })
+                                    } else {
+                                      setTopicForm({
+                                        ...topicForm,
+                                        assignedStudentIds: topicForm.assignedStudentIds.filter(id => id !== student.id)
+                                      })
+                                    }
+                                  }}
+                                  className="mr-2"
+                                />
+                                <span className="text-sm text-gray-700">{student.student_name}</span>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Leave empty to make this topic available to all students
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-3 mt-6">
+                      <button
+                        onClick={saveTopic}
+                        disabled={!topicForm.topic.trim()}
+                        className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                      >
+                        {editingTopic ? 'Update Topic' : 'Create Topic'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowTopicForm(false)
+                          setEditingTopic(null)
+                        }}
+                        className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Topics List */}
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              {topics.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-4">📚</div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    No topics yet
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Create topics to let students start teaching the AI
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {topics.map((topic) => (
+                    <div key={topic.id} className="p-6 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                            {topic.topic}
+                          </h3>
+                          <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-3">
+                            <span>📖 {topic.subject}</span>
+                            <span>🎓 {topic.gradeLevel}</span>
+                            {topic.assignedStudentIds.length > 0 && (
+                              <span>👥 {topic.assignedStudentIds.length} students</span>
+                            )}
+                            {topic.assignedStudentIds.length === 0 && (
+                              <span>👥 All students</span>
+                            )}
+                          </div>
+                          {topic.keyVocabulary.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {topic.keyVocabulary.map((word, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-2 py-1 bg-primary-50 text-primary-700 rounded text-xs font-medium"
+                                >
+                                  {word}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 ml-4">
+                          <button
+                            onClick={() => startEditTopic(topic)}
+                            className="px-3 py-1 text-sm text-primary-600 hover:bg-primary-50 rounded"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => deleteTopic(topic.id)}
+                            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Conversations Tab */}
+        {activeTab === 'conversations' && (
+          <div>
+            {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
@@ -312,6 +726,8 @@ export default function ReverseTutoringDashboard() {
             </div>
           )}
         </div>
+          </div>
+        )}
       </div>
 
       {/* Transcript Modal */}
