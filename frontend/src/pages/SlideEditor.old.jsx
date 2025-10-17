@@ -1,91 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useDebounce } from 'use-debounce'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import { slidesAPI, presentationAPI } from '../services/api'
 import RichTextEditor from '../components/slides/RichTextEditor'
 import ImageUploader from '../components/slides/ImageUploader'
 import ResizableImage from '../components/slides/ResizableImage'
 import ImageLibrary from '../components/slides/ImageLibrary'
-import ImageToolbar from '../components/slides/ImageToolbar'
-import ImageCropMode from '../components/slides/ImageCropMode'
+import SlidePreview from '../components/slides/SlidePreview'
 
 /**
- * SortableSlidePreview - Draggable slide thumbnail
- */
-function SortableSlidePreview({ slide, index, isActive, onClick }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: slide.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`group relative cursor-pointer rounded-lg border-2 transition-all ${
-        isActive ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'
-      }`}
-    >
-      {/* Drag Handle */}
-      <div
-        {...listeners}
-        {...attributes}
-        className="absolute left-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-white rounded p-1 shadow-md z-10"
-      >
-        <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-        </svg>
-      </div>
-
-      {/* Slide Preview */}
-      <div onClick={onClick} className="p-3">
-        <div className="text-xs font-medium text-gray-500 mb-1">Slide {index + 1}</div>
-        <div className="aspect-video bg-white border border-gray-200 rounded flex items-center justify-center text-xs text-gray-400 overflow-hidden">
-          {slide.image ? (
-            <img
-              src={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${slide.image.url}`}
-              alt={slide.title}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="p-2 text-center">
-              <div className="font-semibold text-gray-700">{slide.title || 'Untitled'}</div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * SlideEditor - Modern slide editor with drag-and-drop, auto-save, and contextual controls
+ * SlideEditor - Main page for editing slide decks
+ * Allows teachers to create, edit, and manage presentations
  */
 export default function SlideEditor() {
   const { deckId } = useParams()
@@ -93,37 +17,17 @@ export default function SlideEditor() {
 
   const [deck, setDeck] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
   const [showImageLibrary, setShowImageLibrary] = useState(false)
   const [isGeneratingVariant, setIsGeneratingVariant] = useState(false)
   const [error, setError] = useState(null)
-  const [saveStatus, setSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
-  const [imageSelected, setImageSelected] = useState(false)
-  const [showCropMode, setShowCropMode] = useState(false)
 
   // Current slide
   const currentSlide = deck?.slides?.[currentSlideIndex]
 
-  // Debounce changes for auto-save
-  const [debouncedSlide] = useDebounce(currentSlide, 500)
-
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  )
-
   useEffect(() => {
     loadDeck()
   }, [deckId])
-
-  // Auto-save when slide changes (debounced)
-  useEffect(() => {
-    if (debouncedSlide && deck) {
-      autoSaveSlide()
-    }
-  }, [debouncedSlide])
 
   const loadDeck = async () => {
     try {
@@ -134,10 +38,20 @@ export default function SlideEditor() {
     }
   }
 
-  const autoSaveSlide = async () => {
+  const updateCurrentSlide = (field, value) => {
+    const updatedSlides = [...deck.slides]
+    updatedSlides[currentSlideIndex] = {
+      ...updatedSlides[currentSlideIndex],
+      [field]: value
+    }
+    setDeck({ ...deck, slides: updatedSlides })
+  }
+
+  const handleSaveSlide = async () => {
     if (!currentSlide) return
 
-    setSaveStatus('saving')
+    setIsSaving(true)
+    setError(null)
 
     try {
       await slidesAPI.updateSlide(currentSlide.id, {
@@ -152,52 +66,12 @@ export default function SlideEditor() {
         template: currentSlide.template
       })
 
-      setSaveStatus('saved')
+      // Reload deck to get updated data
+      await loadDeck()
     } catch (err) {
-      console.error('Auto-save failed:', err)
-      setSaveStatus('error')
-    }
-  }
-
-  const updateCurrentSlide = (field, value) => {
-    const updatedSlides = [...deck.slides]
-    updatedSlides[currentSlideIndex] = {
-      ...updatedSlides[currentSlideIndex],
-      [field]: value
-    }
-    setDeck({ ...deck, slides: updatedSlides })
-  }
-
-  const handleDragEnd = async (event) => {
-    const { active, over } = event
-
-    if (active.id !== over.id) {
-      const oldIndex = deck.slides.findIndex(s => s.id === active.id)
-      const newIndex = deck.slides.findIndex(s => s.id === over.id)
-
-      const newSlides = arrayMove(deck.slides, oldIndex, newIndex)
-      setDeck({ ...deck, slides: newSlides })
-
-      // Update current slide index if needed
-      if (currentSlideIndex === oldIndex) {
-        setCurrentSlideIndex(newIndex)
-      } else if (oldIndex < currentSlideIndex && newIndex >= currentSlideIndex) {
-        setCurrentSlideIndex(currentSlideIndex - 1)
-      } else if (oldIndex > currentSlideIndex && newIndex <= currentSlideIndex) {
-        setCurrentSlideIndex(currentSlideIndex + 1)
-      }
-
-      // Save new order to backend
-      try {
-        const slidesOrder = newSlides.map((slide, index) => ({
-          id: slide.id,
-          slideNumber: index + 1
-        }))
-        await slidesAPI.reorderSlides(deckId, slidesOrder)
-      } catch (err) {
-        console.error('Failed to save slide order:', err)
-        setError('Failed to save slide order')
-      }
+      setError(err.response?.data?.message || 'Failed to save slide')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -210,8 +84,11 @@ export default function SlideEditor() {
 
     try {
       await slidesAPI.deleteSlide(currentSlide.id)
+
+      // Reload deck
       await loadDeck()
 
+      // Move to previous slide if we deleted the last one
       if (currentSlideIndex >= deck.slides.length - 1) {
         setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))
       }
@@ -228,6 +105,8 @@ export default function SlideEditor() {
 
     try {
       await slidesAPI.generateVariant(currentSlide.id, direction)
+
+      // Reload deck to show new variant
       await loadDeck()
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to generate variant')
@@ -238,8 +117,12 @@ export default function SlideEditor() {
 
   const handleCreateBlankSlide = async () => {
     try {
-      await slidesAPI.createBlankSlide(deckId)
+      const result = await slidesAPI.createBlankSlide(deckId)
+
+      // Reload deck to show new slide
       await loadDeck()
+
+      // Navigate to the new slide (it will be at the end)
       setCurrentSlideIndex(deck.slides.length)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create blank slide')
@@ -250,8 +133,12 @@ export default function SlideEditor() {
     if (!currentSlide) return
 
     try {
-      await slidesAPI.duplicateSlide(currentSlide.id)
+      const result = await slidesAPI.duplicateSlide(currentSlide.id)
+
+      // Reload deck to show duplicated slide
       await loadDeck()
+
+      // Navigate to the duplicated slide (it will be at the end)
       setCurrentSlideIndex(deck.slides.length)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to duplicate slide')
@@ -265,9 +152,7 @@ export default function SlideEditor() {
       alt: uploadedImage.alt_text,
       width: uploadedImage.width,
       height: uploadedImage.height,
-      position: 'center',
-      objectFit: 'contain',
-      lockAspectRatio: true
+      position: 'right'
     })
   }
 
@@ -278,9 +163,7 @@ export default function SlideEditor() {
       alt: selectedImage.alt_text,
       width: selectedImage.width,
       height: selectedImage.height,
-      position: 'center',
-      objectFit: 'contain',
-      lockAspectRatio: true
+      position: 'right'
     })
   }
 
@@ -292,23 +175,8 @@ export default function SlideEditor() {
     })
   }
 
-  const handleImageFitChange = (changes) => {
-    updateCurrentSlide('image', {
-      ...currentSlide.image,
-      ...changes
-    })
-  }
-
   const handleRemoveImage = () => {
     updateCurrentSlide('image', null)
-    setImageSelected(false)
-  }
-
-  const handleCropApply = (cropData) => {
-    console.log('Crop data:', cropData)
-    // In a real implementation, you'd send the crop data to backend
-    // which would process the image and return a new cropped version
-    setShowCropMode(false)
   }
 
   const handleStartPresentation = async (mode) => {
@@ -333,7 +201,7 @@ export default function SlideEditor() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Slide thumbnails sidebar with drag-and-drop */}
+      {/* Slide thumbnails sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-bold text-lg text-gray-900">Slides</h2>
@@ -341,28 +209,17 @@ export default function SlideEditor() {
         </div>
 
         <div className="flex-1 p-4 space-y-3">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={deck.slides.map(s => s.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              {deck.slides.map((slide, index) => (
-                <SortableSlidePreview
-                  key={slide.id}
-                  slide={slide}
-                  index={index}
-                  isActive={index === currentSlideIndex}
-                  onClick={() => setCurrentSlideIndex(index)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+          {deck.slides.map((slide, index) => (
+            <SlidePreview
+              key={slide.id}
+              slide={slide}
+              isActive={index === currentSlideIndex}
+              onClick={() => setCurrentSlideIndex(index)}
+            />
+          ))}
         </div>
 
+        {/* New Blank Slide button */}
         <div className="p-4 border-t border-gray-200">
           <button
             onClick={handleCreateBlankSlide}
@@ -383,37 +240,20 @@ export default function SlideEditor() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{deck.title}</h1>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <span>Slide {currentSlideIndex + 1} of {deck.slides.length}</span>
-                <span className="text-gray-400">•</span>
-                <span className={`flex items-center gap-1 ${
-                  saveStatus === 'saving' ? 'text-blue-600' :
-                  saveStatus === 'saved' ? 'text-green-600' :
-                  'text-red-600'
-                }`}>
-                  {saveStatus === 'saving' && (
-                    <>
-                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Saving...
-                    </>
-                  )}
-                  {saveStatus === 'saved' && (
-                    <>
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Saved
-                    </>
-                  )}
-                  {saveStatus === 'error' && 'Save failed'}
-                </span>
-              </div>
+              <p className="text-sm text-gray-600">
+                Editing slide {currentSlideIndex + 1} of {deck.slides.length}
+              </p>
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveSlide}
+                disabled={isSaving}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {isSaving ? 'Saving...' : 'Save Slide'}
+              </button>
+
               <div className="relative group">
                 <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   Start Presentation ▼
@@ -449,14 +289,10 @@ export default function SlideEditor() {
             </div>
           </div>
 
+          {/* Error message */}
           {error && (
-            <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
               <p className="text-sm">{error}</p>
-              <button onClick={() => setError(null)} className="text-red-700 hover:text-red-900">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
             </div>
           )}
         </header>
@@ -490,35 +326,70 @@ export default function SlideEditor() {
               />
             </div>
 
-            {/* Image section with contextual toolbar */}
+            {/* Image section */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Image
               </label>
 
               {currentSlide?.image ? (
-                <div className="relative">
-                  {/* Contextual toolbar appears when image is selected */}
-                  {imageSelected && (
-                    <ImageToolbar
-                      image={currentSlide.image}
-                      onFitChange={handleImageFitChange}
-                      onCropClick={() => setShowCropMode(true)}
-                      onRemove={handleRemoveImage}
-                      containerWidth={1000}
-                      containerHeight={600}
-                      lockAspectRatio={currentSlide.image.lockAspectRatio}
-                      onLockChange={(locked) => handleImageFitChange({ lockAspectRatio: locked })}
-                    />
-                  )}
+                <div className="space-y-4">
+                  {/* Image controls */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Position
+                      </label>
+                      <select
+                        value={currentSlide.image.position || 'right'}
+                        onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, position: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Fit Style
+                      </label>
+                      <select
+                        value={currentSlide.image.objectFit || 'contain'}
+                        onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, objectFit: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="contain">Contain (fit inside)</option>
+                        <option value="cover">Cover (fill, crop edges)</option>
+                        <option value="fill">Fill (stretch to fit)</option>
+                        <option value="scale-down">Scale Down</option>
+                        <option value="none">None (original size)</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-2 flex items-center gap-6">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={currentSlide.image.lockAspectRatio || false}
+                          onChange={(e) => updateCurrentSlide('image', { ...currentSlide.image, lockAspectRatio: e.target.checked })}
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">Lock aspect ratio when resizing</span>
+                      </label>
+
+                      <button
+                        onClick={handleRemoveImage}
+                        className="ml-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        Remove Image
+                      </button>
+                    </div>
+                  </div>
 
                   {/* Resizable image */}
-                  <div
-                    className="border-2 border-gray-200 rounded-lg p-6 bg-gray-50 cursor-pointer"
-                    style={{ height: '500px', position: 'relative' }}
-                    onClick={() => setImageSelected(true)}
-                    onBlur={() => setImageSelected(false)}
-                  >
+                  <div className="border-2 border-gray-200 rounded-lg p-6 bg-gray-50" style={{ height: '400px', position: 'relative' }}>
                     <ResizableImage
                       imageUrl={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${currentSlide.image.url}`}
                       alt={currentSlide.image.alt || ''}
@@ -589,15 +460,6 @@ export default function SlideEditor() {
         onClose={() => setShowImageLibrary(false)}
         onSelect={handleImageSelect}
       />
-
-      {/* Crop Mode Overlay */}
-      {showCropMode && currentSlide?.image && (
-        <ImageCropMode
-          imageUrl={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${currentSlide.image.url}`}
-          onApply={handleCropApply}
-          onCancel={() => setShowCropMode(false)}
-        />
-      )}
     </div>
   )
 }
