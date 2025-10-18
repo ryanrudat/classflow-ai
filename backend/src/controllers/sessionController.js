@@ -140,7 +140,7 @@ export async function getSession(req, res) {
 }
 
 /**
- * Get students in a session
+ * Get students in a session (current period only)
  * GET /api/sessions/:id/students
  * Protected: Teacher only
  */
@@ -159,13 +159,28 @@ export async function getSessionStudents(req, res) {
       return res.status(404).json({ message: 'Session not found' })
     }
 
-    // Get students in session
+    // Get the current instance for this session
+    const instanceResult = await db.query(
+      `SELECT id FROM session_instances
+       WHERE session_id = $1 AND is_current = true
+       LIMIT 1`,
+      [id]
+    )
+
+    if (instanceResult.rows.length === 0) {
+      // No current instance - return empty list
+      return res.json({ students: [] })
+    }
+
+    const currentInstanceId = instanceResult.rows[0].id
+
+    // Get students in current period only
     const studentsResult = await db.query(
       `SELECT id, student_name, device_type, current_screen_state, joined_at, last_active, instance_id
        FROM session_students
-       WHERE session_id = $1
+       WHERE session_id = $1 AND instance_id = $2
        ORDER BY student_name ASC`,
-      [id]
+      [id, currentInstanceId]
     )
 
     res.json({
