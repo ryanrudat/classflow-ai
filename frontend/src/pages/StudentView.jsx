@@ -6,6 +6,7 @@ import { useStudentAuthStore } from '../stores/studentAuthStore'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
 import CreateAccountBanner from '../components/CreateAccountBanner'
+import ConfusionButton from '../components/ConfusionButton'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -25,11 +26,14 @@ export default function StudentView() {
   const [presentationActive, setPresentationActive] = useState(false)
   const [currentDeck, setCurrentDeck] = useState(null)
 
+  // Confusion state
+  const [isConfused, setIsConfused] = useState(false)
+
   // Auto-fill join code if in URL
   const [code, setCode] = useState(joinCode || '')
 
   // WebSocket connection
-  const { joinSession, submitResponse, on, off, emit, isConnected } = useSocket()
+  const { joinSession, submitResponse, on, off, emit, toggleConfusion, isConnected } = useSocket()
 
   async function handleJoin(e) {
     e.preventDefault()
@@ -142,6 +146,11 @@ export default function StudentView() {
       }
     }
 
+    // Listen for confusion cleared by teacher
+    const handleConfusionCleared = () => {
+      setIsConfused(false)
+    }
+
     // Listen for force disconnect (when teacher removes student)
     const handleForceDisconnect = ({ message }) => {
       alert(message || 'You have been removed from the session')
@@ -157,6 +166,7 @@ export default function StudentView() {
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
     on('presentation-started', handlePresentationStarted)
+    on('confusion-cleared', handleConfusionCleared)
     on('force-disconnect', handleForceDisconnect)
 
     // Cleanup
@@ -165,9 +175,16 @@ export default function StudentView() {
       off('screen-locked', handleScreenLocked)
       off('screen-unlocked', handleScreenUnlocked)
       off('presentation-started', handlePresentationStarted)
+      off('confusion-cleared', handleConfusionCleared)
       off('force-disconnect', handleForceDisconnect)
     }
   }, [session, student, joinSession, on, off])
+
+  // Handle confusion toggle
+  const handleConfusionToggle = (newConfusedState) => {
+    setIsConfused(newConfusedState)
+    toggleConfusion(session.id, student.id, student.student_name, newConfusedState)
+  }
 
   if (step === 'join') {
     return (
@@ -330,6 +347,15 @@ export default function StudentView() {
               </div>
               <h3 className="text-xl font-medium text-gray-600">Waiting for teacher...</h3>
               <p className="text-gray-500 mt-2">Your teacher will push activities or presentations</p>
+            </div>
+
+            {/* Confusion Button */}
+            <div className="card">
+              <ConfusionButton
+                isConfused={isConfused}
+                onToggle={handleConfusionToggle}
+                disabled={!isConnected || screenLocked}
+              />
             </div>
 
             {/* Reverse Tutoring Option */}

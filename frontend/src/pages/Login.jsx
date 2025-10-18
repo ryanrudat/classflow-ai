@@ -35,21 +35,36 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // Try to login, if fails, register first then login
+      // Try to login with demo credentials
       try {
         const { user, token } = await authAPI.login('demo@classflow.ai', 'demo123')
         setAuth(user, token)
         navigate('/dashboard')
+        return
       } catch (loginErr) {
-        // If login fails, register the demo account
-        if (loginErr.response?.status === 401) {
-          await authAPI.register({
-            name: 'Demo Teacher',
-            email: 'demo@classflow.ai',
-            password: 'demo123',
-            school: 'Demo School'
-          })
-          // Then login
+        console.log('Demo login attempt failed, trying to create account:', loginErr.response?.status)
+
+        // If login fails due to invalid credentials (401), try to register
+        if (loginErr.response?.status === 401 || loginErr.response?.status === 404) {
+          try {
+            // Try to register demo account
+            await authAPI.register({
+              name: 'Demo Teacher',
+              email: 'demo@classflow.ai',
+              password: 'demo123',
+              school: 'Demo School'
+            })
+            console.log('Demo account created successfully')
+          } catch (registerErr) {
+            // If registration fails because account exists, that's fine - continue to login
+            if (registerErr.response?.status !== 409 && registerErr.response?.status !== 400) {
+              console.error('Registration error:', registerErr)
+              throw new Error(`Failed to create demo account: ${registerErr.response?.data?.message || registerErr.message}`)
+            }
+            console.log('Demo account already exists, continuing to login')
+          }
+
+          // Now try login again (account should exist now)
           const { user, token } = await authAPI.login('demo@classflow.ai', 'demo123')
           setAuth(user, token)
           navigate('/dashboard')
@@ -58,7 +73,9 @@ export default function Login() {
         }
       }
     } catch (err) {
-      setError('Demo login failed. Please try manual login.')
+      console.error('Demo login error:', err)
+      const errorMessage = err.response?.data?.message || err.message || 'Demo login failed'
+      setError(`Demo login failed: ${errorMessage}. Please try manual login or contact support.`)
     } finally {
       setLoading(false)
     }

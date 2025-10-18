@@ -410,4 +410,64 @@ export const completionAPI = {
   }
 }
 
+// Google Classroom API
+export const googleClassroomAPI = {
+  // Get auth URL to initiate OAuth flow
+  getAuthUrl: async () => {
+    const response = await api.get('/google/auth')
+    return response.data
+  },
+
+  // Check connection status
+  getStatus: async () => {
+    const response = await api.get('/google/status')
+    return response.data
+  },
+
+  // Disconnect Google Classroom
+  disconnect: async () => {
+    const response = await api.delete('/google/disconnect')
+    return response.data
+  },
+
+  // Get user's Google Classroom courses
+  getCourses: async () => {
+    const response = await api.get('/google/courses')
+    return response.data
+  },
+
+  // Get students in a specific course
+  getCourseStudents: async (courseId) => {
+    const response = await api.get(`/google/courses/${courseId}/students`)
+    return response.data
+  },
+
+  // Import roster from Google Classroom
+  importRoster: async (courseId, sessionId) => {
+    const response = await api.post(`/google/courses/${courseId}/import-roster`, {
+      sessionId
+    })
+    return response.data
+  },
+
+  // Share activity to Google Classroom
+  shareActivity: async (courseId, activityId, sessionId) => {
+    const response = await api.post(`/google/courses/${courseId}/share-activity`, {
+      activityId,
+      sessionId
+    })
+    return response.data
+  },
+
+  // Sync grades to Google Classroom
+  syncGrades: async (activityId, courseId, courseworkId) => {
+    const response = await api.post('/google/sync-grades', {
+      activityId,
+      courseId,
+      courseworkId
+    })
+    return response.data
+  }
+}
+
 export default api
