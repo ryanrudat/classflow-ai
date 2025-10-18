@@ -133,12 +133,46 @@ export default function ReverseTutoring() {
     } catch (error) {
       console.error('Start conversation error:', error)
       if (error.response?.status === 409) {
-        // Conversation already exists - try to load it
-        toast.info('Resuming', 'Continuing your previous conversation')
-        // TODO: Load existing conversation
+        // Conversation already exists - load it
+        const existingConversationId = error.response?.data?.conversationId
+        if (existingConversationId) {
+          toast.info('Resuming', 'Continuing your previous conversation')
+          await loadExistingConversation(existingConversationId)
+        } else {
+          toast.error('Error', 'Could not resume conversation')
+        }
       } else {
         toast.error('Error', error.response?.data?.message || 'Failed to start conversation')
       }
+    }
+  }
+
+  /**
+   * Load existing conversation
+   */
+  const loadExistingConversation = async (conversationId) => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/reverse-tutoring/student/${studentId}/conversation?sessionId=${sessionId}&topic=${encodeURIComponent(selectedTopic.topic)}`
+      )
+
+      setConversationId(conversationId)
+
+      // Parse history and set messages
+      const history = response.data.history || []
+      const formattedMessages = history.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp)
+      }))
+
+      setMessages(formattedMessages)
+      setMessageCount(response.data.messageCount || history.length)
+      setUnderstanding(response.data.understandingLevel || 0)
+
+    } catch (error) {
+      console.error('Load conversation error:', error)
+      toast.error('Error', 'Failed to load existing conversation')
     }
   }
 
