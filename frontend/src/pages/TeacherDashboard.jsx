@@ -819,7 +819,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               sessionActivities={pushedActivities}
               selectedStudentDetail={selectedStudentDetail}
               setSelectedStudentDetail={setSelectedStudentDetail}
-              activeSession={activeSession}
+              currentSession={session}
               setClickedInstanceForReactivation={setClickedInstanceForReactivation}
               setSessionToReactivate={setSessionToReactivate}
               setShowReactivateDialog={setShowReactivateDialog}
@@ -887,7 +887,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 }
 
 // Tab Components
-function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, activeSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, currentSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
   const { notifySuccess, notifyError } = useNotifications()
   const [studentProgressData, setStudentProgressData] = useState([])
   const [studentIdToRemove, setStudentIdToRemove] = useState(null)
@@ -1019,7 +1019,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                     // If clicking on a past (ended) period, show reactivation dialog
                     if (!instance.is_current) {
                       setClickedInstanceForReactivation(instance)
-                      setSessionToReactivate(activeSession)
+                      setSessionToReactivate(currentSession)
                       setReactivateInstances(instances)
                       setShowReactivateDialog(true)
                     } else {
