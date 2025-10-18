@@ -1007,15 +1007,33 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       </div>
 
       {/* Class Periods */}
-      {instances.length > 1 && (
+      {instances.length > 0 && (
         <div>
-          <h3 className="text-lg font-bold text-gray-800 mb-3">Class Periods</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-gray-800">Class Periods</h3>
+            {instances.length > 1 && (
+              <span className="text-sm text-gray-600">
+                {instances.length} {instances.length === 1 ? 'period' : 'periods'}
+              </span>
+            )}
+          </div>
+          <div
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
+            role="tablist"
+            aria-label="Class periods"
+          >
             {instances.map(instance => {
+              const isSelected = selectedInstance?.id === instance.id
               const instanceDate = new Date(instance.started_at).toLocaleDateString('en-US', {
                 month: 'short',
-                day: 'numeric'
+                day: 'numeric',
+                year: 'numeric'
               })
+              const instanceTime = new Date(instance.started_at).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+              })
+
               return (
                 <button
                   key={instance.id}
@@ -1024,20 +1042,62 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                     setSelectedInstance(instance)
                     loadInstanceStudents(instance.id)
                   }}
-                  className={`p-4 rounded-lg font-medium transition-all text-left ${
-                    selectedInstance?.id === instance.id
-                      ? 'bg-indigo-600 text-white shadow-lg'
+                  role="tab"
+                  aria-selected={isSelected}
+                  aria-controls="period-students"
+                  aria-label={`${instance.label || `Period ${instance.instance_number}`}, ${instance.is_current ? 'current period' : 'ended period'}, ${instance.student_count || 0} students, started ${instanceDate}`}
+                  className={`relative p-4 rounded-lg font-medium transition-all text-left group focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-600 focus:ring-indigo-500'
                       : instance.is_current
-                      ? 'bg-indigo-100 text-indigo-700 border-2 border-indigo-300 hover:bg-indigo-200'
-                      : 'bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200'
+                      ? 'bg-indigo-50 text-indigo-900 border-2 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:ring-indigo-500'
+                      : 'bg-gray-50 text-gray-900 border-2 border-gray-200 hover:bg-gray-100 hover:border-gray-300 focus:ring-gray-500'
                   }`}
                 >
-                  <div className="font-semibold">
-                    {instance.label || `Period ${instance.instance_number}`}
-                    {instance.is_current && <span className="ml-1 text-xs">(Current)</span>}
+                  {/* Status Badge */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                      isSelected
+                        ? 'bg-white/20 text-white'
+                        : instance.is_current
+                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        : 'bg-gray-200 text-gray-700 border border-gray-300'
+                    }`}>
+                      {instance.is_current ? '● Active' : '○ Ended'}
+                    </span>
+                    {isSelected && (
+                      <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
                   </div>
-                  <div className="text-xs opacity-75 mt-1">
-                    {instanceDate} • {instance.student_count || 0} students
+
+                  {/* Period Name */}
+                  <div className={`font-bold text-base mb-1 ${
+                    isSelected ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {instance.label || `Period ${instance.instance_number}`}
+                  </div>
+
+                  {/* Student Count */}
+                  <div className={`flex items-center gap-1 text-sm mb-2 ${
+                    isSelected ? 'text-white/90' : 'text-gray-600'
+                  }`}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="font-medium">{instance.student_count || 0}</span>
+                    <span className={isSelected ? 'text-white/75' : 'text-gray-500'}>
+                      {instance.student_count === 1 ? 'student' : 'students'}
+                    </span>
+                  </div>
+
+                  {/* Date & Time */}
+                  <div className={`text-xs ${
+                    isSelected ? 'text-white/75' : 'text-gray-500'
+                  }`}>
+                    <div>{instanceDate}</div>
+                    <div>{instanceTime}</div>
                   </div>
                 </button>
               )
@@ -1048,16 +1108,25 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
 
       {/* Period Warning Banner */}
       {selectedInstance && !selectedInstance.is_current && (
-        <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">📅</span>
+        <div
+          className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4"
+          role="alert"
+          aria-live="polite"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl flex-shrink-0" aria-hidden="true">📅</span>
               <div>
-                <div className="font-semibold text-amber-900">
+                <div className="font-bold text-amber-900">
                   Viewing Past Period: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
                 </div>
-                <div className="text-sm text-amber-800">
-                  This class session ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString()}
+                <div className="text-sm text-amber-800 mt-1">
+                  Ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
                 </div>
               </div>
             </div>
@@ -1068,21 +1137,25 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                 setReactivateInstances(instances)
                 setShowReactivateDialog(true)
               }}
-              className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+              className="px-4 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2 justify-center"
+              aria-label={`Reactivate ${selectedInstance.label || `Period ${selectedInstance.instance_number}`}`}
             >
-              Reactivate
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Reactivate Period</span>
             </button>
           </div>
         </div>
       )}
 
       {/* Students in this Period */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-800 mb-3">
+      <div id="period-students" role="tabpanel" aria-labelledby="period-students-heading">
+        <h3 id="period-students-heading" className="text-lg font-bold text-gray-800 mb-3">
           Students
-          {selectedInstance && instances.length > 1 && (
+          {selectedInstance && instances.length > 0 && (
             <span className="ml-2 text-sm font-normal text-gray-600">
-              - {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+              in {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
             </span>
           )}
         </h3>
