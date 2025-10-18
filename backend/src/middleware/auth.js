@@ -16,6 +16,7 @@ export function authenticateToken(req, res, next) {
     const token = authHeader && authHeader.split(' ')[1] // Bearer TOKEN
 
     if (!token) {
+      console.log('❌ Auth failed: No token provided')
       return res.status(401).json({
         message: 'Access token required'
       })
@@ -24,13 +25,18 @@ export function authenticateToken(req, res, next) {
     // Verify token
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
       if (err) {
+        console.log('❌ Auth failed: Token verification failed -', err.message)
+        console.log('   Token (first 20 chars):', token.substring(0, 20) + '...')
+        console.log('   JWT_SECRET exists:', !!process.env.JWT_SECRET)
         return res.status(403).json({
-          message: 'Invalid or expired token'
+          message: 'Invalid or expired token',
+          error: err.message
         })
       }
 
       // Attach user info to request
       req.user = user
+      console.log('✅ Auth successful for user:', user.userId)
 
       next()
     })
