@@ -525,7 +525,7 @@ export async function getConversationTranscript(conversationId) {
       `SELECT
         rtc.*,
         ss.student_name,
-        sa.name as student_account_name
+        sa.display_name as student_account_name
        FROM reverse_tutoring_conversations rtc
        JOIN session_students ss ON rtc.student_id = ss.id
        LEFT JOIN student_accounts sa ON ss.student_account_id = sa.id
