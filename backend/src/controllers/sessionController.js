@@ -140,6 +140,45 @@ export async function getSession(req, res) {
 }
 
 /**
+ * Get students in a session
+ * GET /api/sessions/:id/students
+ * Protected: Teacher only
+ */
+export async function getSessionStudents(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session
+    const sessionCheck = await db.query(
+      'SELECT id FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Get students in session
+    const studentsResult = await db.query(
+      `SELECT id, student_name, device_type, current_screen_state, joined_at, last_active, instance_id
+       FROM session_students
+       WHERE session_id = $1
+       ORDER BY student_name ASC`,
+      [id]
+    )
+
+    res.json({
+      students: studentsResult.rows
+    })
+
+  } catch (error) {
+    console.error('Get session students error:', error)
+    res.status(500).json({ message: 'Failed to get session students' })
+  }
+}
+
+/**
  * End session
  * POST /api/sessions/:id/end
  * Protected: Teacher only

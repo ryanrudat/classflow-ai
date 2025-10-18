@@ -2,6 +2,7 @@ import express from 'express'
 import {
   createSession,
   getSession,
+  getSessionStudents,
   endSession,
   reactivateSession,
   deleteSession,
@@ -21,6 +22,7 @@ const router = express.Router()
 router.post('/', authenticateToken, createSession)
 router.get('/', authenticateToken, getTeacherSessions)
 router.get('/:id', authenticateToken, getSession)
+router.get('/:id/students', authenticateToken, getSessionStudents)
 router.get('/:id/instances', authenticateToken, getSessionInstances)
 router.get('/:sessionId/instances/:instanceId', authenticateToken, getInstanceDetails)
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
