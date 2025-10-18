@@ -69,6 +69,12 @@ export default function ReverseTutoringDashboard() {
   const loadSessionStudents = async () => {
     try {
       const token = localStorage.getItem('token')
+
+      if (!token) {
+        console.error('No auth token found - cannot load students')
+        return
+      }
+
       const response = await axios.get(
         `${API_URL}/api/sessions/${sessionId}/students`,
         {
@@ -77,8 +83,10 @@ export default function ReverseTutoringDashboard() {
       )
       setSessionStudents(response.data.students || [])
     } catch (error) {
-      // Silently fail - endpoint may not be deployed yet
-      if (error.response?.status !== 404) {
+      // Silently fail on 404/403 during initial load
+      if (error.response?.status === 403) {
+        console.error('Authentication failed when loading students')
+      } else if (error.response?.status !== 404) {
         console.error('Load students error:', error)
       }
     }
@@ -183,6 +191,13 @@ export default function ReverseTutoringDashboard() {
   const loadDashboard = async () => {
     try {
       const token = localStorage.getItem('token')
+
+      if (!token) {
+        console.error('No auth token found - please log in')
+        setLoading(false)
+        return
+      }
+
       const response = await axios.get(
         `${API_URL}/api/reverse-tutoring/session/${sessionId}/dashboard`,
         {
@@ -194,10 +209,17 @@ export default function ReverseTutoringDashboard() {
       setLoading(false)
 
     } catch (error) {
-      // Silently fail on 404 - endpoint may not be deployed yet
-      if (error.response?.status !== 404) {
+      // Handle different error types
+      if (error.response?.status === 403) {
+        console.error('Authentication failed - token may be expired')
+        if (!loading) {
+          toast.error('Session Expired', 'Please log in again')
+          // Optionally redirect to login
+          // navigate('/login')
+        }
+      } else if (error.response?.status !== 404) {
         console.error('Load dashboard error:', error)
-        if (!loading) { // Only show toast error if not initial load
+        if (!loading) {
           toast.error('Error', 'Failed to load dashboard')
         }
       }
