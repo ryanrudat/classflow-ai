@@ -548,6 +548,8 @@ export async function getConversationTranscript(conversationId) {
 
     return {
       conversationId: conversation.id,
+      sessionId: conversation.session_id,
+      studentId: conversation.student_id,
       studentName: conversation.student_name,
       studentAccountName: conversation.student_account_name,
       topic: conversation.topic,

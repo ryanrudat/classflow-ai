@@ -327,23 +327,35 @@ export async function getTranscript(req, res) {
     const { conversationId } = req.params
     const teacherId = req.user.userId
 
+    console.log('📝 Getting transcript for conversation:', conversationId)
+
     // Get transcript
     const transcript = await getConversationTranscript(conversationId)
+
+    console.log('✅ Transcript retrieved. Session ID:', transcript.sessionId)
 
     // Verify teacher owns the session
     const sessionCheck = await db.query(
       'SELECT teacher_id FROM sessions WHERE id = $1',
-      [transcript.sessionId || 0]
+      [transcript.sessionId]
     )
 
-    if (sessionCheck.rows.length === 0 || sessionCheck.rows[0].teacher_id !== teacherId) {
+    if (sessionCheck.rows.length === 0) {
+      console.log('❌ Session not found:', transcript.sessionId)
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    if (sessionCheck.rows[0].teacher_id !== teacherId) {
+      console.log('❌ Unauthorized access attempt. Teacher:', teacherId, 'Session owner:', sessionCheck.rows[0].teacher_id)
       return res.status(403).json({ message: 'Unauthorized' })
     }
 
+    console.log('✅ Authorization successful, sending transcript')
     res.json(transcript)
 
   } catch (error) {
     console.error('Get transcript error:', error)
+    console.error('Conversation ID:', req.params.conversationId)
     res.status(500).json({
       message: `Failed to get transcript: ${error.message}`
     })
