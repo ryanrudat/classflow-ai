@@ -222,6 +222,14 @@ export async function endSession(req, res) {
       [id]
     )
 
+    // End the current session instance
+    await db.query(
+      `UPDATE session_instances
+       SET is_current = false, ended_at = NOW()
+       WHERE session_id = $1 AND is_current = true`,
+      [id]
+    )
+
     // Log analytics
     await db.query(
       `INSERT INTO analytics_events (event_type, user_id, session_id)

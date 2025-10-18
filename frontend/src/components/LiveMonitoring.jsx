@@ -13,11 +13,15 @@ export default function LiveMonitoring({ sessionId, activityId, instanceId, allo
 
   // Fetch initial progress data
   useEffect(() => {
-    if (!sessionId || !activityId) return
+    if (!sessionId || !activityId) {
+      setLoading(false)
+      return
+    }
 
     const fetchProgress = async () => {
       try {
         setLoading(true)
+        setError(null)
         const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
         // Build URL with optional instanceId filter
@@ -32,6 +36,14 @@ export default function LiveMonitoring({ sessionId, activityId, instanceId, allo
           }
         })
 
+        // Handle 404 gracefully - activity might not have progress data yet
+        if (response.status === 404) {
+          setStudentProgress([])
+          setError(null)
+          setLoading(false)
+          return
+        }
+
         if (!response.ok) throw new Error('Failed to fetch progress')
 
         const data = await response.json()
@@ -43,9 +55,13 @@ export default function LiveMonitoring({ sessionId, activityId, instanceId, allo
           lastActivity: Date.now()
         }))
         setStudentProgress(progressWithOfflineStatus)
+        setError(null)
       } catch (err) {
         console.error('Error fetching progress:', err)
-        setError(err.message)
+        // Don't set error state for 404s - just show empty state
+        if (!err.message.includes('404')) {
+          setError(err.message)
+        }
       } finally {
         setLoading(false)
       }
