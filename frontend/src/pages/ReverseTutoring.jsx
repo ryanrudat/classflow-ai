@@ -137,7 +137,7 @@ export default function ReverseTutoring() {
         const existingConversationId = error.response?.data?.conversationId
         if (existingConversationId) {
           toast.info('Resuming', 'Continuing your previous conversation')
-          await loadExistingConversation(existingConversationId)
+          await loadExistingConversation(existingConversationId, topic)
         } else {
           toast.error('Error', 'Could not resume conversation')
         }
@@ -150,10 +150,10 @@ export default function ReverseTutoring() {
   /**
    * Load existing conversation
    */
-  const loadExistingConversation = async (conversationId) => {
+  const loadExistingConversation = async (conversationId, topic) => {
     try {
       const response = await axios.get(
-        `${API_URL}/api/reverse-tutoring/student/${studentId}/conversation?sessionId=${sessionId}&topic=${encodeURIComponent(selectedTopic.topic)}`
+        `${API_URL}/api/reverse-tutoring/student/${studentId}/conversation?sessionId=${sessionId}&topic=${encodeURIComponent(topic.topic)}`
       )
 
       setConversationId(conversationId)
