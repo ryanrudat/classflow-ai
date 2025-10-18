@@ -85,8 +85,14 @@ export default function ReverseTutoring() {
         selectTopic(response.data.topics[0])
       }
     } catch (error) {
-      console.error('Load topics error:', error)
-      toast.error('Error', 'Failed to load topics')
+      // Silently fail on 404 - endpoint may not be deployed yet
+      if (error.response?.status !== 404) {
+        console.error('Load topics error:', error)
+        toast.error('Error', 'Failed to load topics')
+      } else {
+        // Show friendly message that feature isn't ready yet
+        toast.info('Not available yet', 'Reverse tutoring topics are being set up')
+      }
       setLoadingTopics(false)
     }
   }

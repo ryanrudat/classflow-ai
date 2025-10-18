@@ -56,7 +56,10 @@ export default function ReverseTutoringDashboard() {
       )
       setTopics(response.data.topics)
     } catch (error) {
-      console.error('Load topics error:', error)
+      // Silently fail - endpoint may not be deployed yet
+      if (error.response?.status !== 404) {
+        console.error('Load topics error:', error)
+      }
     }
   }
 
@@ -74,7 +77,10 @@ export default function ReverseTutoringDashboard() {
       )
       setSessionStudents(response.data.students || [])
     } catch (error) {
-      console.error('Load students error:', error)
+      // Silently fail - endpoint may not be deployed yet
+      if (error.response?.status !== 404) {
+        console.error('Load students error:', error)
+      }
     }
   }
 
@@ -188,9 +194,12 @@ export default function ReverseTutoringDashboard() {
       setLoading(false)
 
     } catch (error) {
-      console.error('Load dashboard error:', error)
-      if (!loading) { // Only show error if not initial load
-        toast.error('Error', 'Failed to load dashboard')
+      // Silently fail on 404 - endpoint may not be deployed yet
+      if (error.response?.status !== 404) {
+        console.error('Load dashboard error:', error)
+        if (!loading) { // Only show toast error if not initial load
+          toast.error('Error', 'Failed to load dashboard')
+        }
       }
       setLoading(false)
     }
