@@ -79,8 +79,11 @@ export async function startConversation(req, res) {
       keyVocabulary = []
     } = req.body
 
+    console.log('🚀 START conversation request:', { sessionId, studentId, topic, subject, gradeLevel })
+
     // Validation
     if (!sessionId || !studentId || !topic) {
+      console.log('❌ Missing required fields')
       return res.status(400).json({
         message: 'Session ID, student ID, and topic are required'
       })
@@ -95,7 +98,10 @@ export async function startConversation(req, res) {
       [studentId, sessionId]
     )
 
+    console.log('👤 Student check:', studentCheck.rows.length > 0 ? 'Found' : 'Not found')
+
     if (studentCheck.rows.length === 0) {
+      console.log('❌ Student not found in session')
       return res.status(404).json({ message: 'Student not found in this session' })
     }
 
@@ -107,11 +113,14 @@ export async function startConversation(req, res) {
     )
 
     if (existingConversation.rows.length > 0) {
+      console.log('⚠️  Conversation already exists:', existingConversation.rows[0].id)
       return res.status(409).json({
         message: 'Conversation already exists for this topic',
         conversationId: existingConversation.rows[0].id
       })
     }
+
+    console.log('🤖 Calling Claude API to start conversation...')
 
     // Start the conversation
     const result = await startReverseTutoringConversation(
@@ -124,6 +133,8 @@ export async function startConversation(req, res) {
         keyVocabulary
       }
     )
+
+    console.log('✅ Conversation started successfully:', result.conversationId)
 
     // Log analytics
     await db.query(
@@ -322,7 +333,10 @@ export async function getStudentConversation(req, res) {
     const { studentId } = req.params
     const { sessionId, topic } = req.query
 
+    console.log('📖 GET student conversation:', { studentId, sessionId, topic })
+
     if (!sessionId || !topic) {
+      console.log('❌ Missing required parameters')
       return res.status(400).json({
         message: 'Session ID and topic are required'
       })
@@ -335,11 +349,15 @@ export async function getStudentConversation(req, res) {
       [sessionId, studentId, topic]
     )
 
+    console.log('📊 Query result:', result.rows.length, 'conversations found')
+
     if (result.rows.length === 0) {
+      console.log('❌ No conversation found for:', { sessionId, studentId, topic })
       return res.status(404).json({ message: 'Conversation not found' })
     }
 
     const conversation = result.rows[0]
+    console.log('✅ Found conversation:', conversation.id)
 
     res.json({
       conversationId: conversation.id,
@@ -350,7 +368,8 @@ export async function getStudentConversation(req, res) {
     })
 
   } catch (error) {
-    console.error('Get student conversation error:', error)
+    console.error('❌ Get student conversation error:', error)
+    console.error('   Parameters:', { studentId: req.params.studentId, sessionId: req.query.sessionId, topic: req.query.topic })
     res.status(500).json({
       message: `Failed to get conversation: ${error.message}`
     })
