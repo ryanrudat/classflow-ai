@@ -49,8 +49,16 @@ function getOpenAIClient() {
 export async function transcribeStudentSpeech(audioBuffer, language = 'en', lessonContext = '') {
   try {
     const client = getOpenAIClient() // Get lazy-initialized client
+
+    // Convert Buffer to Blob for OpenAI API
+    // Create a Blob with proper mime type for audio
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' })
+
+    // Add filename property required by OpenAI SDK
+    audioBlob.name = 'audio.webm'
+
     const transcription = await client.audio.transcriptions.create({
-      file: audioBuffer,
+      file: audioBlob,
       model: 'whisper-1',
       language: language, // or 'auto' to detect
       prompt: lessonContext, // Context helps accuracy (e.g., "Educational conversation about photosynthesis")
@@ -128,39 +136,52 @@ Start by expressing confusion about the topic and asking them to explain it.`
     const aiResponse = initialMessage.content[0].text
 
     // Save conversation to database
-    const result = await db.query(
-      `INSERT INTO reverse_tutoring_conversations (
-        session_id,
-        student_id,
-        topic,
-        subject,
-        grade_level,
-        key_vocabulary,
-        conversation_history,
-        started_at
+    try {
+      const result = await db.query(
+        `INSERT INTO reverse_tutoring_conversations (
+          session_id,
+          student_id,
+          topic,
+          subject,
+          grade_level,
+          key_vocabulary,
+          conversation_history,
+          started_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        RETURNING id`,
+        [
+          sessionId,
+          studentId,
+          topic,
+          subject,
+          gradeLevel,
+          JSON.stringify(keyVocabulary),
+          JSON.stringify([
+            { role: 'ai', content: aiResponse, timestamp: new Date().toISOString() }
+          ])
+        ]
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-      RETURNING id`,
-      [
+
+      const conversationId = result.rows[0].id
+
+      return {
+        conversationId,
+        aiMessage: aiResponse,
+        persona: 'Alex',
+        messageCount: 1
+      }
+    } catch (dbError) {
+      console.error('Database insert error:', dbError)
+      console.error('Insert parameters:', {
         sessionId,
         studentId,
         topic,
         subject,
         gradeLevel,
-        JSON.stringify(keyVocabulary),
-        JSON.stringify([
-          { role: 'ai', content: aiResponse, timestamp: new Date() }
-        ])
-      ]
-    )
-
-    const conversationId = result.rows[0].id
-
-    return {
-      conversationId,
-      aiMessage: aiResponse,
-      persona: 'Alex',
-      messageCount: 1
+        keyVocabulary
+      })
+      throw new Error(`Database error: ${dbError.message}`)
     }
 
   } catch (error) {
@@ -313,13 +334,13 @@ Return ONLY a JSON object with these fields:
       {
         role: 'student',
         content: studentMessage,
-        timestamp: new Date(),
+        timestamp: new Date().toISOString(),
         analysis: analysis
       },
       {
         role: 'ai',
         content: aiResponse,
-        timestamp: new Date()
+        timestamp: new Date().toISOString()
       }
     ]
 
