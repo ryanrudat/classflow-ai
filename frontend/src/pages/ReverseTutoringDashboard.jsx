@@ -801,8 +801,14 @@ export default function ReverseTutoringDashboard() {
 
             {/* Transcript Messages */}
             <div className="p-6 max-h-[60vh] overflow-y-auto">
-              <div className="space-y-4">
-                {transcript.transcript.map((msg, index) => (
+              {!transcript.transcript || transcript.transcript.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-4">💬</div>
+                  <p className="text-gray-600">No messages yet in this conversation</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {transcript.transcript.map((msg, index) => (
                   <div
                     key={index}
                     className={`flex ${msg.role === 'student' ? 'justify-end' : 'justify-start'}`}
@@ -849,8 +855,9 @@ export default function ReverseTutoringDashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}

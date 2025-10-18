@@ -546,24 +546,27 @@ export async function getConversationTranscript(conversationId) {
       ? JSON.parse(conversation.key_vocabulary)
       : conversation.key_vocabulary
 
+    // Ensure history is always an array
+    const transcript = Array.isArray(history) ? history : []
+
     return {
       conversationId: conversation.id,
       sessionId: conversation.session_id,
       studentId: conversation.student_id,
-      studentName: conversation.student_name,
-      studentAccountName: conversation.student_account_name,
+      studentName: conversation.student_name || 'Unknown Student',
+      studentAccountName: conversation.student_account_name || null,
       topic: conversation.topic,
       subject: conversation.subject,
       gradeLevel: conversation.grade_level,
-      keyVocabulary: keyVocabulary,
-      messageCount: conversation.message_count,
-      currentUnderstandingLevel: conversation.current_understanding_level,
+      keyVocabulary: Array.isArray(keyVocabulary) ? keyVocabulary : [],
+      messageCount: conversation.message_count || 0,
+      currentUnderstandingLevel: conversation.current_understanding_level || 0,
       startedAt: conversation.started_at,
-      lastUpdated: conversation.last_updated,
+      lastUpdated: conversation.last_updated || conversation.started_at,
       durationMinutes: Math.round(
-        (new Date(conversation.last_updated) - new Date(conversation.started_at)) / 1000 / 60
+        (new Date(conversation.last_updated || conversation.started_at) - new Date(conversation.started_at)) / 1000 / 60
       ),
-      transcript: history
+      transcript: transcript
     }
 
   } catch (error) {
