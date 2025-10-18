@@ -2,14 +2,24 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import db from '../database/db.js'
 
-// Initialize AI clients
+// Initialize Claude (always required)
 const claude = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
 })
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+// Lazy initialize OpenAI (only when transcription is needed)
+let openai = null
+function getOpenAIClient() {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is required for speech transcription')
+    }
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    })
+  }
+  return openai
+}
 
 /**
  * Reverse Tutoring Service
@@ -38,7 +48,8 @@ const openai = new OpenAI({
  */
 export async function transcribeStudentSpeech(audioBuffer, language = 'en', lessonContext = '') {
   try {
-    const transcription = await openai.audio.transcriptions.create({
+    const client = getOpenAIClient() // Get lazy-initialized client
+    const transcription = await client.audio.transcriptions.create({
       file: audioBuffer,
       model: 'whisper-1',
       language: language, // or 'auto' to detect
