@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/Toast'
+import { useAuthStore } from '../stores/authStore'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -14,6 +15,7 @@ export default function ReverseTutoringDashboard() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
+  const token = useAuthStore(state => state.token)
 
   // Topic management state
   const [topics, setTopics] = useState([])
@@ -68,8 +70,6 @@ export default function ReverseTutoringDashboard() {
    */
   const loadSessionStudents = async () => {
     try {
-      const token = localStorage.getItem('token')
-
       if (!token) {
         console.error('No auth token found - cannot load students')
         return
@@ -97,8 +97,6 @@ export default function ReverseTutoringDashboard() {
    */
   const saveTopic = async () => {
     try {
-      const token = localStorage.getItem('token')
-
       // Parse vocabulary from comma-separated string
       const keyVocabulary = topicForm.keyVocabulary
         .split(',')
@@ -157,7 +155,6 @@ export default function ReverseTutoringDashboard() {
     if (!confirm('Are you sure you want to delete this topic?')) return
 
     try {
-      const token = localStorage.getItem('token')
       await axios.delete(
         `${API_URL}/api/reverse-tutoring/topics/${topicId}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -190,8 +187,6 @@ export default function ReverseTutoringDashboard() {
    */
   const loadDashboard = async () => {
     try {
-      const token = localStorage.getItem('token')
-
       if (!token) {
         console.error('No auth token found - please log in')
         setLoading(false)
@@ -232,7 +227,6 @@ export default function ReverseTutoringDashboard() {
    */
   const loadTranscript = async (conversationId) => {
     try {
-      const token = localStorage.getItem('token')
       const response = await axios.get(
         `${API_URL}/api/reverse-tutoring/${conversationId}/transcript`,
         {
