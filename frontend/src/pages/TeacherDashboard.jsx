@@ -1020,17 +1020,9 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                 <button
                   key={instance.id}
                   onClick={() => {
-                    // If clicking on a past (ended) period, show reactivation dialog
-                    if (!instance.is_current) {
-                      setClickedInstanceForReactivation(instance)
-                      setSessionToReactivate(currentSession)
-                      setReactivateInstances(instances)
-                      setShowReactivateDialog(true)
-                    } else {
-                      // Current period - just select it
-                      setSelectedInstance(instance)
-                      loadInstanceStudents(instance.id)
-                    }
+                    // Always select the instance and load its students
+                    setSelectedInstance(instance)
+                    loadInstanceStudents(instance.id)
                   }}
                   className={`p-4 rounded-lg font-medium transition-all text-left ${
                     selectedInstance?.id === instance.id
@@ -1057,16 +1049,29 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       {/* Period Warning Banner */}
       {selectedInstance && !selectedInstance.is_current && (
         <div className="bg-amber-100 border-2 border-amber-400 rounded-lg p-4">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">📅</span>
-            <div>
-              <div className="font-semibold text-amber-900">
-                Viewing Past Period: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
-              </div>
-              <div className="text-sm text-amber-800">
-                This class session ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString()}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📅</span>
+              <div>
+                <div className="font-semibold text-amber-900">
+                  Viewing Past Period: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
+                </div>
+                <div className="text-sm text-amber-800">
+                  This class session ended on {new Date(selectedInstance.ended_at || selectedInstance.started_at).toLocaleDateString()}
+                </div>
               </div>
             </div>
+            <button
+              onClick={() => {
+                setClickedInstanceForReactivation(selectedInstance)
+                setSessionToReactivate(currentSession)
+                setReactivateInstances(instances)
+                setShowReactivateDialog(true)
+              }}
+              className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+            >
+              Reactivate
+            </button>
           </div>
         </div>
       )}
