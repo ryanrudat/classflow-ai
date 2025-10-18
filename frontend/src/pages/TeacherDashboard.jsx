@@ -246,6 +246,10 @@ export default function TeacherDashboard() {
                 onEnd={() => endSession(activeSession.id)}
                 onReactivate={() => reactivateSession(activeSession.id)}
                 onUpdate={loadSessions}
+                setClickedInstanceForReactivation={setClickedInstanceForReactivation}
+                setSessionToReactivate={setSessionToReactivate}
+                setShowReactivateDialog={setShowReactivateDialog}
+                setReactivateInstances={setReactivateInstances}
               />
             )}
           </div>
@@ -363,7 +367,7 @@ function CreateSessionModal({ onClose, onCreate, loading, error }) {
   )
 }
 
-function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
+function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
   const navigate = useNavigate()
   const { notifySuccess, notifyError, notifyActivityPushed, notifyContentGenerated } = useNotifications()
   const [activeTab, setActiveTab] = useState('overview') // Tab navigation state
