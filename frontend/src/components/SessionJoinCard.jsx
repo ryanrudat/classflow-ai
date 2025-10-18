@@ -22,6 +22,7 @@ import { QRCodeSVG } from 'qrcode.react'
 export default function SessionJoinCard({ session, className = '' }) {
   const [copied, setCopied] = useState(false)
   const [showQR, setShowQR] = useState(true)
+  const [showCodeModal, setShowCodeModal] = useState(false)
 
   // Generate join URL for QR code
   const joinUrl = `${window.location.origin}/join/${session.join_code}`
@@ -215,41 +216,28 @@ export default function SessionJoinCard({ session, className = '' }) {
               </p>
             </div>
 
-            {/* Large Join Code */}
-            <div
-              className="relative group"
-              role="region"
-              aria-label="Session join code"
+            {/* Join Code - Clickable to Enlarge */}
+            <button
+              onClick={() => setShowCodeModal(true)}
+              className="relative group w-full cursor-pointer"
+              aria-label="Click to view join code larger"
             >
-              <div className="text-5xl sm:text-6xl lg:text-7xl font-bold font-mono text-blue-600 tracking-wider text-center select-all px-6 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-colors hover:bg-blue-100">
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold font-mono text-blue-600 tracking-widest text-center select-all px-6 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95">
                 {joinCode}
               </div>
 
-              {/* Copy Button Overlay */}
-              <button
-                onClick={handleCopyCode}
-                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-blue-600/10 rounded-lg transition-opacity"
-                aria-label="Copy join code to clipboard"
-              >
-                <span className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 shadow-lg">
-                  {copied ? (
-                    <>
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Copy Code
-                    </>
-                  )}
-                </span>
-              </button>
-            </div>
+              {/* Expand Icon Hint */}
+              <div className="absolute top-2 right-2 bg-blue-600 text-white p-1.5 rounded opacity-60 group-hover:opacity-100 transition-opacity">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </div>
+
+              {/* Click hint text */}
+              <p className="text-xs text-gray-500 mt-2 opacity-70 group-hover:opacity-100 transition-opacity">
+                Click to enlarge
+              </p>
+            </button>
 
             {/* Mobile Copy Button (Always Visible on Small Screens) */}
             <button
@@ -312,6 +300,108 @@ export default function SessionJoinCard({ session, className = '' }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span className="font-semibold">Copied to clipboard!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Code Enlargement Modal */}
+      {showCodeModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => setShowCodeModal(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="code-modal-title"
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 sm:p-12 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setShowCodeModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
+              aria-label="Close modal"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="text-center">
+              <h2 id="code-modal-title" className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                Session Join Code
+              </h2>
+              <p className="text-gray-600 mb-8">
+                Students can enter this code at <span className="font-mono font-semibold text-blue-600">{window.location.host}</span>
+              </p>
+
+              {/* Extra Large Join Code */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8 sm:p-12 mb-6 border-4 border-blue-300">
+                <div className="text-6xl sm:text-7xl md:text-8xl font-bold font-mono text-blue-600 tracking-[0.3em] select-all break-all">
+                  {joinCode}
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="bg-gray-50 rounded-xl p-6 mb-6 text-left">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  How Students Join
+                </h3>
+                <ol className="space-y-2 text-gray-700">
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600 flex-shrink-0">1.</span>
+                    <span>Go to <span className="font-mono bg-white px-2 py-0.5 rounded border">{window.location.host}</span></span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600 flex-shrink-0">2.</span>
+                    <span>Enter the code above</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-bold text-blue-600 flex-shrink-0">3.</span>
+                    <span>Type their name and join</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleCopyCode}
+                  className="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2 text-lg shadow-lg hover:shadow-xl"
+                >
+                  {copied ? (
+                    <>
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                      Copy Code
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowCodeModal(false)}
+                  className="flex-1 px-6 py-4 bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-gray-800 font-bold rounded-xl transition-colors text-lg"
+                >
+                  Close
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-500 mt-4">
+                💡 Tip: Display this on your projector or smartboard for students to see
+              </p>
+            </div>
           </div>
         </div>
       )}
