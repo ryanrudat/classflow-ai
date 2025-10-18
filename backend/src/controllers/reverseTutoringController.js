@@ -644,17 +644,5 @@ export async function deleteTopic(req, res) {
   }
 }
 
-export default {
-  transcribeAudio,
-  startConversation,
-  sendMessage,
-  requestHelp,
-  getDashboard,
-  getTranscript,
-  getStudentConversation,
-  createTopic,
-  getSessionTopics,
-  updateTopic,
-  deleteTopic,
-  upload // Export multer middleware
-}
+// Export multer upload middleware
+export { upload }
