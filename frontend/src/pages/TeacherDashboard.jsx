@@ -819,6 +819,11 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
               sessionActivities={pushedActivities}
               selectedStudentDetail={selectedStudentDetail}
               setSelectedStudentDetail={setSelectedStudentDetail}
+              activeSession={activeSession}
+              setClickedInstanceForReactivation={setClickedInstanceForReactivation}
+              setSessionToReactivate={setSessionToReactivate}
+              setShowReactivateDialog={setShowReactivateDialog}
+              setReactivateInstances={setReactivateInstances}
             />
           )}
 
@@ -882,7 +887,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate }) {
 }
 
 // Tab Components
-function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail }) {
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, activeSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
   const { notifySuccess, notifyError } = useNotifications()
   const [studentProgressData, setStudentProgressData] = useState([])
   const [studentIdToRemove, setStudentIdToRemove] = useState(null)
