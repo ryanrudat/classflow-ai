@@ -2,15 +2,15 @@
  * ReactivateDialog Component
  * Shows options to resume an existing period or start a new one when reactivating a session
  */
-export default function ReactivateDialog({ session, instances, onResume, onStartNew, onCancel }) {
-  // Find the most recent period (highest instance number)
-  const mostRecentInstance = instances?.length > 0
+export default function ReactivateDialog({ session, instances, onResume, onStartNew, onCancel, clickedInstance = null }) {
+  // Use the clicked instance if provided, otherwise find the most recent period
+  const instanceToReactivate = clickedInstance || (instances?.length > 0
     ? instances.reduce((latest, current) =>
         current.instance_number > latest.instance_number ? current : latest
       )
-    : null
+    : null)
 
-  const studentCount = mostRecentInstance?.student_count || 0
+  const studentCount = instanceToReactivate?.student_count || 0
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -22,10 +22,10 @@ export default function ReactivateDialog({ session, instances, onResume, onStart
         </div>
 
         {/* Resume Option */}
-        {mostRecentInstance && (
+        {instanceToReactivate && (
           <div className="space-y-3">
             <button
-              onClick={() => onResume(mostRecentInstance.id)}
+              onClick={() => onResume(instanceToReactivate.id)}
               className="w-full text-left p-4 border-2 border-blue-200 hover:border-blue-400 rounded-lg transition-colors group"
             >
               <div className="flex items-start gap-3">
@@ -34,7 +34,7 @@ export default function ReactivateDialog({ session, instances, onResume, onStart
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-gray-900 mb-1">
-                    Resume {mostRecentInstance.label}
+                    Reactivate {instanceToReactivate.label || `Period ${instanceToReactivate.instance_number}`}
                   </h3>
                   <p className="text-sm text-gray-600">
                     Continue with {studentCount} student{studentCount !== 1 ? 's' : ''}

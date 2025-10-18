@@ -31,6 +31,7 @@ export default function TeacherDashboard() {
   const [error, setError] = useState('')
   const [showReactivateDialog, setShowReactivateDialog] = useState(false)
   const [sessionToReactivate, setSessionToReactivate] = useState(null)
+  const [clickedInstanceForReactivation, setClickedInstanceForReactivation] = useState(null)
   const [reactivateInstances, setReactivateInstances] = useState([])
 
   // Load sessions on mount
@@ -266,11 +267,13 @@ export default function TeacherDashboard() {
         <ReactivateDialog
           session={sessionToReactivate}
           instances={reactivateInstances}
+          clickedInstance={clickedInstanceForReactivation}
           onResume={handleResumeInstance}
           onStartNew={handleStartNewInstance}
           onCancel={() => {
             setShowReactivateDialog(false)
             setSessionToReactivate(null)
+            setClickedInstanceForReactivation(null)
           }}
         />
       )}
@@ -1008,8 +1011,17 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                 <button
                   key={instance.id}
                   onClick={() => {
-                    setSelectedInstance(instance)
-                    loadInstanceStudents(instance.id)
+                    // If clicking on a past (ended) period, show reactivation dialog
+                    if (!instance.is_current) {
+                      setClickedInstanceForReactivation(instance)
+                      setSessionToReactivate(activeSession)
+                      setReactivateInstances(instances)
+                      setShowReactivateDialog(true)
+                    } else {
+                      // Current period - just select it
+                      setSelectedInstance(instance)
+                      loadInstanceStudents(instance.id)
+                    }
                   }}
                   className={`p-4 rounded-lg font-medium transition-all text-left ${
                     selectedInstance?.id === instance.id
