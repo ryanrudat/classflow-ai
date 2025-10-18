@@ -106,11 +106,14 @@ export async function startConversation(req, res) {
     }
 
     // Check if conversation already exists for this topic
+    console.log('🔍 Checking for existing conversation:', { sessionId, studentId, topic })
     const existingConversation = await db.query(
       `SELECT id FROM reverse_tutoring_conversations
        WHERE session_id = $1 AND student_id = $2 AND topic = $3`,
       [sessionId, studentId, topic]
     )
+
+    console.log('📊 Existing conversations found:', existingConversation.rows.length)
 
     if (existingConversation.rows.length > 0) {
       console.log('⚠️  Conversation already exists:', existingConversation.rows[0].id)
@@ -158,6 +161,30 @@ export async function startConversation(req, res) {
 
   } catch (error) {
     console.error('Start conversation error:', error)
+
+    // Handle duplicate key constraint violation
+    if (error.message && error.message.includes('duplicate key value violates unique constraint')) {
+      console.log('⚠️  Caught duplicate key error, fetching existing conversation...')
+
+      try {
+        // Fetch the existing conversation
+        const existing = await db.query(
+          `SELECT id FROM reverse_tutoring_conversations
+           WHERE session_id = $1 AND student_id = $2 AND topic = $3`,
+          [sessionId, studentId, topic]
+        )
+
+        if (existing.rows.length > 0) {
+          return res.status(409).json({
+            message: 'Conversation already exists for this topic',
+            conversationId: existing.rows[0].id
+          })
+        }
+      } catch (fetchError) {
+        console.error('Error fetching existing conversation:', fetchError)
+      }
+    }
+
     res.status(500).json({
       message: `Failed to start conversation: ${error.message}`
     })
