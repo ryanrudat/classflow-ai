@@ -50,15 +50,15 @@ export async function transcribeStudentSpeech(audioBuffer, language = 'en', less
   try {
     const client = getOpenAIClient() // Get lazy-initialized client
 
-    // Convert Buffer to Blob for OpenAI API
-    // Create a Blob with proper mime type for audio
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' })
-
-    // Add filename property required by OpenAI SDK
-    audioBlob.name = 'audio.webm'
+    // OpenAI SDK for Node.js expects a File-like object
+    // We need to convert the Buffer to a format the SDK accepts
+    // The toFile helper from OpenAI SDK handles this properly
+    const audioFile = await OpenAI.toFile(audioBuffer, 'audio.webm', {
+      type: 'audio/webm'
+    })
 
     const transcription = await client.audio.transcriptions.create({
-      file: audioBlob,
+      file: audioFile,
       model: 'whisper-1',
       language: language, // or 'auto' to detect
       prompt: lessonContext, // Context helps accuracy (e.g., "Educational conversation about photosynthesis")
@@ -72,6 +72,7 @@ export async function transcribeStudentSpeech(audioBuffer, language = 'en', less
 
   } catch (error) {
     console.error('Whisper transcription error:', error)
+    console.error('Error details:', error.response?.data || error.message)
     throw new Error(`Speech transcription failed: ${error.message}`)
   }
 }
