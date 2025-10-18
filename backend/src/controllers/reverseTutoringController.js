@@ -402,21 +402,33 @@ export async function createTopic(req, res) {
       return res.status(409).json({ message: 'Topic already exists for this session' })
     }
 
+    // Ensure keyVocabulary is an array (sanitize input)
+    let vocabArray = []
+    if (Array.isArray(keyVocabulary)) {
+      // Remove any quotes from vocabulary terms and filter empty
+      vocabArray = keyVocabulary
+        .map(term => typeof term === 'string' ? term.replace(/^["']|["']$/g, '').trim() : String(term).trim())
+        .filter(term => term.length > 0)
+    }
+
+    // Ensure assignedStudentIds is an array
+    const studentIdsArray = Array.isArray(assignedStudentIds) ? assignedStudentIds : []
+
     // Create topic
     const result = await db.query(
       `INSERT INTO reverse_tutoring_topics (
         session_id, topic, subject, grade_level, key_vocabulary,
         assigned_student_ids, created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
       RETURNING *`,
       [
         sessionId,
         topic,
         subject,
         gradeLevel,
-        JSON.stringify(keyVocabulary),
-        JSON.stringify(assignedStudentIds),
+        JSON.stringify(vocabArray),
+        JSON.stringify(studentIdsArray),
         teacherId
       ]
     )
@@ -555,11 +567,18 @@ export async function updateTopic(req, res) {
     }
     if (keyVocabulary !== undefined) {
       updates.push(`key_vocabulary = $${paramCount++}`)
-      values.push(JSON.stringify(keyVocabulary))
+      // Sanitize vocabulary terms (remove quotes)
+      const vocabArray = Array.isArray(keyVocabulary)
+        ? keyVocabulary
+            .map(term => typeof term === 'string' ? term.replace(/^["']|["']$/g, '').trim() : String(term).trim())
+            .filter(term => term.length > 0)
+        : []
+      values.push(JSON.stringify(vocabArray))
     }
     if (assignedStudentIds !== undefined) {
       updates.push(`assigned_student_ids = $${paramCount++}`)
-      values.push(JSON.stringify(assignedStudentIds))
+      const studentIdsArray = Array.isArray(assignedStudentIds) ? assignedStudentIds : []
+      values.push(JSON.stringify(studentIdsArray))
     }
     if (isActive !== undefined) {
       updates.push(`is_active = $${paramCount++}`)
