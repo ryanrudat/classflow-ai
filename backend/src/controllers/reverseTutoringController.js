@@ -359,9 +359,14 @@ export async function getStudentConversation(req, res) {
     const conversation = result.rows[0]
     console.log('✅ Found conversation:', conversation.id)
 
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const history = typeof conversation.conversation_history === 'string'
+      ? JSON.parse(conversation.conversation_history)
+      : conversation.conversation_history
+
     res.json({
       conversationId: conversation.id,
-      history: JSON.parse(conversation.conversation_history),
+      history: history,
       messageCount: conversation.message_count,
       understandingLevel: conversation.current_understanding_level,
       startedAt: conversation.started_at
@@ -454,6 +459,14 @@ export async function createTopic(req, res) {
 
     const newTopic = result.rows[0]
 
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const parsedKeyVocabulary = typeof newTopic.key_vocabulary === 'string'
+      ? JSON.parse(newTopic.key_vocabulary)
+      : newTopic.key_vocabulary
+    const parsedAssignedStudentIds = typeof newTopic.assigned_student_ids === 'string'
+      ? JSON.parse(newTopic.assigned_student_ids)
+      : newTopic.assigned_student_ids
+
     res.json({
       message: 'Topic created successfully',
       topic: {
@@ -462,8 +475,8 @@ export async function createTopic(req, res) {
         topic: newTopic.topic,
         subject: newTopic.subject,
         gradeLevel: newTopic.grade_level,
-        keyVocabulary: JSON.parse(newTopic.key_vocabulary),
-        assignedStudentIds: JSON.parse(newTopic.assigned_student_ids),
+        keyVocabulary: parsedKeyVocabulary,
+        assignedStudentIds: parsedAssignedStudentIds,
         createdAt: newTopic.created_at
       }
     })
@@ -650,6 +663,14 @@ export async function updateTopic(req, res) {
 
     const updatedTopic = result.rows[0]
 
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const parsedKeyVocabulary = typeof updatedTopic.key_vocabulary === 'string'
+      ? JSON.parse(updatedTopic.key_vocabulary)
+      : updatedTopic.key_vocabulary
+    const parsedAssignedStudentIds = typeof updatedTopic.assigned_student_ids === 'string'
+      ? JSON.parse(updatedTopic.assigned_student_ids)
+      : updatedTopic.assigned_student_ids
+
     res.json({
       message: 'Topic updated successfully',
       topic: {
@@ -658,8 +679,8 @@ export async function updateTopic(req, res) {
         topic: updatedTopic.topic,
         subject: updatedTopic.subject,
         gradeLevel: updatedTopic.grade_level,
-        keyVocabulary: JSON.parse(updatedTopic.key_vocabulary),
-        assignedStudentIds: JSON.parse(updatedTopic.assigned_student_ids),
+        keyVocabulary: parsedKeyVocabulary,
+        assignedStudentIds: parsedAssignedStudentIds,
         isActive: updatedTopic.is_active
       }
     })

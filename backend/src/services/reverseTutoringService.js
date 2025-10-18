@@ -196,8 +196,13 @@ export async function continueConversation(conversationId, studentMessage, metad
     }
 
     const conversation = conversationResult.rows[0]
-    const history = JSON.parse(conversation.conversation_history)
-    const keyVocabulary = JSON.parse(conversation.key_vocabulary)
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const history = typeof conversation.conversation_history === 'string'
+      ? JSON.parse(conversation.conversation_history)
+      : conversation.conversation_history
+    const keyVocabulary = typeof conversation.key_vocabulary === 'string'
+      ? JSON.parse(conversation.key_vocabulary)
+      : conversation.key_vocabulary
 
     // Build conversation context for Claude
     const messages = history.map(msg => ({
@@ -376,7 +381,10 @@ export async function getScaffolding(conversationId, struggleArea) {
     )
 
     const conversation = conversationResult.rows[0]
-    const keyVocabulary = JSON.parse(conversation.key_vocabulary)
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const keyVocabulary = typeof conversation.key_vocabulary === 'string'
+      ? JSON.parse(conversation.key_vocabulary)
+      : conversation.key_vocabulary
 
     const scaffoldPrompt = `A ${conversation.grade_level} student is trying to explain ${conversation.topic} in ${conversation.subject} class but is struggling with: ${struggleArea}
 
@@ -449,7 +457,10 @@ export async function getTeacherDashboard(sessionId) {
 
     // Parse each conversation's latest analysis
     const summaries = result.rows.map(row => {
-      const history = JSON.parse(row.conversation_history)
+      // Handle both string and object (PostgreSQL jsonb returns objects directly)
+      const history = typeof row.conversation_history === 'string'
+        ? JSON.parse(row.conversation_history)
+        : row.conversation_history
 
       // Find latest student message with analysis
       const studentMessages = history.filter(msg => msg.role === 'student' && msg.analysis)
@@ -505,8 +516,13 @@ export async function getConversationTranscript(conversationId) {
     }
 
     const conversation = result.rows[0]
-    const history = JSON.parse(conversation.conversation_history)
-    const keyVocabulary = JSON.parse(conversation.key_vocabulary)
+    // Handle both string and object (PostgreSQL jsonb returns objects directly)
+    const history = typeof conversation.conversation_history === 'string'
+      ? JSON.parse(conversation.conversation_history)
+      : conversation.conversation_history
+    const keyVocabulary = typeof conversation.key_vocabulary === 'string'
+      ? JSON.parse(conversation.key_vocabulary)
+      : conversation.key_vocabulary
 
     return {
       conversationId: conversation.id,
