@@ -8,6 +8,8 @@ import StudentDetailModal from '../components/StudentDetailModal'
 import ReactivateDialog from '../components/ReactivateDialog'
 import ActivityStatusBadge from '../components/ActivityStatusBadge'
 import UnlockActivityModal from '../components/UnlockActivityModal'
+import SessionJoinCard from '../components/SessionJoinCard'
+import ConfusionMeter from '../components/ConfusionMeter'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -893,17 +895,49 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 // Tab Components
 function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, currentSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
   const { notifySuccess, notifyError } = useNotifications()
+  const { on, off, clearAllConfusion } = useSocket()
   const [studentProgressData, setStudentProgressData] = useState([])
   const [studentIdToRemove, setStudentIdToRemove] = useState(null)
   const [studentCompletions, setStudentCompletions] = useState({}) // Map of studentId -> completions
   const [loadingCompletions, setLoadingCompletions] = useState(false)
   const [unlockModal, setUnlockModal] = useState(null) // { studentId, studentName, activityId, activityName }
   const [unlocking, setUnlocking] = useState(false)
+  const [confusedStudents, setConfusedStudents] = useState([]) // Track confused students
 
   // Find active quiz/questions activities for live monitoring
   const activeMonitoringActivity = sessionActivities.find(a =>
     (a.type === 'quiz' || a.type === 'questions') && a.pushed_to
   )
+
+  // Listen for confusion updates
+  useEffect(() => {
+    const handleConfusionUpdate = ({ studentId, studentName, isConfused, timestamp }) => {
+      setConfusedStudents(prev => {
+        if (isConfused) {
+          // Add student to confused list if not already there
+          if (!prev.find(s => s.id === studentId)) {
+            return [...prev, { id: studentId, name: studentName, timestamp }]
+          }
+          return prev
+        } else {
+          // Remove student from confused list
+          return prev.filter(s => s.id !== studentId)
+        }
+      })
+    }
+
+    on('confusion-updated', handleConfusionUpdate)
+
+    return () => {
+      off('confusion-updated', handleConfusionUpdate)
+    }
+  }, [on, off])
+
+  // Clear all confusion
+  const handleClearConfusion = () => {
+    setConfusedStudents([])
+    clearAllConfusion(session.id)
+  }
 
   // Shared handler for removing students from live monitoring
   const handleRemoveFromMonitoring = (studentId) => {
@@ -974,16 +1008,8 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
 
   return (
     <div className="space-y-6">
-      {/* Join Code Card */}
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-2 border-blue-200">
-        <div className="text-sm font-medium text-gray-700 mb-2">Students join with code:</div>
-        <div className="text-5xl font-bold font-mono text-blue-600 tracking-wider text-center my-4">
-          {session.join_code}
-        </div>
-        <div className="text-xs text-gray-600 text-center">
-          Share this code with students to join the session
-        </div>
-      </div>
+      {/* Join Code Card with QR Code */}
+      <SessionJoinCard session={session} />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -1005,6 +1031,15 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           <div className="text-sm text-gray-600">Subject</div>
         </div>
       </div>
+
+      {/* Confusion Meter - Real-time student feedback */}
+      {selectedInstance?.is_current && (
+        <ConfusionMeter
+          confusedStudents={confusedStudents}
+          totalStudents={students.length}
+          onAcknowledge={handleClearConfusion}
+        />
+      )}
 
       {/* Class Periods */}
       {instances.length > 0 && (

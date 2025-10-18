@@ -134,6 +134,20 @@ export function useSocket() {
     }
   }, [])
 
+  const toggleConfusion = useCallback((sessionId, studentId, studentName, isConfused) => {
+    if (socketRef.current) {
+      console.log('🤔 Toggling confusion:', { sessionId, studentId, isConfused })
+      socketRef.current.emit('toggle-confusion', { sessionId, studentId, studentName, isConfused })
+    }
+  }, [])
+
+  const clearAllConfusion = useCallback((sessionId) => {
+    if (socketRef.current) {
+      console.log('✅ Clearing all confusion for session:', sessionId)
+      socketRef.current.emit('clear-confusion', { sessionId })
+    }
+  }, [])
+
   return {
     socket: socketRef.current,
     isConnected,
@@ -146,6 +160,8 @@ export function useSocket() {
     on,
     off,
     emit,
-    removeStudent
+    removeStudent,
+    toggleConfusion,
+    clearAllConfusion
   }
 }

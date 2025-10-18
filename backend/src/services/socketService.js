@@ -287,6 +287,27 @@ export function setupSocketIO(io) {
       console.log(`📊 Progress update: ${studentName} - Q${questionNumber}/${totalQuestions} - ${isCorrect ? '✅' : '❌'} (attempt ${attemptNumber})`)
     })
 
+    // Confusion Meter - Student toggles confusion state
+    socket.on('toggle-confusion', ({ sessionId, studentId, studentName, isConfused }) => {
+      // Broadcast confusion state to teacher
+      socket.to(`session-${sessionId}`).emit('confusion-updated', {
+        studentId,
+        studentName,
+        isConfused,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`🤔 ${studentName} (${studentId}) confusion: ${isConfused ? 'CONFUSED' : 'CLEAR'} in session ${sessionId}`)
+    })
+
+    // Confusion Meter - Teacher clears all confusion
+    socket.on('clear-confusion', ({ sessionId }) => {
+      // Broadcast to all students to clear their confusion state
+      io.to(`session-${sessionId}`).emit('confusion-cleared')
+
+      console.log(`✅ All confusion cleared in session ${sessionId}`)
+    })
+
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {
