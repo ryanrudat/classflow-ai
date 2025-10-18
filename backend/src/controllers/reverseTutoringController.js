@@ -478,17 +478,47 @@ export async function getSessionTopics(req, res) {
 
     const result = await db.query(query, [sessionId])
 
-    let topics = result.rows.map(row => ({
-      id: row.id,
-      sessionId: row.session_id,
-      topic: row.topic,
-      subject: row.subject,
-      gradeLevel: row.grade_level,
-      keyVocabulary: JSON.parse(row.key_vocabulary),
-      assignedStudentIds: JSON.parse(row.assigned_student_ids),
-      isActive: row.is_active,
-      createdAt: row.created_at
-    }))
+    // Safely parse topics with error handling for malformed JSON
+    let topics = result.rows.map(row => {
+      let keyVocabulary = []
+      let assignedStudentIds = []
+
+      // Safely parse key_vocabulary
+      try {
+        if (typeof row.key_vocabulary === 'string') {
+          keyVocabulary = JSON.parse(row.key_vocabulary)
+        } else if (Array.isArray(row.key_vocabulary)) {
+          keyVocabulary = row.key_vocabulary
+        }
+      } catch (parseError) {
+        console.warn(`Failed to parse key_vocabulary for topic ${row.id}:`, parseError.message)
+        keyVocabulary = []
+      }
+
+      // Safely parse assigned_student_ids
+      try {
+        if (typeof row.assigned_student_ids === 'string') {
+          assignedStudentIds = JSON.parse(row.assigned_student_ids)
+        } else if (Array.isArray(row.assigned_student_ids)) {
+          assignedStudentIds = row.assigned_student_ids
+        }
+      } catch (parseError) {
+        console.warn(`Failed to parse assigned_student_ids for topic ${row.id}:`, parseError.message)
+        assignedStudentIds = []
+      }
+
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        topic: row.topic,
+        subject: row.subject,
+        gradeLevel: row.grade_level,
+        keyVocabulary,
+        assignedStudentIds,
+        isActive: row.is_active,
+        createdAt: row.created_at
+      }
+    })
 
     // Filter by student if studentId provided
     if (studentId) {
