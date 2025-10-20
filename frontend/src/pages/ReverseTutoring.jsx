@@ -439,8 +439,7 @@ export default function ReverseTutoring() {
               {availableTopics.map((topic) => (
                 <div
                   key={topic.id}
-                  onClick={() => selectTopic(topic)}
-                  className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all hover:-translate-y-1 border-2 border-transparent hover:border-purple-300"
+                  className="bg-white rounded-xl shadow-lg p-6 border-2 border-transparent hover:border-purple-300 transition-all"
                 >
                   <h3 className="text-xl font-bold text-gray-900 mb-2">
                     {topic.topic}
@@ -473,9 +472,17 @@ export default function ReverseTutoring() {
                       </div>
                     </div>
                   )}
-                  <div className="mt-4 text-primary-600 font-medium text-sm">
-                    Click to start teaching →
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      console.log('🔘 Button clicked for topic:', topic.topic)
+                      selectTopic(topic)
+                    }}
+                    className="mt-4 w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <span>Click to start teaching</span>
+                    <span>→</span>
+                  </button>
                 </div>
               ))}
             </div>
