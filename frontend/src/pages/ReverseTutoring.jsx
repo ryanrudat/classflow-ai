@@ -82,6 +82,7 @@ export default function ReverseTutoring() {
       const response = await axios.get(
         `${API_URL}/api/reverse-tutoring/session/${sessionId}/topics?studentId=${studentId}`
       )
+      console.log('📚 Loaded topics:', response.data.topics)
       setAvailableTopics(response.data.topics)
       setLoadingTopics(false)
 
@@ -106,7 +107,10 @@ export default function ReverseTutoring() {
    * Select a topic and show proficiency selector
    */
   const selectTopic = async (topic) => {
+    console.log('🎯 Topic selected:', topic)
+    console.log('🎯 Setting selectedTopic to:', topic)
     setSelectedTopic(topic)
+    console.log('🎯 Setting showProficiencySelector to true')
     setShowProficiencySelector(true)
   }
 
@@ -719,6 +723,10 @@ export default function ReverseTutoring() {
       </div>
 
       {/* Language Proficiency Selector Modal */}
+      {(() => {
+        console.log('🔍 Modal render check:', { showProficiencySelector, selectedTopic })
+        return null
+      })()}
       {showProficiencySelector && selectedTopic && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
