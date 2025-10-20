@@ -222,13 +222,17 @@ export default function SessionJoinCard({ session, className = '' }) {
               className="relative group w-full cursor-pointer"
               aria-label="Click to view join code larger"
             >
-              <div className="bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95 py-3 px-2">
-                <div className="font-bold font-mono text-blue-600 text-center select-all text-xl sm:text-2xl lg:text-3xl" style={{
-                  letterSpacing: '0.05em',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word',
-                  lineHeight: '1.3'
-                }}>
+              <div className="bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95 py-3 px-2 flex items-center justify-center min-h-[80px]">
+                <div
+                  className="font-bold font-mono text-blue-600 text-center select-all w-full"
+                  style={{
+                    fontSize: `min(max(1.25rem, ${100 / (joinCode.length * 0.6)}vw), 2.5rem)`,
+                    letterSpacing: '0.05em',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'break-word',
+                    lineHeight: '1.3'
+                  }}
+                >
                   {joinCode}
                 </div>
               </div>
