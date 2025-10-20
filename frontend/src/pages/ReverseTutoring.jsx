@@ -504,6 +504,124 @@ export default function ReverseTutoring() {
             </div>
           )}
         </div>
+
+        {/* Language Proficiency Selector Modal */}
+        {(() => {
+          console.log('🔍 Modal render check:', { showProficiencySelector, selectedTopic })
+          return null
+        })()}
+        {showProficiencySelector && selectedTopic && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Before we start...</h2>
+                <p className="text-gray-600">
+                  This will help us match the conversation to your English level
+                </p>
+              </div>
+
+              {/* English Proficiency Level */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  How comfortable are you speaking English in class?
+                </label>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setLanguageProficiency('beginner')}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                      languageProficiency === 'beginner'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900">Beginner</div>
+                    <div className="text-sm text-gray-600">
+                      I'm still learning. Simpler words and sentences help me understand better.
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setLanguageProficiency('intermediate')}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                      languageProficiency === 'intermediate'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900">Intermediate</div>
+                    <div className="text-sm text-gray-600">
+                      I can understand most conversations but sometimes need help with harder words.
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setLanguageProficiency('advanced')}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                      languageProficiency === 'advanced'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-900">Advanced</div>
+                    <div className="text-sm text-gray-600">
+                      I'm comfortable with academic English and complex vocabulary.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Native Language (Optional) */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  What's your first language? (optional)
+                </label>
+                <select
+                  value={nativeLanguage}
+                  onChange={(e) => setNativeLanguage(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="en">English</option>
+                  <option value="es">Spanish (Español)</option>
+                  <option value="zh">Chinese (中文)</option>
+                  <option value="ar">Arabic (العربية)</option>
+                  <option value="vi">Vietnamese (Tiếng Việt)</option>
+                  <option value="tl">Tagalog (Filipino)</option>
+                  <option value="fr">French (Français)</option>
+                  <option value="ko">Korean (한국어)</option>
+                  <option value="ru">Russian (Русский)</option>
+                  <option value="pt">Portuguese (Português)</option>
+                  <option value="hi">Hindi (हिन्दी)</option>
+                  <option value="bn">Bengali (বাংলা)</option>
+                  <option value="ja">Japanese (日本語)</option>
+                  <option value="de">German (Deutsch)</option>
+                  <option value="other">Other</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  We can provide translations and examples in your language if needed
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowProficiencySelector(false)
+                    setSelectedTopic(null)
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={startWithProficiency}
+                  className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                >
+                  Start Teaching
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -744,124 +862,6 @@ export default function ReverseTutoring() {
           </div>
         )}
       </div>
-
-      {/* Language Proficiency Selector Modal */}
-      {(() => {
-        console.log('🔍 Modal render check:', { showProficiencySelector, selectedTopic })
-        return null
-      })()}
-      {showProficiencySelector && selectedTopic && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
-            <div className="mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Before we start...</h2>
-              <p className="text-gray-600">
-                This will help us match the conversation to your English level
-              </p>
-            </div>
-
-            {/* English Proficiency Level */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                How comfortable are you speaking English in class?
-              </label>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setLanguageProficiency('beginner')}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    languageProficiency === 'beginner'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-purple-300'
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900">Beginner</div>
-                  <div className="text-sm text-gray-600">
-                    I'm still learning. Simpler words and sentences help me understand better.
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setLanguageProficiency('intermediate')}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    languageProficiency === 'intermediate'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-purple-300'
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900">Intermediate</div>
-                  <div className="text-sm text-gray-600">
-                    I can understand most conversations but sometimes need help with harder words.
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setLanguageProficiency('advanced')}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                    languageProficiency === 'advanced'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-purple-300'
-                  }`}
-                >
-                  <div className="font-semibold text-gray-900">Advanced</div>
-                  <div className="text-sm text-gray-600">
-                    I'm comfortable with academic English and complex vocabulary.
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Native Language (Optional) */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                What's your first language? (optional)
-              </label>
-              <select
-                value={nativeLanguage}
-                onChange={(e) => setNativeLanguage(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="en">English</option>
-                <option value="es">Spanish (Español)</option>
-                <option value="zh">Chinese (中文)</option>
-                <option value="ar">Arabic (العربية)</option>
-                <option value="vi">Vietnamese (Tiếng Việt)</option>
-                <option value="tl">Tagalog (Filipino)</option>
-                <option value="fr">French (Français)</option>
-                <option value="ko">Korean (한국어)</option>
-                <option value="ru">Russian (Русский)</option>
-                <option value="pt">Portuguese (Português)</option>
-                <option value="hi">Hindi (हिन्दी)</option>
-                <option value="bn">Bengali (বাংলা)</option>
-                <option value="ja">Japanese (日本語)</option>
-                <option value="de">German (Deutsch)</option>
-                <option value="other">Other</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-2">
-                We can provide translations and examples in your language if needed
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowProficiencySelector(false)
-                  setSelectedTopic(null)
-                }}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
-              >
-                Go Back
-              </button>
-              <button
-                onClick={startWithProficiency}
-                className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
-              >
-                Start Teaching
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Scaffolding Modal */}
       {showScaffolding && scaffolding && (
