@@ -82,7 +82,7 @@ export async function transcribeStudentSpeech(audioBuffer, language = 'en', less
  *
  * @param {string} sessionId - Current session ID
  * @param {string} studentId - Student instance ID
- * @param {object} lessonInfo - { topic, subject, gradeLevel, keyVocabulary }
+ * @param {object} lessonInfo - { topic, subject, gradeLevel, keyVocabulary, languageProficiency, nativeLanguage }
  * @returns {object} Conversation starter from AI
  */
 export async function startReverseTutoringConversation(sessionId, studentId, lessonInfo) {
@@ -90,12 +90,26 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
     topic = 'the lesson',
     subject = 'Science',
     gradeLevel = '7th grade',
-    keyVocabulary = []
+    keyVocabulary = [],
+    languageProficiency = 'intermediate',
+    nativeLanguage = 'en'
   } = lessonInfo
 
   try {
+    // Language complexity guidance based on proficiency
+    const languageGuidance = {
+      beginner: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
+      intermediate: 'Use clear, everyday vocabulary. Keep sentences moderate length (10-15 words). Occasionally use academic words but keep them simple. Use common phrases.',
+      advanced: 'Use grade-appropriate academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and sophisticated language.'
+    }
+
     // Create initial AI student persona with strict guardrails
     const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
+
+LANGUAGE LEVEL ADAPTATION:
+The student is an English language learner at ${languageProficiency} proficiency level.
+${languageGuidance[languageProficiency]}
+${nativeLanguage !== 'en' ? `The student's first language is not English. Be patient with grammar errors and focus on their ideas, not their English mistakes.` : ''}
 
 STRICT TOPIC BOUNDARIES:
 - You ONLY discuss ${topic} related to ${subject}
@@ -147,9 +161,11 @@ Start by expressing confusion about the topic and asking them to explain it.`
           grade_level,
           key_vocabulary,
           conversation_history,
+          language_proficiency,
+          native_language,
           started_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         RETURNING id`,
         [
           sessionId,
@@ -160,7 +176,9 @@ Start by expressing confusion about the topic and asking them to explain it.`
           JSON.stringify(keyVocabulary),
           JSON.stringify([
             { role: 'ai', content: aiResponse, timestamp: new Date().toISOString() }
-          ])
+          ]),
+          languageProficiency,
+          nativeLanguage
         ]
       )
 
@@ -238,8 +256,23 @@ export async function continueConversation(conversationId, studentMessage, metad
       content: studentMessage
     })
 
+    // Language complexity guidance based on proficiency
+    const languageGuidance = {
+      beginner: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
+      intermediate: 'Use clear, everyday vocabulary. Keep sentences moderate length (10-15 words). Occasionally use academic words but keep them simple. Use common phrases.',
+      advanced: 'Use grade-appropriate academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and sophisticated language.'
+    }
+
+    const proficiency = conversation.language_proficiency || 'intermediate'
+    const native = conversation.native_language || 'en'
+
     // Create system prompt with multilingual support if needed
     const systemPrompt = `You are Alex, a curious ${conversation.grade_level} student learning about ${conversation.topic} in ${conversation.subject} class.
+
+LANGUAGE LEVEL ADAPTATION:
+The student is an English language learner at ${proficiency} proficiency level.
+${languageGuidance[proficiency]}
+${native !== 'en' ? `The student's first language is not English. Be patient with grammar errors and focus on their ideas, not their English mistakes.` : ''}
 
 STRICT TOPIC BOUNDARIES:
 - You ONLY discuss ${conversation.topic} related to ${conversation.subject}
@@ -283,17 +316,23 @@ Continue the conversation based on what the student just said.`
     const aiResponse = response.content[0].text
 
     // Analyze student's understanding (separate Claude call for teacher insights)
+    // GRAMMAR-NEUTRAL ANALYSIS - Focus on content, not English proficiency
     const analysisPrompt = `Analyze this student's explanation of ${conversation.topic}:
 
 Student said: "${studentMessage}"
 
+IMPORTANT: This student is an English language learner (${proficiency} level). Focus ONLY on their understanding of ${conversation.topic}, NOT on their English grammar, spelling, or sentence structure.
+
 Analyze:
-1. Understanding level (0-100)
-2. Key concepts demonstrated
-3. Misconceptions (if any)
-4. Vocabulary used correctly
-5. Areas needing improvement
-6. Suggestion for teacher intervention (if needed)
+1. Understanding level (0-100) - Based on CONTENT KNOWLEDGE ONLY, not language proficiency
+2. Key concepts demonstrated - What ideas did they communicate, even if imperfectly?
+3. Misconceptions (if any) - About the TOPIC, not about English
+4. Vocabulary used correctly - Subject-specific terms they used (even with grammar errors)
+5. Areas needing improvement - In their UNDERSTANDING of the topic
+6. Suggestion for teacher intervention (if needed) - Related to content, not language
+
+IGNORE: Grammar errors, spelling mistakes, sentence fragments, verb tense errors, article errors, word order issues.
+FOCUS ON: Do they understand the concept? Are they using key vocabulary? Do they have misconceptions about the topic?
 
 Return ONLY a JSON object with these fields:
 {

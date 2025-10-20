@@ -65,7 +65,7 @@ export async function transcribeAudio(req, res) {
 /**
  * Start a new reverse tutoring conversation
  * POST /api/reverse-tutoring/start
- * Body: { sessionId, studentId, topic, subject, gradeLevel, keyVocabulary }
+ * Body: { sessionId, studentId, topic, subject, gradeLevel, keyVocabulary, languageProficiency, nativeLanguage }
  * Public: No auth required (students)
  */
 export async function startConversation(req, res) {
@@ -76,10 +76,12 @@ export async function startConversation(req, res) {
       topic,
       subject = 'Science',
       gradeLevel = '7th grade',
-      keyVocabulary = []
+      keyVocabulary = [],
+      languageProficiency = 'intermediate',
+      nativeLanguage = 'en'
     } = req.body
 
-    console.log('🚀 START conversation request:', { sessionId, studentId, topic, subject, gradeLevel })
+    console.log('🚀 START conversation request:', { sessionId, studentId, topic, subject, gradeLevel, languageProficiency, nativeLanguage })
 
     // Validation
     if (!sessionId || !studentId || !topic) {
@@ -133,7 +135,9 @@ export async function startConversation(req, res) {
         topic,
         subject,
         gradeLevel,
-        keyVocabulary
+        keyVocabulary,
+        languageProficiency,
+        nativeLanguage
       }
     )
 
