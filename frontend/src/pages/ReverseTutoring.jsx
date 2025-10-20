@@ -398,14 +398,37 @@ export default function ReverseTutoring() {
               <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-600"></div>
             </div>
           ) : availableTopics.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-              <div className="text-4xl mb-4">📚</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            <div className="bg-white rounded-2xl shadow-lg p-12 text-center max-w-2xl mx-auto">
+              <div className="text-6xl mb-6">📚</div>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
                 No topics available yet
               </h3>
-              <p className="text-gray-600">
-                Your teacher hasn't set up any topics yet. Check back soon!
+              <p className="text-gray-600 mb-6">
+                Your teacher needs to create some topics before you can start teaching the AI.
               </p>
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6 text-left">
+                <div className="flex items-start gap-3">
+                  <div className="text-2xl">💡</div>
+                  <div>
+                    <h4 className="font-semibold text-blue-900 mb-2">What's Reverse Tutoring?</h4>
+                    <p className="text-sm text-blue-800 mb-3">
+                      You'll teach an AI student named Alex about a topic. This helps you learn by explaining concepts in your own words!
+                    </p>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>✓ Practice explaining concepts</li>
+                      <li>✓ Get immediate feedback from the AI</li>
+                      <li>✓ Use voice or text to communicate</li>
+                      <li>✓ Get help when you're stuck</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(-1)}
+                className="mt-6 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Go Back
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -749,11 +749,20 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
           <div className="flex gap-2">
             <button
               onClick={() => navigate(`/reverse-tutoring/dashboard/${session.id}`)}
-              className="px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
-              title="Monitor reverse tutoring conversations"
+              className="px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2 group relative"
+              title="Create topics and monitor student conversations"
             >
               <span>🤖</span>
               <span>Reverse Tutoring</span>
+              {/* Helpful tooltip */}
+              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap">
+                  Set up topics & monitor students teaching AI
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                  </div>
+                </div>
+              </div>
             </button>
             {session.status === 'ended' ? (
               <button

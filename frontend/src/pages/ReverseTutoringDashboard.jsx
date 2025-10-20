@@ -523,14 +523,40 @@ export default function ReverseTutoringDashboard() {
             {/* Topics List */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
               {topics.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="text-4xl mb-4">📚</div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    No topics yet
+                <div className="text-center py-12 px-6">
+                  <div className="text-6xl mb-6">🎯</div>
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+                    Get started with Reverse Tutoring
                   </h3>
-                  <p className="text-gray-600 mb-4">
-                    Create topics to let students start teaching the AI
+                  <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
+                    Create topics for students to teach the AI. This powerful learning technique helps students master concepts by explaining them in their own words.
                   </p>
+
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-6 max-w-2xl mx-auto mb-6">
+                    <h4 className="font-semibold text-purple-900 mb-3">How it works:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-left">
+                      <div>
+                        <div className="font-semibold text-purple-800 mb-1">1. You create topics</div>
+                        <div className="text-purple-700">Set up topics with key vocabulary for your lesson</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-purple-800 mb-1">2. Students teach AI</div>
+                        <div className="text-purple-700">Students explain concepts to "Alex", an AI student</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-purple-800 mb-1">3. You monitor progress</div>
+                        <div className="text-purple-700">See real-time understanding levels and transcripts</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowTopicForm(true)}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium inline-flex items-center gap-2"
+                  >
+                    <span>+</span>
+                    <span>Create Your First Topic</span>
+                  </button>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
