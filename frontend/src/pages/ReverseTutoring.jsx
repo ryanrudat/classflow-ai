@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 import axios from 'axios'
+import io from 'socket.io-client'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -49,10 +50,17 @@ export default function ReverseTutoring() {
   const [nativeLanguage, setNativeLanguage] = useState('en')
   const [showProficiencySelector, setShowProficiencySelector] = useState(false)
 
+  // Session Status
+  const [sessionStatus, setSessionStatus] = useState('active') // 'active', 'paused', 'ended'
+  const [gracePeriodEndsAt, setGracePeriodEndsAt] = useState(null)
+  const [showSessionModal, setShowSessionModal] = useState(false)
+  const [timeRemaining, setTimeRemaining] = useState(null)
+
   // Refs
   const mediaRecorder = useRef(null)
   const audioChunks = useRef([])
   const messagesEndRef = useRef(null)
+  const socketRef = useRef(null)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -73,6 +81,85 @@ export default function ReverseTutoring() {
 
     loadAvailableTopics()
   }, [])
+
+  // WebSocket for session status updates
+  useEffect(() => {
+    if (!sessionId) return
+
+    // Initialize WebSocket
+    const socket = io(API_URL, {
+      transports: ['websocket', 'polling']
+    })
+
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      console.log('✅ WebSocket connected')
+      // Join session room
+      socket.emit('join-session', {
+        sessionId,
+        role: 'student',
+        studentId
+      })
+    })
+
+    // Listen for session status changes
+    socket.on('session-status-changed', (data) => {
+      console.log('📡 Session status changed:', data)
+      const { status, gracePeriodEndsAt, message } = data
+
+      setSessionStatus(status)
+
+      if (gracePeriodEndsAt) {
+        setGracePeriodEndsAt(new Date(gracePeriodEndsAt))
+      }
+
+      if (status === 'paused' || status === 'ended') {
+        setShowSessionModal(true)
+        toast.warning(status === 'paused' ? 'Session Paused' : 'Session Ending', message, 10000)
+      } else if (status === 'active') {
+        setShowSessionModal(false)
+        setGracePeriodEndsAt(null)
+        toast.success('Session Resumed', message)
+      }
+    })
+
+    socket.on('disconnect', () => {
+      console.log('❌ WebSocket disconnected')
+    })
+
+    // Cleanup
+    return () => {
+      socket.disconnect()
+    }
+  }, [sessionId, studentId])
+
+  // Grace period countdown timer
+  useEffect(() => {
+    if (!gracePeriodEndsAt) {
+      setTimeRemaining(null)
+      return
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date()
+      const diff = gracePeriodEndsAt - now
+
+      if (diff <= 0) {
+        setTimeRemaining(0)
+        setShowSessionModal(true)
+        // Disable all input
+        clearInterval(interval)
+      } else {
+        const seconds = Math.floor(diff / 1000)
+        const minutes = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        setTimeRemaining(`${minutes}:${secs.toString().padStart(2, '0')}`)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [gracePeriodEndsAt])
 
   /**
    * Load available topics for this student
@@ -924,6 +1011,109 @@ export default function ReverseTutoring() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Session Status Modal (Paused/Ended) */}
+      {showSessionModal && (sessionStatus === 'paused' || sessionStatus === 'ended' || timeRemaining === 0) && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            {sessionStatus === 'paused' && gracePeriodEndsAt && timeRemaining && timeRemaining !== 0 ? (
+              <>
+                <div className="text-6xl mb-4">⏸️</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Paused</h2>
+                <p className="text-gray-600 mb-6">
+                  Your teacher has paused the session. You have <span className="font-bold text-orange-600">{timeRemaining}</span> to finish your current thought.
+                </p>
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-orange-800">
+                    💡 Save your work! The session will be locked when the timer runs out.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSessionModal(false)}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Continue Working
+                </button>
+              </>
+            ) : sessionStatus === 'ended' && gracePeriodEndsAt && timeRemaining && timeRemaining !== 0 ? (
+              <>
+                <div className="text-6xl mb-4">⏰</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Ending</h2>
+                <p className="text-gray-600 mb-6">
+                  Your teacher has ended the session. You have <span className="font-bold text-red-600">{timeRemaining}</span> to finish your current thought.
+                </p>
+                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-red-800">
+                    ⚠️ Finish up quickly! You won't be able to send messages after the timer ends.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSessionModal(false)}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Finish My Thought
+                </button>
+              </>
+            ) : sessionStatus === 'paused' ? (
+              <>
+                <div className="text-6xl mb-4">⏸️</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Paused</h2>
+                <p className="text-gray-600 mb-6">
+                  Your teacher has paused the session. Please wait for them to resume.
+                </p>
+                <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-600">
+                    You can review your conversation, but you can't send new messages right now.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Return to Join Page
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-6xl mb-4">🎓</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Has Ended</h2>
+                <p className="text-gray-600 mb-6">
+                  Your teacher has ended this session. Great work teaching today!
+                </p>
+                <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-green-800">
+                    ✅ Your progress has been saved. Your teacher can review your conversation.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate(-1)}
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Return to Join Page
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Grace Period Warning Banner */}
+      {timeRemaining && timeRemaining !== 0 && !showSessionModal && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
+          <div className={`${sessionStatus === 'paused' ? 'bg-orange-500' : 'bg-red-500'} text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 animate-pulse`}>
+            <span className="text-xl">⏱️</span>
+            <span className="font-bold">
+              {sessionStatus === 'paused' ? 'Session Paused' : 'Session Ending'}: {timeRemaining} remaining
+            </span>
+            <button
+              onClick={() => setShowSessionModal(true)}
+              className="ml-2 text-white hover:text-gray-200"
+            >
+              ℹ️
+            </button>
           </div>
         </div>
       )}

@@ -225,10 +225,24 @@ export async function sendMessage(req, res) {
       { language, helpNeeded, vocabularyUsed }
     )
 
-    res.json({
+    // Include grace period warning if applicable
+    const response = {
       message: 'Message sent successfully',
       ...result
-    })
+    }
+
+    if (req.inGracePeriod) {
+      response.warning = {
+        inGracePeriod: true,
+        gracePeriodEndsAt: req.gracePeriodEndsAt,
+        sessionStatus: req.session.status,
+        message: req.session.status === 'paused'
+          ? 'Session is paused. You have limited time to finish your thought.'
+          : 'Session is ending. You have limited time to finish your thought.'
+      }
+    }
+
+    res.json(response)
 
   } catch (error) {
     console.error('Send message error:', error)

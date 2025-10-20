@@ -213,13 +213,28 @@ export async function endSession(req, res) {
       return res.status(404).json({ message: 'Session not found' })
     }
 
-    // Update session
+    // Count active reverse tutoring conversations
+    const activeConversations = await db.query(
+      `SELECT COUNT(*) as count
+       FROM reverse_tutoring_conversations
+       WHERE session_id = $1 AND completed_at IS NULL`,
+      [id]
+    )
+
+    const activeStudentCount = parseInt(activeConversations.rows[0].count)
+
+    // Set grace period: 2 minutes from now
+    const gracePeriodEnds = new Date(Date.now() + 2 * 60 * 1000)
+
+    // Update session with grace period
     const result = await db.query(
       `UPDATE sessions
-       SET status = 'ended', ended_at = NOW()
+       SET status = 'ended',
+           ended_at = NOW(),
+           grace_period_ends_at = $2
        WHERE id = $1
        RETURNING *`,
-      [id]
+      [id, gracePeriodEnds]
     )
 
     // End the current session instance
@@ -232,19 +247,179 @@ export async function endSession(req, res) {
 
     // Log analytics
     await db.query(
-      `INSERT INTO analytics_events (event_type, user_id, session_id)
-       VALUES ($1, $2, $3)`,
-      ['session_ended', teacherId, id]
+      `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+       VALUES ($1, $2, $3, $4)`,
+      ['session_ended', teacherId, id, JSON.stringify({
+        activeStudentsAtEnd: activeStudentCount,
+        gracePeriodMinutes: 2
+      })]
     )
+
+    // Emit WebSocket event to all students
+    const io = req.app.get('io')
+    if (io) {
+      io.to(id).emit('session-status-changed', {
+        status: 'ended',
+        gracePeriodEndsAt: gracePeriodEnds,
+        message: 'Teacher has ended the session. You have 2 minutes to finish your current thought.',
+        activeStudentCount
+      })
+    }
 
     res.json({
       session: result.rows[0],
-      message: 'Session ended successfully'
+      message: 'Session ended successfully',
+      gracePeriodEndsAt: gracePeriodEnds,
+      activeStudentCount
     })
 
   } catch (error) {
     console.error('End session error:', error)
     res.status(500).json({ message: 'Failed to end session' })
+  }
+}
+
+/**
+ * Pause session (temporary break)
+ * POST /api/sessions/:id/pause
+ * Protected: Teacher only
+ */
+export async function pauseSession(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session and it's active
+    const check = await db.query(
+      'SELECT id, status FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    if (check.rows[0].status !== 'active') {
+      return res.status(400).json({ message: 'Can only pause an active session' })
+    }
+
+    // Count active reverse tutoring conversations
+    const activeConversations = await db.query(
+      `SELECT COUNT(*) as count
+       FROM reverse_tutoring_conversations
+       WHERE session_id = $1 AND completed_at IS NULL`,
+      [id]
+    )
+
+    const activeStudentCount = parseInt(activeConversations.rows[0].count)
+
+    // Set grace period: 2 minutes from now
+    const gracePeriodEnds = new Date(Date.now() + 2 * 60 * 1000)
+
+    // Update session to paused with grace period
+    const result = await db.query(
+      `UPDATE sessions
+       SET status = 'paused',
+           paused_at = NOW(),
+           grace_period_ends_at = $2
+       WHERE id = $1
+       RETURNING *`,
+      [id, gracePeriodEnds]
+    )
+
+    // Log analytics
+    await db.query(
+      `INSERT INTO analytics_events (event_type, user_id, session_id, properties)
+       VALUES ($1, $2, $3, $4)`,
+      ['session_paused', teacherId, id, JSON.stringify({
+        activeStudentsAtPause: activeStudentCount,
+        gracePeriodMinutes: 2
+      })]
+    )
+
+    // Emit WebSocket event to all students
+    const io = req.app.get('io')
+    if (io) {
+      io.to(id).emit('session-status-changed', {
+        status: 'paused',
+        gracePeriodEndsAt: gracePeriodEnds,
+        message: 'Teacher has paused the session. You have 2 minutes to finish your current thought.',
+        activeStudentCount
+      })
+    }
+
+    res.json({
+      session: result.rows[0],
+      message: 'Session paused successfully',
+      gracePeriodEndsAt: gracePeriodEnds,
+      activeStudentCount
+    })
+
+  } catch (error) {
+    console.error('Pause session error:', error)
+    res.status(500).json({ message: 'Failed to pause session' })
+  }
+}
+
+/**
+ * Resume paused session
+ * POST /api/sessions/:id/resume
+ * Protected: Teacher only
+ */
+export async function resumeSession(req, res) {
+  try {
+    const { id } = req.params
+    const teacherId = req.user.userId
+
+    // Verify teacher owns this session and it's paused
+    const check = await db.query(
+      'SELECT id, status FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    if (check.rows[0].status !== 'paused') {
+      return res.status(400).json({ message: 'Can only resume a paused session' })
+    }
+
+    // Resume session (clear pause and grace period)
+    const result = await db.query(
+      `UPDATE sessions
+       SET status = 'active',
+           paused_at = NULL,
+           grace_period_ends_at = NULL
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    )
+
+    // Log analytics
+    await db.query(
+      `INSERT INTO analytics_events (event_type, user_id, session_id)
+       VALUES ($1, $2, $3)`,
+      ['session_resumed', teacherId, id]
+    )
+
+    // Emit WebSocket event to all students
+    const io = req.app.get('io')
+    if (io) {
+      io.to(id).emit('session-status-changed', {
+        status: 'active',
+        message: 'Teacher has resumed the session. You can continue your conversation.'
+      })
+    }
+
+    res.json({
+      session: result.rows[0],
+      message: 'Session resumed successfully'
+    })
+
+  } catch (error) {
+    console.error('Resume session error:', error)
+    res.status(500).json({ message: 'Failed to resume session' })
   }
 }
 
@@ -338,10 +513,13 @@ export async function reactivateSession(req, res) {
       )
     }
 
-    // Reactivate session
+    // Reactivate session (clear grace period and pause fields)
     const result = await db.query(
       `UPDATE sessions
-       SET status = 'active', ended_at = NULL
+       SET status = 'active',
+           ended_at = NULL,
+           paused_at = NULL,
+           grace_period_ends_at = NULL
        WHERE id = $1
        RETURNING *`,
       [id]

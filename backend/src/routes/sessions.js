@@ -4,6 +4,8 @@ import {
   getSession,
   getSessionStudents,
   endSession,
+  pauseSession,
+  resumeSession,
   reactivateSession,
   deleteSession,
   joinSession,
@@ -29,6 +31,8 @@ router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
 router.get('/:sessionId/activities/:activityId/progress', authenticateToken, getActivityProgress)
 router.get('/:sessionId/export-grades', authenticateToken, exportGrades)
 router.post('/:id/end', authenticateToken, endSession)
+router.post('/:id/pause', authenticateToken, pauseSession)
+router.post('/:id/resume', authenticateToken, resumeSession)
 router.post('/:id/reactivate', authenticateToken, reactivateSession)
 router.delete('/:id', authenticateToken, deleteSession)
 

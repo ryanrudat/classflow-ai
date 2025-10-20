@@ -14,6 +14,7 @@ import {
   upload
 } from '../controllers/reverseTutoringController.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { validateActiveSession, validateSessionFromConversation } from '../middleware/sessionStatus.js'
 
 const router = express.Router()
 
@@ -29,28 +30,31 @@ router.post('/transcribe', upload.single('audio'), transcribeAudio)
  * Get available topics for a session (filtered by student if provided)
  * GET /api/reverse-tutoring/session/:sessionId/topics?studentId=xxx
  */
-router.get('/session/:sessionId/topics', getSessionTopics)
+router.get('/session/:sessionId/topics', validateActiveSession, getSessionTopics)
 
 /**
  * Start new conversation
  * POST /api/reverse-tutoring/start
  * Body: { sessionId, studentId, topic, subject, gradeLevel, keyVocabulary }
+ * PROTECTED: Validates session is active or in grace period
  */
-router.post('/start', startConversation)
+router.post('/start', validateActiveSession, startConversation)
 
 /**
  * Send message in conversation
  * POST /api/reverse-tutoring/:conversationId/message
  * Body: { studentMessage, language, helpNeeded, vocabularyUsed }
+ * PROTECTED: Validates session is active or in grace period
  */
-router.post('/:conversationId/message', sendMessage)
+router.post('/:conversationId/message', validateSessionFromConversation, sendMessage)
 
 /**
  * Request scaffolding/help
  * POST /api/reverse-tutoring/:conversationId/help
  * Body: { struggleArea }
+ * PROTECTED: Validates session is active or in grace period
  */
-router.post('/:conversationId/help', requestHelp)
+router.post('/:conversationId/help', validateSessionFromConversation, requestHelp)
 
 /**
  * Get student's own conversation
