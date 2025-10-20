@@ -211,8 +211,8 @@ export default function SessionJoinCard({ session, className = '' }) {
               <p className="text-sm font-semibold text-gray-900 mb-1">
                 Or Enter Code
               </p>
-              <p className="text-xs text-gray-600">
-                Visit <span className="font-mono font-semibold">{window.location.host}</span>
+              <p className="text-xs text-gray-600 break-words max-w-full">
+                Visit <span className="font-mono font-semibold break-all">{window.location.host}</span>
               </p>
             </div>
 
@@ -222,7 +222,7 @@ export default function SessionJoinCard({ session, className = '' }) {
               className="relative group w-full cursor-pointer"
               aria-label="Click to view join code larger"
             >
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold font-mono text-blue-600 tracking-widest text-center select-all px-6 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95">
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold font-mono text-blue-600 tracking-widest text-center select-all px-4 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95 break-all">
                 {joinCode}
               </div>
 
