@@ -222,8 +222,10 @@ export default function SessionJoinCard({ session, className = '' }) {
               className="relative group w-full cursor-pointer"
               aria-label="Click to view join code larger"
             >
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-bold font-mono text-blue-600 tracking-widest text-center select-all px-4 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95 break-all">
-                {joinCode}
+              <div className="text-2xl sm:text-3xl lg:text-4xl font-bold font-mono text-blue-600 tracking-wide text-center select-all px-3 py-4 bg-blue-50 rounded-lg border-2 border-blue-200 transition-all hover:bg-blue-100 hover:border-blue-300 hover:shadow-md active:scale-95 overflow-hidden">
+                <div className="truncate sm:whitespace-normal">
+                  {joinCode}
+                </div>
               </div>
 
               {/* Expand Icon Hint */}
