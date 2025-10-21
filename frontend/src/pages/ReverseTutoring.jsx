@@ -61,6 +61,8 @@ export default function ReverseTutoring() {
   const audioChunks = useRef([])
   const messagesEndRef = useRef(null)
   const socketRef = useRef(null)
+  const scaffoldingCloseButtonRef = useRef(null)
+  const textInputRef = useRef(null)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -160,6 +162,42 @@ export default function ReverseTutoring() {
 
     return () => clearInterval(interval)
   }, [gracePeriodEndsAt])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // ESC to close modals
+      if (e.key === 'Escape') {
+        if (showScaffolding) {
+          setShowScaffolding(false)
+        } else if (showSessionModal) {
+          // Only allow closing session modal if in grace period
+          if (timeRemaining && timeRemaining !== 0) {
+            setShowSessionModal(false)
+          }
+        } else if (showProficiencySelector) {
+          setShowProficiencySelector(false)
+        }
+      }
+
+      // Cmd+Enter or Ctrl+Enter to send message (like iMessage/Slack)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (textInput.trim() && !isSending) {
+          sendMessage(textInput)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showScaffolding, showSessionModal, showProficiencySelector, timeRemaining, textInput, isSending])
+
+  // Focus management for modals
+  useEffect(() => {
+    if (showScaffolding && scaffoldingCloseButtonRef.current) {
+      scaffoldingCloseButtonRef.current.focus()
+    }
+  }, [showScaffolding])
 
   /**
    * Load available topics for this student
@@ -760,19 +798,30 @@ export default function ReverseTutoring() {
 
       {/* Chat Container */}
       <div className="max-w-4xl mx-auto">
+        {/* Screen Reader Live Region */}
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {sessionStatus === 'paused' && gracePeriodEndsAt && `Session paused. ${timeRemaining} remaining to finish your thought.`}
+          {sessionStatus === 'ended' && gracePeriodEndsAt && `Session ending. ${timeRemaining} remaining to finish your thought.`}
+          {isSending && 'Sending your message to Alex...'}
+          {isRecording && 'Recording your voice...'}
+          {isTranscribing && 'Transcribing your speech...'}
+          {understanding > 0 && messages.length > 0 && `Your understanding level is ${understanding}%`}
+        </div>
+
         <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-6 space-y-4" role="log" aria-label="Conversation messages">
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`flex ${msg.role === 'student' ? 'justify-end' : 'justify-start'}`}
+                className={`flex animate-slide-up ${msg.role === 'student' ? 'justify-end' : 'justify-start'}`}
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
                 <div className={`flex items-start gap-3 max-w-[80%] ${
                   msg.role === 'student' ? 'flex-row-reverse' : ''
                 }`}>
                   {/* Avatar */}
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm ${
                     msg.role === 'ai'
                       ? 'bg-purple-100 text-purple-600'
                       : 'bg-blue-100 text-blue-600'
@@ -780,29 +829,37 @@ export default function ReverseTutoring() {
                     {msg.role === 'ai' ? '🤖' : '👤'}
                   </div>
 
-                  {/* Message Bubble */}
-                  <div className={`rounded-2xl p-4 ${
+                  {/* Message Bubble - iOS Style with tail */}
+                  <div className={`relative rounded-2xl p-4 shadow-sm ${
                     msg.role === 'ai'
-                      ? 'bg-purple-50 text-gray-800'
-                      : 'bg-blue-500 text-white'
+                      ? 'bg-purple-50 text-gray-900 border border-purple-100 rounded-bl-md'
+                      : 'bg-blue-700 text-white rounded-br-md'
                   }`}>
-                    <p className="text-sm leading-relaxed">{msg.content}</p>
+                    <p className="text-base leading-relaxed">{msg.content}</p>
+                    {msg.timestamp && (
+                      <time className="text-xs opacity-70 mt-2 block">
+                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </time>
+                    )}
                   </div>
                 </div>
               </div>
             ))}
 
             {isSending && (
-              <div className="flex justify-start">
+              <div className="flex justify-start animate-fade-in">
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-lg">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-lg shadow-sm">
                     🤖
                   </div>
-                  <div className="bg-purple-50 rounded-2xl p-4">
-                    <div className="flex gap-2">
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  <div className="bg-purple-50 rounded-2xl rounded-bl-md p-4 border border-purple-100 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
+                      <span className="text-sm text-gray-600 ml-2">Alex is thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -818,29 +875,37 @@ export default function ReverseTutoring() {
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={() => setInputMode('voice')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
                   inputMode === 'voice'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-purple-700 text-white'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
+                aria-label="Use voice input mode"
+                aria-pressed={inputMode === 'voice'}
+                type="button"
               >
-                🎤 Speak
+                <span aria-hidden="true">🎤</span> Speak
               </button>
               <button
                 onClick={() => setInputMode('text')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
                   inputMode === 'text'
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? 'bg-purple-700 text-white'
+                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
+                aria-label="Use text input mode"
+                aria-pressed={inputMode === 'text'}
+                type="button"
               >
-                ⌨️ Type
+                <span aria-hidden="true">⌨️</span> Type
               </button>
               <button
                 onClick={requestHelp}
-                className="px-4 py-2 rounded-lg font-medium bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors"
+                className="min-h-[44px] px-6 py-2 rounded-lg font-medium bg-yellow-100 text-yellow-900 hover:bg-yellow-200 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                aria-label="Request help and hints"
+                type="button"
               >
-                💡 Need Help?
+                <span aria-hidden="true">💡</span> Need Help?
               </button>
             </div>
 
@@ -861,15 +926,19 @@ export default function ReverseTutoring() {
                       <button
                         onClick={() => sendMessage(currentTranscript)}
                         disabled={isSending}
-                        className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 disabled:opacity-50 font-medium"
+                        className="flex-1 min-h-[44px] bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        aria-label="Send your message"
+                        type="button"
                       >
-                        ✓ Send
+                        <span aria-hidden="true">✓</span> Send
                       </button>
                       <button
                         onClick={() => setCurrentTranscript('')}
-                        className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+                        className="min-h-[44px] px-6 py-2 rounded-lg border-2 border-gray-400 text-gray-900 hover:bg-gray-50 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
+                        aria-label="Record again"
+                        type="button"
                       >
-                        ✏️ Record Again
+                        <span aria-hidden="true">✏️</span> Record Again
                       </button>
                     </div>
                   </div>
@@ -877,22 +946,46 @@ export default function ReverseTutoring() {
 
                 {/* Record Button */}
                 {!currentTranscript && !isTranscribing && (
-                  <div className="flex flex-col items-center">
-                    <button
-                      onMouseDown={startRecording}
-                      onMouseUp={stopRecording}
-                      onTouchStart={startRecording}
-                      onTouchEnd={stopRecording}
-                      className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl transition-all ${
-                        isRecording
-                          ? 'bg-red-500 text-white scale-110 animate-pulse'
-                          : 'bg-purple-500 text-white hover:bg-purple-600'
-                      }`}
-                    >
-                      🎤
-                    </button>
-                    <p className="text-sm text-gray-600 mt-3">
-                      {isRecording ? 'Recording... Release to stop' : 'Press and hold to speak'}
+                  <div className="flex flex-col items-center animate-scale-in">
+                    <div className="relative">
+                      <button
+                        onMouseDown={startRecording}
+                        onMouseUp={stopRecording}
+                        onTouchStart={startRecording}
+                        onTouchEnd={stopRecording}
+                        className={`relative w-20 h-20 rounded-full flex items-center justify-center text-3xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-2 ${
+                          isRecording
+                            ? 'bg-red-600 text-white scale-110 shadow-2xl shadow-red-500/50 focus:ring-red-500'
+                            : 'bg-purple-700 text-white hover:bg-purple-800 hover:scale-105 shadow-lg focus:ring-purple-500'
+                        }`}
+                        aria-label={isRecording ? 'Recording - release to stop' : 'Press and hold to record voice message'}
+                        aria-pressed={isRecording}
+                        type="button"
+                      >
+                        {isRecording && (
+                          <span className="absolute inset-0 rounded-full bg-red-600 animate-ping opacity-75"></span>
+                        )}
+                        <span aria-hidden="true" className="relative z-10">🎤</span>
+                      </button>
+
+                      {/* Waveform Animation when recording */}
+                      {isRecording && (
+                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="w-1 bg-red-500 rounded-full animate-wave"
+                              style={{
+                                animationDelay: `${i * 0.1}s`
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-gray-700 mt-16" aria-live="polite">
+                      {isRecording ? '🔴 Recording... Release to stop' : 'Press and hold to speak'}
                     </p>
                   </div>
                 )}
@@ -910,19 +1003,25 @@ export default function ReverseTutoring() {
             {/* Text Input */}
             {inputMode === 'text' && (
               <div>
+                <label htmlFor="text-input" className="sr-only">Type your explanation</label>
                 <textarea
+                  id="text-input"
+                  ref={textInputRef}
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Type your explanation here..."
-                  className="w-full border border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                  placeholder="Type your explanation here... (Cmd/Ctrl + Enter to send)"
+                  className="w-full border-2 border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-gray-900"
                   rows={4}
+                  aria-label="Type your explanation here"
                 />
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => sendMessage(textInput)}
                     disabled={isSending || !textInput.trim()}
-                    className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 disabled:opacity-50 font-medium"
+                    className="flex-1 min-h-[44px] bg-blue-700 text-white px-6 py-3 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    aria-label="Send your message"
+                    type="button"
                   >
                     Send
                   </button>
@@ -952,15 +1051,27 @@ export default function ReverseTutoring() {
 
       {/* Scaffolding Modal */}
       {showScaffolding && scaffolding && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          onClick={() => setShowScaffolding(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="scaffolding-title"
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">💡 Here's some help!</h2>
+              <h2 id="scaffolding-title" className="text-xl font-bold text-gray-900">💡 Here's some help!</h2>
               <button
+                ref={scaffoldingCloseButtonRef}
                 onClick={() => setShowScaffolding(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                aria-label="Close help dialog"
+                type="button"
               >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -969,15 +1080,17 @@ export default function ReverseTutoring() {
             {/* Sentence Starters */}
             {scaffolding.sentenceStarters && (
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-700 mb-3">Try starting with one of these:</h3>
+                <h3 className="font-semibold text-gray-900 mb-3">Try starting with one of these:</h3>
                 <div className="space-y-2">
                   {scaffolding.sentenceStarters.map((starter, index) => (
                     <button
                       key={index}
                       onClick={() => useSentenceStarter(starter)}
-                      className="w-full text-left p-3 border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-colors"
+                      className="w-full text-left min-h-[44px] p-3 border-2 border-purple-300 rounded-lg hover:border-purple-600 hover:bg-purple-50 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+                      aria-label={`Use sentence starter: ${starter}`}
+                      type="button"
                     >
-                      <span className="text-purple-600 font-medium">"{starter}"</span>
+                      <span className="text-purple-700 font-medium">"{starter}"</span>
                     </button>
                   ))}
                 </div>
@@ -987,12 +1100,12 @@ export default function ReverseTutoring() {
             {/* Vocabulary Help */}
             {scaffolding.vocabulary && scaffolding.vocabulary.length > 0 && (
               <div className="mb-6">
-                <h3 className="font-semibold text-gray-700 mb-3">Helpful words:</h3>
-                <div className="grid grid-cols-1 gap-3">
+                <h3 className="font-semibold text-gray-900 mb-3">Helpful words:</h3>
+                <div className="grid grid-cols-1 gap-3" role="list">
                   {scaffolding.vocabulary.map((item, index) => (
-                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="p-3 bg-gray-50 border border-gray-200 rounded-lg" role="listitem">
                       <div className="font-semibold text-gray-900">{item.word}</div>
-                      <div className="text-sm text-gray-600 mt-1">{item.definition}</div>
+                      <div className="text-sm text-gray-700 mt-1">{item.definition}</div>
                     </div>
                   ))}
                 </div>
