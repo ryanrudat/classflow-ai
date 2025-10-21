@@ -111,7 +111,7 @@ export default function StudentView() {
 
     // Listen for presentation started
     const handlePresentationStarted = ({ deckId, mode, deck }) => {
-      console.log('📊📊📊 PRESENTATION STARTED EVENT RECEIVED!')
+      console.log('>>> PRESENTATION STARTED EVENT RECEIVED!')
       console.log('  DeckId:', deckId)
       console.log('  Mode:', mode)
       console.log('  Session:', session?.id)
@@ -361,7 +361,11 @@ export default function StudentView() {
             {/* Reverse Tutoring Option */}
             <div className="card bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
               <div className="text-center">
-                <div className="text-4xl mb-3">🤖</div>
+                <div className="flex justify-center mb-3">
+                  <svg className="w-12 h-12 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">Teach the AI</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   Show what you know by teaching an AI student about today's lesson
