@@ -400,11 +400,28 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const { joinSession, pushActivity, on, off, isConnected, removeStudent, emit } = useSocket()
 
   // Tab configuration
+  // Icon components for tabs
+  const getTabIcon = (tabId) => {
+    const iconClass = "w-5 h-5"
+    switch(tabId) {
+      case 'overview':
+        return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+      case 'present':
+        return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>
+      case 'activities':
+        return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+      case 'analytics':
+        return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+      default:
+        return null
+    }
+  }
+
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: '📋', badge: students.length },
-    { id: 'present', label: 'Present', icon: '📊' },
-    { id: 'activities', label: 'Activities', icon: '✨', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
-    { id: 'analytics', label: 'Analytics', icon: '📈' }
+    { id: 'overview', label: 'Overview', badge: students.length },
+    { id: 'present', label: 'Present' },
+    { id: 'activities', label: 'Activities', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
+    { id: 'analytics', label: 'Analytics' }
   ]
 
   // Clear content when session changes
@@ -799,7 +816,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               }`}
             >
               <div className="flex items-center justify-center gap-2">
-                <span>{tab.icon}</span>
+                {getTabIcon(tab.id)}
                 <span>{tab.label}</span>
                 {tab.badge !== null && tab.badge !== undefined && tab.badge > 0 && (
                   <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -1161,7 +1178,9 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-start gap-3">
-              <span className="text-2xl flex-shrink-0" aria-hidden="true">📅</span>
+              <svg className="w-6 h-6 text-amber-700 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
               <div>
                 <div className="font-bold text-amber-900">
                   Viewing Past Period: {selectedInstance.label || `Period ${selectedInstance.instance_number}`}
@@ -1283,12 +1302,26 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                                     {activityName}
                                   </div>
                                   <div className="flex items-center gap-2 mt-0.5">
-                                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    <span className={`text-xs px-1.5 py-0.5 rounded flex items-center gap-1 ${
                                       completion.is_locked
                                         ? 'bg-red-100 text-red-700'
                                         : 'bg-emerald-100 text-emerald-700'
                                     }`}>
-                                      {completion.is_locked ? '🔒 Locked' : '✓ Complete'}
+                                      {completion.is_locked ? (
+                                        <>
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                          </svg>
+                                          Locked
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          Complete
+                                        </>
+                                      )}
                                     </span>
                                     <span className="text-xs text-gray-600">
                                       Score: {completion.score}%
@@ -1331,12 +1364,21 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           </h3>
           <div className="space-y-2">
             {sessionActivities.map(activity => {
-              const typeEmoji = {
-                reading: '📖',
-                questions: '❓',
-                quiz: '📋',
-                discussion: '💬'
-              }[activity.type] || '📄'
+              const getActivityIcon = (type) => {
+                const iconClass = "w-5 h-5"
+                switch(type) {
+                  case 'reading':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                  case 'questions':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  case 'quiz':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                  case 'discussion':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  default:
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                }
+              }
 
               return (
                 <div
@@ -1346,7 +1388,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{typeEmoji}</span>
+                        {getActivityIcon(activity.type)}
                         <span className="font-medium text-gray-900 capitalize">
                           {activity.type}
                         </span>
@@ -1376,8 +1418,11 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       {/* Live Monitoring Dashboard */}
       {activeMonitoringActivity && (
         <div>
-          <h3 className="text-xl font-bold text-gray-800 mb-4">
-            📊 Live Progress Monitoring
+          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Live Progress Monitoring
           </h3>
           <LiveMonitoring
             sessionId={session.id}
@@ -1460,15 +1505,22 @@ function PresentTab({ slideDecks, loadingSlides, navigate, setShowSlideGenerator
               <div className="flex gap-2">
                 <button
                   onClick={() => navigate(`/slides/edit/${deck.id}`)}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                 >
-                  ✏️ Edit
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
                 </button>
                 <button
                   onClick={() => navigate(`/present/${deck.id}`)}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center justify-center gap-2"
                 >
-                  ▶️ Present
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Present
                 </button>
               </div>
             </div>
@@ -1556,10 +1608,19 @@ function ActivitiesTab({
 
           <button
             type="submit"
-            className="btn-primary w-full"
+            className="btn-primary w-full flex items-center justify-center gap-2"
             disabled={generating || !prompt.trim()}
           >
-            {generating ? 'Generating with AI...' : '✨ Generate Content'}
+            {generating ? (
+              'Generating with AI...'
+            ) : (
+              <>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                Generate Content
+              </>
+            )}
           </button>
         </form>
 
@@ -1583,23 +1644,44 @@ function ActivitiesTab({
             {/* Generate from Content Options */}
             {generatedContent.type === 'reading' && (
               <div className="mt-4 p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-3">
-                  📝 Generate activities based on this passage:
+                <p className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Generate activities based on this passage:
                 </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleGenerateFromContent('questions')}
-                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                     disabled={generating}
                   >
-                    {generating ? 'Generating...' : '❓ Generate Questions'}
+                    {generating ? (
+                      'Generating...'
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Generate Questions
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => handleGenerateFromContent('quiz')}
-                    className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
                     disabled={generating}
                   >
-                    {generating ? 'Generating...' : '📋 Generate Quiz'}
+                    {generating ? (
+                      'Generating...'
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        Generate Quiz
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1611,8 +1693,11 @@ function ActivitiesTab({
       {/* Session History */}
       {sessionActivities.length > 0 && (
         <div className="border-t pt-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">
-            📚 Session History ({sessionActivities.length} {sessionActivities.length === 1 ? 'activity' : 'activities'})
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Session History ({sessionActivities.length} {sessionActivities.length === 1 ? 'activity' : 'activities'})
           </h3>
           {loadingActivities ? (
             <ActivityCardSkeleton count={3} />
@@ -1620,12 +1705,21 @@ function ActivitiesTab({
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {sessionActivities.map(activity => {
                 const isSelected = generatedContent?.id === activity.id
-                const typeEmoji = {
-                  reading: '📖',
-                  questions: '❓',
-                  quiz: '📋',
-                  discussion: '💬'
-                }[activity.type] || '📄'
+                const getActivityIcon = (type) => {
+                  const iconClass = "w-5 h-5"
+                  switch(type) {
+                    case 'reading':
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+                    case 'questions':
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    case 'quiz':
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
+                    case 'discussion':
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                    default:
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  }
+                }
 
                 return (
                   <div
@@ -1640,7 +1734,7 @@ function ActivitiesTab({
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg">{typeEmoji}</span>
+                          {getActivityIcon(activity.type)}
                           <span className="font-medium text-gray-900 capitalize">
                             {activity.type}
                           </span>
@@ -1782,10 +1876,38 @@ function AnalyticsTab({ analytics, loadingAnalytics, selectedInstance, session, 
 
             const getPerformanceLabel = (level) => {
               switch (level) {
-                case 'advanced': return '🌟 Advanced'
-                case 'on-track': return '✓ On Track'
-                case 'struggling': return '⚠️ Needs Help'
-                case 'limited-data': return '📊 Limited Data'
+                case 'advanced': return (
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                    Advanced
+                  </span>
+                )
+                case 'on-track': return (
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    On Track
+                  </span>
+                )
+                case 'struggling': return (
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Needs Help
+                  </span>
+                )
+                case 'limited-data': return (
+                  <span className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Limited Data
+                  </span>
+                )
                 default: return 'No Data'
               }
             }
@@ -1927,10 +2049,19 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
             </button>
             <button
               type="submit"
-              className="btn-primary flex-1"
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
               disabled={loading || !topic.trim()}
             >
-              {loading ? 'Generating...' : '✨ Generate Slides'}
+              {loading ? (
+                'Generating...'
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  Generate Slides
+                </>
+              )}
             </button>
           </div>
         </form>
