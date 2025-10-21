@@ -328,7 +328,7 @@ export default function ReverseTutoringDashboard() {
               <p className="text-gray-600 mt-1">Configure topics and monitor student conversations</p>
             </div>
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/dashboard', { state: { selectedSessionId: sessionId } })}
               className="px-4 py-2 text-gray-700 hover:text-gray-900"
             >
               ← Back to Dashboard

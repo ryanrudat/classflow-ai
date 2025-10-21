@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI, completionAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
@@ -24,6 +24,7 @@ import { useNotifications } from '../components/Toast'
 export default function TeacherDashboard() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const { notifySuccess, notifyError, notifySessionCreated } = useNotifications()
 
   const [sessions, setSessions] = useState([])
@@ -40,6 +41,18 @@ export default function TeacherDashboard() {
   useEffect(() => {
     loadSessions()
   }, [])
+
+  // Auto-select session when navigating back from Reverse Tutoring Dashboard
+  useEffect(() => {
+    if (location.state?.selectedSessionId && sessions.length > 0) {
+      const sessionToSelect = sessions.find(s => s.id === location.state.selectedSessionId)
+      if (sessionToSelect) {
+        setActiveSession(sessionToSelect)
+        // Clear the state so it doesn't interfere with future navigation
+        window.history.replaceState({}, document.title)
+      }
+    }
+  }, [location.state, sessions])
 
   async function loadSessions() {
     try {
