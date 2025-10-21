@@ -821,12 +821,20 @@ export default function ReverseTutoring() {
                   msg.role === 'student' ? 'flex-row-reverse' : ''
                 }`}>
                   {/* Avatar */}
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm ${
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${
                     msg.role === 'ai'
-                      ? 'bg-purple-100 text-purple-600'
-                      : 'bg-blue-100 text-blue-600'
+                      ? 'bg-purple-100'
+                      : 'bg-blue-100'
                   }`}>
-                    {msg.role === 'ai' ? '🤖' : '👤'}
+                    {msg.role === 'ai' ? (
+                      <svg className="w-5 h-5 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    )}
                   </div>
 
                   {/* Message Bubble - iOS Style with tail */}
@@ -849,8 +857,10 @@ export default function ReverseTutoring() {
             {isSending && (
               <div className="flex justify-start animate-fade-in">
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-lg shadow-sm">
-                    🤖
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shadow-sm">
+                    <svg className="w-5 h-5 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
                   </div>
                   <div className="bg-purple-50 rounded-2xl rounded-bl-md p-4 border border-purple-100 shadow-sm">
                     <div className="flex items-center gap-2">
@@ -875,7 +885,7 @@ export default function ReverseTutoring() {
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={() => setInputMode('voice')}
-                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
                   inputMode === 'voice'
                     ? 'bg-purple-700 text-white'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
@@ -884,11 +894,14 @@ export default function ReverseTutoring() {
                 aria-pressed={inputMode === 'voice'}
                 type="button"
               >
-                <span aria-hidden="true">🎤</span> Speak
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span>Speak</span>
               </button>
               <button
                 onClick={() => setInputMode('text')}
-                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
                   inputMode === 'text'
                     ? 'bg-purple-700 text-white'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
@@ -897,15 +910,21 @@ export default function ReverseTutoring() {
                 aria-pressed={inputMode === 'text'}
                 type="button"
               >
-                <span aria-hidden="true">⌨️</span> Type
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <span>Type</span>
               </button>
               <button
                 onClick={requestHelp}
-                className="min-h-[44px] px-6 py-2 rounded-lg font-medium bg-yellow-100 text-yellow-900 hover:bg-yellow-200 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
+                className="min-h-[44px] px-6 py-2 rounded-lg font-medium bg-yellow-100 text-yellow-900 hover:bg-yellow-200 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 flex items-center gap-2"
                 aria-label="Request help and hints"
                 type="button"
               >
-                <span aria-hidden="true">💡</span> Need Help?
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span>Need Help?</span>
               </button>
             </div>
 
@@ -926,19 +945,25 @@ export default function ReverseTutoring() {
                       <button
                         onClick={() => sendMessage(currentTranscript)}
                         disabled={isSending}
-                        className="flex-1 min-h-[44px] bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        className="flex-1 min-h-[44px] bg-blue-700 text-white px-6 py-2 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex items-center justify-center gap-2"
                         aria-label="Send your message"
                         type="button"
                       >
-                        <span aria-hidden="true">✓</span> Send
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Send</span>
                       </button>
                       <button
                         onClick={() => setCurrentTranscript('')}
-                        className="min-h-[44px] px-6 py-2 rounded-lg border-2 border-gray-400 text-gray-900 hover:bg-gray-50 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors"
+                        className="min-h-[44px] px-6 py-2 rounded-lg border-2 border-gray-400 text-gray-900 hover:bg-gray-50 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition-colors flex items-center gap-2"
                         aria-label="Record again"
                         type="button"
                       >
-                        <span aria-hidden="true">✏️</span> Record Again
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>Record Again</span>
                       </button>
                     </div>
                   </div>
@@ -953,7 +978,7 @@ export default function ReverseTutoring() {
                         onMouseUp={stopRecording}
                         onTouchStart={startRecording}
                         onTouchEnd={stopRecording}
-                        className={`relative w-20 h-20 rounded-full flex items-center justify-center text-3xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-2 ${
+                        className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-2 ${
                           isRecording
                             ? 'bg-red-600 text-white scale-110 shadow-2xl shadow-red-500/50 focus:ring-red-500'
                             : 'bg-purple-700 text-white hover:bg-purple-800 hover:scale-105 shadow-lg focus:ring-purple-500'
@@ -965,7 +990,9 @@ export default function ReverseTutoring() {
                         {isRecording && (
                           <span className="absolute inset-0 rounded-full bg-red-600 animate-ping opacity-75"></span>
                         )}
-                        <span aria-hidden="true" className="relative z-10">🎤</span>
+                        <svg className="w-8 h-8 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
                       </button>
 
                       {/* Waveform Animation when recording */}
@@ -984,8 +1011,11 @@ export default function ReverseTutoring() {
                       )}
                     </div>
 
-                    <p className="text-sm text-gray-700 mt-16" aria-live="polite">
-                      {isRecording ? '🔴 Recording... Release to stop' : 'Press and hold to speak'}
+                    <p className="text-sm text-gray-700 mt-16 flex items-center gap-2" aria-live="polite">
+                      {isRecording && (
+                        <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+                      )}
+                      {isRecording ? 'Recording... Release to stop' : 'Press and hold to speak'}
                     </p>
                   </div>
                 )}
@@ -1063,7 +1093,12 @@ export default function ReverseTutoring() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 id="scaffolding-title" className="text-xl font-bold text-gray-900">💡 Here's some help!</h2>
+              <h2 id="scaffolding-title" className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                <span>Here's some help!</span>
+              </h2>
               <button
                 ref={scaffoldingCloseButtonRef}
                 onClick={() => setShowScaffolding(false)}
@@ -1115,8 +1150,10 @@ export default function ReverseTutoring() {
             {/* Hint */}
             {scaffolding.hint && (
               <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-xl">💭</span>
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-yellow-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
                   <div>
                     <div className="font-semibold text-yellow-800 mb-1">Hint:</div>
                     <div className="text-yellow-700">{scaffolding.hint}</div>
@@ -1134,15 +1171,24 @@ export default function ReverseTutoring() {
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
             {sessionStatus === 'paused' && gracePeriodEndsAt && timeRemaining && timeRemaining !== 0 ? (
               <>
-                <div className="text-6xl mb-4">⏸️</div>
+                <div className="mx-auto w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-10 h-10 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Paused</h2>
                 <p className="text-gray-600 mb-6">
                   Your teacher has paused the session. You have <span className="font-bold text-orange-600">{timeRemaining}</span> to finish your current thought.
                 </p>
                 <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-orange-800">
-                    💡 Save your work! The session will be locked when the timer runs out.
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-orange-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <p className="text-sm text-orange-800">
+                      Save your work! The session will be locked when the timer runs out.
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowSessionModal(false)}
@@ -1153,15 +1199,24 @@ export default function ReverseTutoring() {
               </>
             ) : sessionStatus === 'ended' && gracePeriodEndsAt && timeRemaining && timeRemaining !== 0 ? (
               <>
-                <div className="text-6xl mb-4">⏰</div>
+                <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Ending</h2>
                 <p className="text-gray-600 mb-6">
                   Your teacher has ended the session. You have <span className="font-bold text-red-600">{timeRemaining}</span> to finish your current thought.
                 </p>
                 <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-red-800">
-                    ⚠️ Finish up quickly! You won't be able to send messages after the timer ends.
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-red-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <p className="text-sm text-red-800">
+                      Finish up quickly! You won't be able to send messages after the timer ends.
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowSessionModal(false)}
@@ -1172,7 +1227,11 @@ export default function ReverseTutoring() {
               </>
             ) : sessionStatus === 'paused' ? (
               <>
-                <div className="text-6xl mb-4">⏸️</div>
+                <div className="mx-auto w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-10 h-10 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Paused</h2>
                 <p className="text-gray-600 mb-6">
                   Your teacher has paused the session. Please wait for them to resume.
@@ -1191,15 +1250,24 @@ export default function ReverseTutoring() {
               </>
             ) : (
               <>
-                <div className="text-6xl mb-4">🎓</div>
+                <div className="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+                  <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-3">Session Has Ended</h2>
                 <p className="text-gray-600 mb-6">
                   Your teacher has ended this session. Great work teaching today!
                 </p>
                 <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-green-800">
-                    ✅ Your progress has been saved. Your teacher can review your conversation.
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-green-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-green-800">
+                      Your progress has been saved. Your teacher can review your conversation.
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={() => navigate(-1)}
@@ -1217,15 +1285,20 @@ export default function ReverseTutoring() {
       {timeRemaining && timeRemaining !== 0 && !showSessionModal && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-40">
           <div className={`${sessionStatus === 'paused' ? 'bg-orange-500' : 'bg-red-500'} text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 animate-pulse`}>
-            <span className="text-xl">⏱️</span>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
             <span className="font-bold">
               {sessionStatus === 'paused' ? 'Session Paused' : 'Session Ending'}: {timeRemaining} remaining
             </span>
             <button
               onClick={() => setShowSessionModal(true)}
               className="ml-2 text-white hover:text-gray-200"
+              aria-label="Show session status details"
             >
-              ℹ️
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </button>
           </div>
         </div>
