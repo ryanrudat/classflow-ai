@@ -883,6 +883,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               setSessionToReactivate={setSessionToReactivate}
               setShowReactivateDialog={setShowReactivateDialog}
               setReactivateInstances={setReactivateInstances}
+              handleSelectPreviousActivity={handleSelectPreviousActivity}
+              setActiveTab={setActiveTab}
             />
           )}
 
@@ -946,7 +948,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 }
 
 // Tab Components
-function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, currentSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances }) {
+function OverviewTab({ session, isConnected, students, instances, selectedInstance, setSelectedInstance, loadInstanceStudents, studentResponses, loadingInstance, removeStudent, setStudents, sessionActivities, selectedStudentDetail, setSelectedStudentDetail, currentSession, setClickedInstanceForReactivation, setSessionToReactivate, setShowReactivateDialog, setReactivateInstances, handleSelectPreviousActivity, setActiveTab }) {
   const { notifySuccess, notifyError } = useNotifications()
   const { on, off, clearAllConfusion } = useSocket()
   const [studentProgressData, setStudentProgressData] = useState([])
