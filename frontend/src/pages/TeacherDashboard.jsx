@@ -10,6 +10,7 @@ import ActivityStatusBadge from '../components/ActivityStatusBadge'
 import UnlockActivityModal from '../components/UnlockActivityModal'
 import SessionJoinCard from '../components/SessionJoinCard'
 import ConfusionMeter from '../components/ConfusionMeter'
+import SaveToLibraryButton from '../components/SaveToLibraryButton'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -170,12 +171,23 @@ export default function TeacherDashboard() {
             <h1 className="text-2xl font-bold text-gray-900">ClassFlow AI</h1>
             <p className="text-sm text-gray-600">Welcome, {user?.name}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="btn-secondary text-sm"
-          >
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/library')}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              Library
+            </button>
+            <button
+              onClick={handleLogout}
+              className="btn-secondary text-sm"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1642,12 +1654,21 @@ function ActivitiesTab({
           <div className="mt-6 border-t pt-6">
             <div className="flex justify-between items-center mb-4">
               <h4 className="font-bold text-gray-800">Generated Content:</h4>
-              <button
-                onClick={handlePush}
-                className="btn-primary text-sm"
-              >
-                Push to All Students
-              </button>
+              <div className="flex items-center gap-2">
+                <SaveToLibraryButton
+                  activity={generatedContent}
+                  variant="button"
+                  onSaved={() => {
+                    notifySuccess('Activity saved to library!')
+                  }}
+                />
+                <button
+                  onClick={handlePush}
+                  className="btn-primary text-sm"
+                >
+                  Push to All Students
+                </button>
+              </div>
             </div>
 
             <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto border border-gray-200">

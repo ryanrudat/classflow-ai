@@ -16,6 +16,7 @@ import StudentAuth from './pages/StudentAuth'
 import StudentDashboard from './pages/StudentDashboard'
 import ReverseTutoring from './pages/ReverseTutoring'
 import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
+import LibraryBrowser from './pages/LibraryBrowser'
 
 function App() {
   const { user } = useAuthStore()
@@ -45,6 +46,10 @@ function App() {
             <Route
               path="/dashboard"
               element={user ? <TeacherDashboard /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/library"
+              element={user ? <LibraryBrowser /> : <Navigate to="/login" />}
             />
 
             {/* Slides routes */}

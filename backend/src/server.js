@@ -35,6 +35,7 @@ import studentHelpRoutes from './routes/studentHelp.js'
 import studentRoutes from './routes/students.js'
 import reverseTutoringRoutes from './routes/reverseTutoring.js'
 import googleClassroomRoutes from './routes/googleClassroom.js'
+import libraryRoutes from './routes/library.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -151,6 +152,7 @@ app.use('/api/student-help', studentHelpRoutes)
 app.use('/api/students', studentRoutes)
 app.use('/api/reverse-tutoring', reverseTutoringRoutes)
 app.use('/api/google', googleClassroomRoutes)
+app.use('/api/library', libraryRoutes)
 
 // Setup WebSocket
 setupSocketIO(io)
