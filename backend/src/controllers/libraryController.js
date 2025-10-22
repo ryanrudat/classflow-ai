@@ -75,9 +75,17 @@ export async function saveToLibrary(req, res) {
     }
 
     // Ensure content is properly formatted for JSONB
-    const contentToSave = typeof activity.content === 'string'
-      ? activity.content
-      : JSON.stringify(activity.content)
+    // node-postgres automatically parses JSONB to objects, so we need to stringify for the query
+    let contentToSave = activity.content
+    if (typeof activity.content === 'object') {
+      contentToSave = JSON.stringify(activity.content)
+    }
+
+    console.log('Content to save:', {
+      type: typeof contentToSave,
+      length: contentToSave?.length,
+      isValid: contentToSave ? true : false
+    })
 
     // Save to library
     const libraryResult = await db.query(
@@ -93,7 +101,7 @@ export async function saveToLibrary(req, res) {
         grade_level,
         folder
       )
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         teacherId,
