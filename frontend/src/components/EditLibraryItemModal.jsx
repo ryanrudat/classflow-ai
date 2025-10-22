@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import api from '../services/api'
-import Toast from './Toast'
+import { useToast } from './Toast'
 
 /**
  * EditLibraryItemModal Component
@@ -8,6 +8,7 @@ import Toast from './Toast'
  */
 
 export default function EditLibraryItemModal({ item, allTags, onClose, onSave }) {
+  const toast = useToast()
   const [formData, setFormData] = useState({
     title: item.title || '',
     description: item.description || '',
@@ -18,13 +19,12 @@ export default function EditLibraryItemModal({ item, allTags, onClose, onSave })
   const [selectedTags, setSelectedTags] = useState(item.tags || [])
   const [newTag, setNewTag] = useState('')
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState(null)
 
   async function handleSubmit(e) {
     e.preventDefault()
 
     if (!formData.title.trim()) {
-      setToast({ type: 'error', message: 'Title is required' })
+      toast.error('Error', 'Title is required')
       return
     }
 
@@ -38,13 +38,13 @@ export default function EditLibraryItemModal({ item, allTags, onClose, onSave })
         tags: selectedTags
       })
 
-      setToast({ type: 'success', message: 'Activity updated successfully' })
+      toast.success('Success', 'Activity updated successfully')
       setTimeout(() => {
         onSave()
       }, 500)
     } catch (error) {
       console.error('Update error:', error)
-      setToast({ type: 'error', message: 'Failed to update activity' })
+      toast.error('Error', 'Failed to update activity')
     } finally {
       setLoading(false)
     }
@@ -277,15 +277,6 @@ export default function EditLibraryItemModal({ item, allTags, onClose, onSave })
           </div>
         </form>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   )
 }

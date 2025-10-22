@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
-import Toast from '../components/Toast'
+import { useToast } from '../components/Toast'
 import ActivityPreviewModal from '../components/ActivityPreviewModal'
 import EditLibraryItemModal from '../components/EditLibraryItemModal'
 
@@ -20,6 +20,7 @@ import EditLibraryItemModal from '../components/EditLibraryItemModal'
 export default function LibraryBrowser() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const toast = useToast()
 
   // State
   const [items, setItems] = useState([])
@@ -27,7 +28,6 @@ export default function LibraryBrowser() {
   const [tags, setTags] = useState([])
   const [folders, setFolders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
@@ -80,7 +80,7 @@ export default function LibraryBrowser() {
       setItems(response.data.items)
     } catch (error) {
       console.error('Load library error:', error)
-      setToast({ type: 'error', message: 'Failed to load library' })
+      toast.error('Error', 'Failed to load library')
     } finally {
       setLoading(false)
     }
@@ -116,25 +116,25 @@ export default function LibraryBrowser() {
   async function handleReuse(item, sessionId) {
     try {
       await api.post(`/library/${item.id}/reuse`, { sessionId })
-      setToast({ type: 'success', message: 'Activity added to session!' })
+      toast.success('Success', 'Activity added to session!')
       setPreviewModal({ open: false, item: null })
       loadLibrary() // Refresh to update usage count
     } catch (error) {
       console.error('Reuse error:', error)
-      setToast({ type: 'error', message: 'Failed to reuse activity' })
+      toast.error('Error', 'Failed to reuse activity')
     }
   }
 
   async function handleDelete(item) {
     try {
       await api.delete(`/library/${item.id}`)
-      setToast({ type: 'success', message: 'Activity deleted from library' })
+      toast.success('Success', 'Activity deleted from library')
       setDeleteConfirm({ open: false, item: null })
       loadLibrary()
       loadStats()
     } catch (error) {
       console.error('Delete error:', error)
-      setToast({ type: 'error', message: 'Failed to delete activity' })
+      toast.error('Error', 'Failed to delete activity')
     }
   }
 
@@ -364,15 +364,6 @@ export default function LibraryBrowser() {
           item={deleteConfirm.item}
           onConfirm={() => handleDelete(deleteConfirm.item)}
           onCancel={() => setDeleteConfirm({ open: false, item: null })}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
         />
       )}
     </div>

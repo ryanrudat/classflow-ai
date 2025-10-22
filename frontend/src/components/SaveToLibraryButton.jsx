@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import api from '../services/api'
-import Toast from './Toast'
+import { useToast } from './Toast'
 
 /**
  * SaveToLibraryButton Component
@@ -9,6 +9,7 @@ import Toast from './Toast'
  */
 
 export default function SaveToLibraryButton({ activity, variant = 'button', onSaved }) {
+  const toast = useToast()
   const [showModal, setShowModal] = useState(false)
   const [formData, setFormData] = useState({
     title: activity.prompt || '',
@@ -19,13 +20,12 @@ export default function SaveToLibraryButton({ activity, variant = 'button', onSa
   })
   const [newTag, setNewTag] = useState('')
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState(null)
 
   async function handleSave(e) {
     e?.preventDefault()
 
     if (!formData.title.trim()) {
-      setToast({ type: 'error', message: 'Title is required' })
+      toast.error('Error', 'Title is required')
       return
     }
 
@@ -40,7 +40,7 @@ export default function SaveToLibraryButton({ activity, variant = 'button', onSa
         gradeLevel: formData.gradeLevel || null
       })
 
-      setToast({ type: 'success', message: 'Saved to library!' })
+      toast.success('Success', 'Saved to library!')
       setShowModal(false)
 
       if (onSaved) {
@@ -59,9 +59,9 @@ export default function SaveToLibraryButton({ activity, variant = 'button', onSa
       console.error('Save to library error:', error)
 
       if (error.response?.data?.message?.includes('already saved')) {
-        setToast({ type: 'info', message: 'This activity is already in your library' })
+        toast.info('Info', 'This activity is already in your library')
       } else {
-        setToast({ type: 'error', message: 'Failed to save to library' })
+        toast.error('Error', 'Failed to save to library')
       }
     } finally {
       setLoading(false)
@@ -284,15 +284,6 @@ export default function SaveToLibraryButton({ activity, variant = 'button', onSa
               </button>
             </div>
           </form>
-
-          {/* Toast */}
-          {toast && (
-            <Toast
-              type={toast.type}
-              message={toast.message}
-              onClose={() => setToast(null)}
-            />
-          )}
         </div>
       </div>
     )
