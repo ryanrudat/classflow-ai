@@ -24,6 +24,13 @@ export async function saveToLibrary(req, res) {
 
     const teacherId = req.user.userId
 
+    console.log('Save to library request:', {
+      activityId,
+      title,
+      teacherId,
+      hasUser: !!req.user
+    })
+
     // Validation
     if (!activityId || !title) {
       return res.status(400).json({
@@ -67,6 +74,11 @@ export async function saveToLibrary(req, res) {
       })
     }
 
+    // Ensure content is properly formatted for JSONB
+    const contentToSave = typeof activity.content === 'string'
+      ? activity.content
+      : JSON.stringify(activity.content)
+
     // Save to library
     const libraryResult = await db.query(
       `INSERT INTO content_library (
@@ -81,14 +93,14 @@ export async function saveToLibrary(req, res) {
         grade_level,
         folder
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         teacherId,
         title,
         description,
         activity.type,
-        activity.content,
+        contentToSave,
         activity.difficulty_level,
         activity.prompt,
         activity.subject,
@@ -149,8 +161,15 @@ export async function saveToLibrary(req, res) {
 
   } catch (error) {
     console.error('Save to library error:', error)
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      detail: error.detail
+    })
     res.status(500).json({
-      message: `Failed to save to library: ${error.message}`
+      message: `Failed to save to library: ${error.message}`,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }
 }
