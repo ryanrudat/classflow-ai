@@ -11,6 +11,7 @@ import UnlockActivityModal from '../components/UnlockActivityModal'
 import SessionJoinCard from '../components/SessionJoinCard'
 import ConfusionMeter from '../components/ConfusionMeter'
 import SaveToLibraryButton from '../components/SaveToLibraryButton'
+import DocumentUpload from '../components/DocumentUpload'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -1730,6 +1731,18 @@ function ActivitiesTab({
             )}
           </div>
         )}
+      </div>
+
+      {/* Document Upload Section */}
+      <div className="border-t pt-6">
+        <DocumentUpload
+          sessionId={session.id}
+          onActivityGenerated={(activity) => {
+            setGeneratedContent(activity)
+            // Reload session activities to show the new one
+            setSessionActivities([activity, ...sessionActivities])
+          }}
+        />
       </div>
 
       {/* Session History */}
