@@ -91,16 +91,33 @@ export async function saveToLibrary(req, res) {
     }
 
     // Ensure content is properly formatted for JSONB
-    // node-postgres automatically parses JSONB to objects, so we need to stringify for the query
-    let contentToSave = activity.content
-    if (typeof activity.content === 'object') {
+    // The content column in activities is JSONB, but node-postgres may return it as string or object
+    // We need to ensure it's valid JSON for the JSONB column in content_library
+    let contentToSave
+
+    if (typeof activity.content === 'string') {
+      // If it's already a string, try to parse it to see if it's valid JSON
+      try {
+        JSON.parse(activity.content)
+        // It's valid JSON string, use as-is
+        contentToSave = activity.content
+      } catch {
+        // It's a plain string (like a reading passage), wrap it in JSON.stringify to make it valid JSON
+        contentToSave = JSON.stringify(activity.content)
+      }
+    } else if (typeof activity.content === 'object') {
+      // It's an object, stringify it
+      contentToSave = JSON.stringify(activity.content)
+    } else {
+      // Fallback
       contentToSave = JSON.stringify(activity.content)
     }
 
     console.log('Content to save:', {
-      type: typeof contentToSave,
+      originalType: typeof activity.content,
+      finalType: typeof contentToSave,
       length: contentToSave?.length,
-      isValid: contentToSave ? true : false
+      isValidJSON: (() => { try { JSON.parse(contentToSave); return true } catch { return false } })()
     })
 
     // Prepare values for insert
