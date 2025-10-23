@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import api from '../services/api'
 import { useToast } from '../components/Toast'
 import ActivityPreviewModal from '../components/ActivityPreviewModal'
@@ -19,17 +19,16 @@ import EditLibraryItemModal from '../components/EditLibraryItemModal'
 
 export default function LibraryBrowser() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const toast = useToast()
 
-  // Handle back navigation - go back to previous page or dashboard
+  // Handle back navigation - preserve session state
   const handleBack = () => {
-    // If there's history to go back to, use it; otherwise go to dashboard
-    if (window.history.length > 1) {
-      navigate(-1)
-    } else {
-      navigate('/dashboard')
-    }
+    // Navigate back with the preserved session ID from location state
+    navigate('/dashboard', {
+      state: { selectedSessionId: location.state?.selectedSessionId }
+    })
   }
 
   // State

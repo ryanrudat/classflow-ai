@@ -173,7 +173,7 @@ export default function TeacherDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/library')}
+              onClick={() => navigate('/library', { state: { selectedSessionId: activeSession?.id } })}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-sm"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

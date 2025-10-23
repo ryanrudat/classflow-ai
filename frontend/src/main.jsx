@@ -17,9 +17,25 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       .then((registration) => {
         console.log('✅ Service Worker registered successfully:', registration.scope)
 
-        // Check for updates periodically
+        // Handle updates safely
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing
+          if (!newWorker) return
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('🔄 New content available, page will refresh...')
+              // Optionally auto-refresh or notify user
+            }
+          })
+        })
+
+        // Check for updates periodically with error handling
         setInterval(() => {
-          registration.update()
+          registration.update().catch(err => {
+            // Silently ignore update check failures
+            console.debug('Service Worker update check skipped:', err.message)
+          })
         }, 60000) // Check every minute
       })
       .catch((error) => {
