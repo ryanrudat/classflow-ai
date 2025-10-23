@@ -218,9 +218,9 @@ export default function Presentation() {
       </header>
 
       {/* Main slide area */}
-      <main className="flex-1 flex items-center justify-center p-8 pb-32">
+      <main className="flex-1 flex items-center justify-center p-8 pb-32 overflow-hidden">
         {currentSlide ? (
-          <div className="bg-white rounded-lg shadow-2xl p-12 max-w-5xl w-full min-h-[600px] flex flex-col">
+          <div className="bg-white rounded-lg shadow-2xl p-12 max-w-5xl w-full max-h-[calc(100vh-12rem)] overflow-y-auto flex flex-col">
             {/* Slide title */}
             {currentSlide.title && (
               <h2 className="text-5xl font-bold text-gray-900 mb-8">
@@ -238,7 +238,7 @@ export default function Presentation() {
 
             {/* Image */}
             {currentSlide.image && (
-              <div className={`mb-8 ${
+              <div className={`mb-8 flex-shrink-0 ${
                 currentSlide.image.position === 'center' ? 'text-center' :
                 currentSlide.image.position === 'right' ? 'text-right' :
                 'text-left'
@@ -249,7 +249,9 @@ export default function Presentation() {
                   style={{
                     width: currentSlide.image.width || 'auto',
                     maxWidth: '100%',
-                    height: 'auto'
+                    maxHeight: '60vh',
+                    height: 'auto',
+                    objectFit: 'contain'
                   }}
                   className="rounded-lg shadow-lg inline-block"
                 />

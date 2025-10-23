@@ -105,9 +105,9 @@ export default function ProjectorView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-8 overflow-hidden">
       {currentSlide ? (
-        <div className="bg-white rounded-lg shadow-2xl p-16 max-w-6xl w-full min-h-[700px] flex flex-col">
+        <div className="bg-white rounded-lg shadow-2xl p-16 max-w-6xl w-full max-h-[calc(100vh-4rem)] overflow-y-auto flex flex-col">
           {/* Slide title */}
           {currentSlide.title && (
             <h2 className="text-6xl font-bold text-gray-900 mb-10">
@@ -125,7 +125,7 @@ export default function ProjectorView() {
 
           {/* Image */}
           {currentSlide.image && (
-            <div className={`mb-10 ${
+            <div className={`mb-10 flex-shrink-0 ${
               currentSlide.image.position === 'center' ? 'text-center' :
               currentSlide.image.position === 'right' ? 'text-right' :
               'text-left'
@@ -136,7 +136,9 @@ export default function ProjectorView() {
                 style={{
                   width: currentSlide.image.width || 'auto',
                   maxWidth: '100%',
-                  height: 'auto'
+                  maxHeight: '70vh',
+                  height: 'auto',
+                  objectFit: 'contain'
                 }}
                 className="rounded-lg shadow-lg inline-block"
               />

@@ -261,8 +261,8 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
       </header>
 
       {/* Main slide area */}
-      <main className="flex-1 flex items-center justify-center p-8">
-        <div className="bg-white rounded-lg shadow-2xl p-12 max-w-4xl w-full min-h-[500px] flex flex-col">
+      <main className="flex-1 flex items-center justify-center p-8 overflow-hidden">
+        <div className="bg-white rounded-lg shadow-2xl p-12 max-w-4xl w-full max-h-[calc(100vh-16rem)] overflow-y-auto flex flex-col">
           {/* Slide title */}
           {currentSlide.title && (
             <h2 className="text-4xl font-bold text-gray-900 mb-6">
@@ -280,7 +280,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
 
           {/* Image */}
           {currentSlide.image && (
-            <div className={`mb-6 ${
+            <div className={`mb-6 flex-shrink-0 ${
               currentSlide.image.position === 'center' ? 'text-center' :
               currentSlide.image.position === 'right' ? 'text-right' :
               'text-left'
@@ -291,7 +291,9 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
                 style={{
                   width: currentSlide.image.width || 'auto',
                   maxWidth: '100%',
-                  height: 'auto'
+                  maxHeight: '55vh',
+                  height: 'auto',
+                  objectFit: 'contain'
                 }}
                 className="rounded-lg shadow-lg inline-block"
               />
