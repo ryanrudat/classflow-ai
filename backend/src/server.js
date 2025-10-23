@@ -109,6 +109,19 @@ app.get('/health', async (req, res) => {
     const requiredTables = ['slide_decks', 'slides', 'uploaded_images', 'student_slide_progress']
     const missingTables = requiredTables.filter(t => !existingTables.includes(t))
 
+    // Check library tables
+    const libraryTablesResult = await db.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('content_library', 'library_tags', 'library_activity_tags')
+      ORDER BY table_name
+    `)
+
+    const existingLibraryTables = libraryTablesResult.rows.map(r => r.table_name)
+    const requiredLibraryTables = ['content_library', 'library_activity_tags', 'library_tags']
+    const missingLibraryTables = requiredLibraryTables.filter(t => !existingLibraryTables.includes(t))
+
     // Get WebSocket connection count
     const connectedSockets = await io.fetchSockets()
 
@@ -123,6 +136,11 @@ app.get('/health', async (req, res) => {
       tables: {
         existing: existingTables,
         missing: missingTables.length > 0 ? missingTables : null
+      },
+      libraryTables: {
+        existing: existingLibraryTables,
+        missing: missingLibraryTables.length > 0 ? missingLibraryTables : null,
+        ready: missingLibraryTables.length === 0
       },
       env: {
         claudeApiKey: process.env.CLAUDE_API_KEY ? 'set' : 'missing',
