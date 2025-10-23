@@ -359,7 +359,18 @@ export async function getLibraryItems(req, res) {
     res.json({
       items: result.rows.map(item => ({
         ...item,
-        content: typeof item.content === 'string' ? JSON.parse(item.content) : item.content,
+        content: (() => {
+          // Safe content parsing - handles strings, objects, and parse errors
+          if (typeof item.content === 'string') {
+            try {
+              return JSON.parse(item.content)
+            } catch {
+              // If parse fails, return as-is (plain string content)
+              return item.content
+            }
+          }
+          return item.content
+        })(),
         tags: item.tags || []
       })),
       count: result.rows.length
@@ -404,7 +415,18 @@ export async function getLibraryItem(req, res) {
     res.json({
       item: {
         ...item,
-        content: typeof item.content === 'string' ? JSON.parse(item.content) : item.content,
+        content: (() => {
+          // Safe content parsing - handles strings, objects, and parse errors
+          if (typeof item.content === 'string') {
+            try {
+              return JSON.parse(item.content)
+            } catch {
+              // If parse fails, return as-is (plain string content)
+              return item.content
+            }
+          }
+          return item.content
+        })(),
         tags: item.tags || []
       }
     })
@@ -630,9 +652,18 @@ export async function reuseLibraryItem(req, res) {
       message: 'Library item reused successfully',
       activity: {
         ...activityResult.rows[0],
-        content: typeof libraryItem.content === 'string'
-          ? JSON.parse(libraryItem.content)
-          : libraryItem.content
+        content: (() => {
+          // Safe content parsing - handles strings, objects, and parse errors
+          if (typeof libraryItem.content === 'string') {
+            try {
+              return JSON.parse(libraryItem.content)
+            } catch {
+              // If parse fails, return as-is (plain string content)
+              return libraryItem.content
+            }
+          }
+          return libraryItem.content
+        })()
       }
     })
 
