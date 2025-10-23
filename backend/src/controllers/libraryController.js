@@ -28,17 +28,22 @@ export async function saveToLibrary(req, res) {
       activityId,
       title,
       teacherId,
-      hasUser: !!req.user
+      hasUser: !!req.user,
+      tags,
+      folder,
+      gradeLevel
     })
 
     // Validation
     if (!activityId || !title) {
+      console.error('Validation failed:', { activityId, title })
       return res.status(400).json({
         message: 'Activity ID and title are required'
       })
     }
 
     // Get activity and verify ownership
+    console.log('Fetching activity with ID:', activityId)
     const activityResult = await db.query(
       `SELECT a.*, s.teacher_id, s.subject
        FROM activities a
@@ -48,10 +53,21 @@ export async function saveToLibrary(req, res) {
     )
 
     if (activityResult.rows.length === 0) {
+      console.error('Activity not found:', activityId)
       return res.status(404).json({ message: 'Activity not found' })
     }
 
     const activity = activityResult.rows[0]
+
+    console.log('Activity found:', {
+      id: activity.id,
+      type: activity.type,
+      hasContent: !!activity.content,
+      contentType: typeof activity.content,
+      difficulty: activity.difficulty_level,
+      subject: activity.subject,
+      teacherId: activity.teacher_id
+    })
 
     if (activity.teacher_id !== teacherId) {
       return res.status(403).json({ message: 'Unauthorized' })
@@ -87,60 +103,104 @@ export async function saveToLibrary(req, res) {
       isValid: contentToSave ? true : false
     })
 
+    // Prepare values for insert
+    const insertValues = [
+      teacherId,
+      title,
+      description || '',
+      activity.type,
+      contentToSave,
+      activity.difficulty_level || null,
+      activity.prompt || '',
+      activity.subject || null,
+      gradeLevel || null,
+      folder || null
+    ]
+
+    console.log('Inserting library item with values:', {
+      teacherId,
+      title,
+      type: activity.type,
+      hasContent: !!contentToSave,
+      difficulty: activity.difficulty_level,
+      subject: activity.subject,
+      gradeLevel,
+      folder
+    })
+
     // Save to library
-    const libraryResult = await db.query(
-      `INSERT INTO content_library (
-        teacher_id,
-        title,
-        description,
-        type,
-        content,
-        difficulty_level,
-        original_prompt,
-        subject,
-        grade_level,
-        folder
+    let libraryResult
+    try {
+      libraryResult = await db.query(
+        `INSERT INTO content_library (
+          teacher_id,
+          title,
+          description,
+          type,
+          content,
+          difficulty_level,
+          original_prompt,
+          subject,
+          grade_level,
+          folder
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *`,
+        insertValues
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING *`,
-      [
-        teacherId,
-        title,
-        description,
-        activity.type,
-        contentToSave,
-        activity.difficulty_level,
-        activity.prompt,
-        activity.subject,
-        gradeLevel,
-        folder
-      ]
-    )
+    } catch (dbError) {
+      console.error('Database INSERT error:', {
+        message: dbError.message,
+        code: dbError.code,
+        detail: dbError.detail,
+        constraint: dbError.constraint,
+        table: dbError.table,
+        column: dbError.column
+      })
+      throw dbError
+    }
 
     const libraryItem = libraryResult.rows[0]
 
+    console.log('Library item created:', {
+      id: libraryItem.id,
+      title: libraryItem.title
+    })
+
     // Process tags
     if (tags && tags.length > 0) {
-      for (const tagName of tags) {
-        // Create tag if doesn't exist
-        const tagResult = await db.query(
-          `INSERT INTO library_tags (teacher_id, name)
-           VALUES ($1, $2)
-           ON CONFLICT (teacher_id, name)
-           DO UPDATE SET name = $2
-           RETURNING id`,
-          [teacherId, tagName.trim()]
-        )
+      console.log('Processing tags:', tags)
+      try {
+        for (const tagName of tags) {
+          if (!tagName || typeof tagName !== 'string') {
+            console.warn('Skipping invalid tag:', tagName)
+            continue
+          }
 
-        const tagId = tagResult.rows[0].id
+          // Create tag if doesn't exist
+          const tagResult = await db.query(
+            `INSERT INTO library_tags (teacher_id, name)
+             VALUES ($1, $2)
+             ON CONFLICT (teacher_id, name)
+             DO UPDATE SET name = $2
+             RETURNING id`,
+            [teacherId, tagName.trim()]
+          )
 
-        // Link tag to library item
-        await db.query(
-          `INSERT INTO library_activity_tags (library_item_id, tag_id)
-           VALUES ($1, $2)
-           ON CONFLICT DO NOTHING`,
-          [libraryItem.id, tagId]
-        )
+          const tagId = tagResult.rows[0].id
+
+          // Link tag to library item
+          await db.query(
+            `INSERT INTO library_activity_tags (library_item_id, tag_id)
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING`,
+            [libraryItem.id, tagId]
+          )
+        }
+        console.log('Tags processed successfully')
+      } catch (tagError) {
+        console.error('Error processing tags:', tagError)
+        // Don't fail the whole request if tags fail
       }
     }
 
