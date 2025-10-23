@@ -1669,9 +1669,6 @@ function ActivitiesTab({
                 <SaveToLibraryButton
                   activity={generatedContent}
                   variant="button"
-                  onSaved={() => {
-                    notifySuccess('Activity saved to library!')
-                  }}
                 />
                 <button
                   onClick={handlePush}
