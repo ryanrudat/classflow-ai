@@ -157,6 +157,16 @@ export async function saveToLibrary(req, res) {
         table: dbError.table,
         column: dbError.column
       })
+
+      // Check if table doesn't exist
+      if (dbError.code === '42P01') {
+        return res.status(500).json({
+          message: 'Library system not initialized. Database migration required.',
+          error: 'content_library table does not exist',
+          solution: 'Run migration 012_add_content_library.sql on production database'
+        })
+      }
+
       throw dbError
     }
 
