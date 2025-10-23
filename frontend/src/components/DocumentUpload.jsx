@@ -143,13 +143,9 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
 
       toast.success('Success', 'Activity generated from your document!')
 
-      // Pass the generated activity to parent
+      // Pass the generated activity to parent (activity is now saved in DB with real ID)
       if (onActivityGenerated) {
-        onActivityGenerated({
-          ...response.data.activity,
-          id: Date.now().toString(), // Temporary ID
-          prompt: `Generated from: ${selectedFile.name}`
-        })
+        onActivityGenerated(response.data.activity)
       }
 
       // Reset form

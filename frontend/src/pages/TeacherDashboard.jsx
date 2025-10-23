@@ -1737,10 +1737,17 @@ function ActivitiesTab({
       <div className="border-t pt-6">
         <DocumentUpload
           sessionId={session.id}
-          onActivityGenerated={(activity) => {
+          onActivityGenerated={async (activity) => {
             setGeneratedContent(activity)
-            // Reload session activities to show the new one
-            setSessionActivities([activity, ...sessionActivities])
+            // Reload session activities from server to get the saved activity
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
+              // Fallback: manually add to list if reload fails
+              setSessionActivities([activity, ...sessionActivities])
+            }
           }}
         />
       </div>

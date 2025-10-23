@@ -5,6 +5,7 @@ import fs from 'fs/promises'
 import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Anthropic from '@anthropic-ai/sdk'
+import db from '../database/db.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -282,18 +283,47 @@ export async function uploadAndGenerateActivity(req, res) {
 
     console.log(`✅ Activity generated in ${aiResult.generationTime}ms`)
 
+    // Save activity to database
+    console.log('💾 Saving activity to database...')
+    const result = await db.query(
+      `INSERT INTO activities (
+        session_id,
+        type,
+        prompt,
+        ai_generated,
+        generation_time_ms,
+        cached,
+        content,
+        difficulty_level,
+        pushed_to
+      )
+      VALUES ($1, $2, $3, true, $4, $5, $6, $7, 'none')
+      RETURNING *`,
+      [
+        sessionId,
+        activityType || 'quiz',
+        `Generated from: ${file.originalname}`,
+        aiResult.generationTime,
+        aiResult.cached || false,
+        JSON.stringify(aiResult.content),
+        difficulty || 'medium'
+      ]
+    )
+
+    const savedActivity = result.rows[0]
+    console.log('✅ Activity saved with ID:', savedActivity.id)
+
     // Clean up uploaded file
     await fs.unlink(file.path)
 
-    // Return the generated activity
+    // Return the saved activity
     res.json({
       success: true,
       activity: {
-        type: activityType || 'quiz',
-        content: aiResult.content,
+        ...savedActivity,
+        content: aiResult.content, // Return parsed content, not stringified
         sourceDocument: file.originalname,
         extractedTextLength: extractedText.length,
-        generationTime: aiResult.generationTime,
         tokens: aiResult.tokens
       },
       message: 'Activity generated successfully from document'
