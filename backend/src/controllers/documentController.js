@@ -401,19 +401,19 @@ export async function saveDocument(req, res) {
         difficulty_level,
         pushed_to
       )
-      VALUES ($1, $2, $3, false, 0, false, $4, NULL, 'none')
+      VALUES ($1, $2, $3, false, 0, false, $4, NULL, 'all')
       RETURNING *`,
       [
         sessionId,
         'document',
         title || file.originalname,
-        JSON.stringify({
+        {
           filename: file.originalname,
           fileSize: file.size,
           uploadedAt: new Date().toISOString(),
           extractedText: extractedText,
           textLength: extractedText.length
-        })
+        }
       ]
     )
 
@@ -425,10 +425,7 @@ export async function saveDocument(req, res) {
 
     res.json({
       success: true,
-      activity: {
-        ...savedDocument,
-        content: JSON.parse(savedDocument.content)
-      },
+      activity: savedDocument,
       message: 'Document saved successfully'
     })
 

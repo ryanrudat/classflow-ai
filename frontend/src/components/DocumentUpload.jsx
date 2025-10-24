@@ -253,6 +253,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
               </p>
             </div>
             <button
+              type="button"
               onClick={() => setSelectedFile(null)}
               className="text-sm text-red-600 hover:text-red-700 font-medium"
             >
@@ -298,6 +299,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
             <div className="grid grid-cols-2 gap-3">
               {activityTypes.map((type) => (
                 <button
+                  type="button"
                   key={type.value}
                   onClick={() => setActivityType(type.value)}
                   className={`p-3 border-2 rounded-lg text-left transition-all ${
@@ -324,6 +326,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
             <div className="flex gap-2">
               {['easy', 'medium', 'hard'].map((level) => (
                 <button
+                  type="button"
                   key={level}
                   onClick={() => setDifficulty(level)}
                   className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium capitalize transition-all ${
@@ -341,6 +344,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
             <button
+              type="button"
               onClick={handleSaveOnly}
               disabled={uploading}
               className="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
@@ -364,6 +368,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
             </button>
 
             <button
+              type="button"
               onClick={handleUpload}
               disabled={uploading}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
