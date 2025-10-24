@@ -1,6 +1,8 @@
 import express from 'express'
 import {
   uploadAndGenerateActivity,
+  saveDocument,
+  generateFromSavedDocument,
   documentUploadMiddleware
 } from '../controllers/documentController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -11,7 +13,7 @@ const router = express.Router()
 router.use(authenticateToken)
 
 /**
- * Upload document and generate activity from it
+ * Upload document and generate activity from it immediately
  * POST /api/documents/upload
  * Multipart form data:
  *   - document: File (PDF, DOCX, TXT)
@@ -21,5 +23,24 @@ router.use(authenticateToken)
  *   - sessionId: string
  */
 router.post('/upload', documentUploadMiddleware, uploadAndGenerateActivity)
+
+/**
+ * Save document without generating activity
+ * POST /api/documents/save
+ * Multipart form data:
+ *   - document: File (PDF, DOCX, TXT)
+ *   - sessionId: string
+ *   - title: string (optional)
+ */
+router.post('/save', documentUploadMiddleware, saveDocument)
+
+/**
+ * Generate activity from previously saved document
+ * POST /api/documents/generate/:activityId
+ * Body:
+ *   - activityType: quiz | questions | discussion | reading
+ *   - difficulty: easy | medium | hard
+ */
+router.post('/generate/:activityId', generateFromSavedDocument)
 
 export default router

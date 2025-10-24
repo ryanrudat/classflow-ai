@@ -1,11 +1,14 @@
 import multer from 'multer'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { createRequire } from 'module'
 import fs from 'fs/promises'
-import pdfParse from 'pdf-parse'
 import mammoth from 'mammoth'
 import Anthropic from '@anthropic-ai/sdk'
 import db from '../database/db.js'
+
+const require = createRequire(import.meta.url)
+const pdfParse = require('pdf-parse')
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -344,6 +347,213 @@ export async function uploadAndGenerateActivity(req, res) {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to process document'
+    })
+  }
+}
+
+/**
+ * Save document without generating activity
+ * POST /api/documents/save
+ * Body (multipart/form-data):
+ *   - file: Document file
+ *   - sessionId: string
+ *   - title: string (optional)
+ */
+export async function saveDocument(req, res) {
+  try {
+    const file = req.file
+    const { sessionId, title } = req.body
+
+    if (!file) {
+      return res.status(400).json({ message: 'No file uploaded' })
+    }
+
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID is required' })
+    }
+
+    console.log('📄 Saving document:', {
+      filename: file.originalname,
+      size: file.size,
+      sessionId
+    })
+
+    // Extract text from document
+    console.log('📖 Extracting text from document...')
+    const extractedText = await extractTextFromFile(file.path, file.mimetype, file.originalname)
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error('No text content found in document')
+    }
+
+    console.log(`✅ Extracted ${extractedText.length} characters`)
+
+    // Save document reference to database
+    const result = await db.query(
+      `INSERT INTO activities (
+        session_id,
+        type,
+        prompt,
+        ai_generated,
+        generation_time_ms,
+        cached,
+        content,
+        difficulty_level,
+        pushed_to
+      )
+      VALUES ($1, $2, $3, false, 0, false, $4, NULL, 'none')
+      RETURNING *`,
+      [
+        sessionId,
+        'document',
+        title || file.originalname,
+        JSON.stringify({
+          filename: file.originalname,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString(),
+          extractedText: extractedText,
+          textLength: extractedText.length
+        })
+      ]
+    )
+
+    const savedDocument = result.rows[0]
+    console.log('✅ Document saved with ID:', savedDocument.id)
+
+    // Clean up uploaded file
+    await fs.unlink(file.path)
+
+    res.json({
+      success: true,
+      activity: {
+        ...savedDocument,
+        content: JSON.parse(savedDocument.content)
+      },
+      message: 'Document saved successfully'
+    })
+
+  } catch (error) {
+    console.error('Document save error:', error)
+
+    // Clean up temp file if it exists
+    if (req.file && req.file.path) {
+      try {
+        await fs.unlink(req.file.path)
+      } catch (unlinkError) {
+        console.error('Failed to delete temp file:', unlinkError)
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to save document'
+    })
+  }
+}
+
+/**
+ * Generate activity from previously saved document
+ * POST /api/documents/generate/:activityId
+ * Body:
+ *   - activityType: 'quiz' | 'questions' | 'discussion' | 'reading'
+ *   - difficulty: 'easy' | 'medium' | 'hard'
+ */
+export async function generateFromSavedDocument(req, res) {
+  try {
+    const { activityId } = req.params
+    const { activityType, difficulty } = req.body
+    const teacherId = req.user.userId
+
+    console.log('🤖 Generating activity from saved document:', {
+      activityId,
+      activityType,
+      difficulty
+    })
+
+    // Get the saved document
+    const documentResult = await db.query(
+      `SELECT a.*, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1 AND a.type = 'document'`,
+      [activityId]
+    )
+
+    if (documentResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Document not found' })
+    }
+
+    const document = documentResult.rows[0]
+
+    // Verify ownership
+    if (document.teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Parse the document content
+    const documentContent = typeof document.content === 'string'
+      ? JSON.parse(document.content)
+      : document.content
+
+    if (!documentContent.extractedText) {
+      return res.status(400).json({ message: 'Document has no extractable text' })
+    }
+
+    console.log('📖 Generating activity from extracted text...')
+
+    // Generate activity using AI
+    const aiResult = await generateActivityFromContent(documentContent.extractedText, {
+      activityType: activityType || 'quiz',
+      difficulty: difficulty || 'medium'
+    })
+
+    console.log(`✅ Activity generated in ${aiResult.generationTime}ms`)
+
+    // Create a new activity (keep original document separate)
+    const result = await db.query(
+      `INSERT INTO activities (
+        session_id,
+        type,
+        prompt,
+        ai_generated,
+        generation_time_ms,
+        cached,
+        content,
+        difficulty_level,
+        pushed_to
+      )
+      VALUES ($1, $2, $3, true, $4, $5, $6, $7, 'none')
+      RETURNING *`,
+      [
+        document.session_id,
+        activityType || 'quiz',
+        `Generated from: ${documentContent.filename}`,
+        aiResult.generationTime,
+        aiResult.cached || false,
+        JSON.stringify(aiResult.content),
+        difficulty || 'medium'
+      ]
+    )
+
+    const newActivity = result.rows[0]
+    console.log('✅ New activity created with ID:', newActivity.id)
+
+    res.json({
+      success: true,
+      activity: {
+        ...newActivity,
+        content: aiResult.content,
+        sourceDocument: documentContent.filename,
+        tokens: aiResult.tokens
+      },
+      message: 'Activity generated successfully'
+    })
+
+  } catch (error) {
+    console.error('Generate from document error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to generate activity'
     })
   }
 }

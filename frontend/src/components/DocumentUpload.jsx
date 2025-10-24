@@ -5,6 +5,7 @@ import { useToast } from './Toast'
 /**
  * DocumentUpload Component
  * Allows teachers to upload documents and generate activities from them
+ * v2 - Added save-only functionality
  */
 
 export default function DocumentUpload({ sessionId, onActivityGenerated }) {
@@ -106,6 +107,59 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
     }
   }
 
+  const handleSaveOnly = async () => {
+    if (!selectedFile) {
+      toast.error('Error', 'Please select a file')
+      return
+    }
+
+    if (!sessionId) {
+      toast.error('Error', 'No active session')
+      return
+    }
+
+    setUploading(true)
+    setProgress(0)
+
+    try {
+      const formData = new FormData()
+      formData.append('document', selectedFile)
+      formData.append('sessionId', sessionId)
+      formData.append('title', selectedFile.name)
+
+      // Simulate progress
+      const progressInterval = setInterval(() => {
+        setProgress(prev => Math.min(prev + 30, 90))
+      }, 300)
+
+      const response = await api.post('/documents/save', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+
+      clearInterval(progressInterval)
+      setProgress(100)
+
+      toast.success('Success', 'Document saved! You can generate activities from it later.')
+
+      // Pass the saved document to parent
+      if (onActivityGenerated) {
+        onActivityGenerated(response.data.activity)
+      }
+
+      // Reset form
+      setSelectedFile(null)
+      setProgress(0)
+
+    } catch (error) {
+      console.error('Save error:', error)
+      toast.error('Error', error.response?.data?.message || 'Failed to save document')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error('Error', 'Please select a file')
@@ -170,7 +224,7 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
       </div>
 
       <p className="text-sm text-gray-600 mb-4">
-        Upload a PDF, Word document, or text file, and AI will generate an activity from it.
+        Upload a PDF, Word document, or text file. You can save it for later or generate an activity immediately.
       </p>
 
       {/* File Upload Area */}
@@ -284,29 +338,54 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
             </div>
           </div>
 
-          {/* Upload Button */}
-          <button
-            onClick={handleUpload}
-            disabled={uploading}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-          >
-            {uploading ? (
-              <>
-                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating Activity... {progress}%
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Generate Activity
-              </>
-            )}
-          </button>
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={handleSaveOnly}
+              disabled={uploading}
+              className="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  Just Save Document
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleUpload}
+              disabled={uploading}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {uploading ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating... {progress}%
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Generate Activity Now
+                </>
+              )}
+            </button>
+          </div>
 
           {/* Progress Bar */}
           {uploading && (
