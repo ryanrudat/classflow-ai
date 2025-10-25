@@ -449,6 +449,56 @@ export async function saveDocument(req, res) {
 }
 
 /**
+ * Delete a saved document
+ * DELETE /api/documents/:documentId
+ */
+export async function deleteDocument(req, res) {
+  try {
+    const { documentId } = req.params
+    const teacherId = req.user.userId
+
+    console.log('🗑️ Deleting document:', documentId)
+
+    // Verify document exists and check ownership
+    const documentCheck = await db.query(
+      `SELECT a.id, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1 AND a.type = 'document'`,
+      [documentId]
+    )
+
+    if (documentCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Document not found' })
+    }
+
+    if (documentCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Delete the document (CASCADE will delete related responses)
+    await db.query(
+      'DELETE FROM activities WHERE id = $1',
+      [documentId]
+    )
+
+    console.log('✅ Document deleted successfully')
+
+    res.json({
+      success: true,
+      message: 'Document deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Delete document error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to delete document'
+    })
+  }
+}
+
+/**
  * Get all saved documents for a session
  * GET /api/documents/session/:sessionId
  */

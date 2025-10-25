@@ -4,6 +4,7 @@ import {
   saveDocument,
   generateFromSavedDocument,
   getSessionDocuments,
+  deleteDocument,
   documentUploadMiddleware
 } from '../controllers/documentController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -40,6 +41,12 @@ router.post('/save', documentUploadMiddleware, saveDocument)
  * GET /api/documents/session/:sessionId
  */
 router.get('/session/:sessionId', getSessionDocuments)
+
+/**
+ * Delete a saved document
+ * DELETE /api/documents/:documentId
+ */
+router.delete('/:documentId', deleteDocument)
 
 /**
  * Generate activity from previously saved document
