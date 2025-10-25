@@ -449,6 +449,75 @@ export async function saveDocument(req, res) {
 }
 
 /**
+ * Update document content
+ * PUT /api/documents/:documentId/content
+ * Body:
+ *   - extractedText: string
+ */
+export async function updateDocumentContent(req, res) {
+  try {
+    const { documentId } = req.params
+    const { extractedText } = req.body
+    const teacherId = req.user.userId
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      return res.status(400).json({ message: 'Extracted text is required' })
+    }
+
+    console.log('📝 Updating document content:', documentId)
+
+    // Verify document exists and check ownership
+    const documentCheck = await db.query(
+      `SELECT a.id, a.content, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1 AND a.type = 'document'`,
+      [documentId]
+    )
+
+    if (documentCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Document not found' })
+    }
+
+    if (documentCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Get current content
+    const currentContent = documentCheck.rows[0].content
+
+    // Update the content with new extracted text
+    const updatedContent = {
+      ...currentContent,
+      extractedText: extractedText,
+      textLength: extractedText.length,
+      lastEditedAt: new Date().toISOString()
+    }
+
+    // Update the document
+    const result = await db.query(
+      'UPDATE activities SET content = $1 WHERE id = $2 RETURNING *',
+      [updatedContent, documentId]
+    )
+
+    console.log('✅ Document content updated')
+
+    res.json({
+      success: true,
+      document: result.rows[0],
+      message: 'Document content updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Update document content error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update document content'
+    })
+  }
+}
+
+/**
  * Delete a saved document
  * DELETE /api/documents/:documentId
  */

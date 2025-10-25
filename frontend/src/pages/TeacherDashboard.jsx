@@ -13,6 +13,7 @@ import ConfusionMeter from '../components/ConfusionMeter'
 import SaveToLibraryButton from '../components/SaveToLibraryButton'
 import DocumentUpload from '../components/DocumentUpload'
 import GenerateFromDocumentModal from '../components/GenerateFromDocumentModal'
+import ActivityEditor from '../components/ActivityEditor'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -1579,6 +1580,7 @@ function ActivitiesTab({
   const [generateModal, setGenerateModal] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [editActivityModal, setEditActivityModal] = useState(null)
 
   const handleDocumentGenerated = async (newActivity) => {
     setGeneratedContent(newActivity)
@@ -1607,6 +1609,21 @@ function ActivitiesTab({
       notifyError(err.response?.data?.message || 'Failed to delete document')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  const handleActivityEdited = async (updatedActivity) => {
+    // Reload activities to get updated content
+    try {
+      const activitiesData = await sessionsAPI.getActivities(session.id)
+      setSessionActivities(activitiesData.activities || [])
+
+      // If this was the selected activity, update it
+      if (generatedContent?.id === updatedActivity.id) {
+        setGeneratedContent(updatedActivity)
+      }
+    } catch (err) {
+      console.error('Failed to reload activities:', err)
     }
   }
 
@@ -1907,41 +1924,58 @@ function ActivitiesTab({
                 return (
                   <div
                     key={activity.id}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`p-3 rounded-lg border-2 transition-all ${
                       isSelected
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
-                    onClick={() => handleSelectPreviousActivity(activity)}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {getActivityIcon(activity.type)}
-                          <span className="font-medium text-gray-900 capitalize">
-                            {activity.type}
-                          </span>
-                          {activity.cached && (
-                            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-                              Cached
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => handleSelectPreviousActivity(activity)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            {getActivityIcon(activity.type)}
+                            <span className="font-medium text-gray-900 capitalize">
+                              {activity.type}
                             </span>
-                          )}
+                            {activity.cached && (
+                              <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+                                Cached
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {activity.prompt}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+                            <span>Difficulty: {activity.difficulty_level}</span>
+                            <span>•</span>
+                            <span>{new Date(activity.created_at).toLocaleString()}</span>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {activity.prompt}
-                        </p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-                          <span>Difficulty: {activity.difficulty_level}</span>
-                          <span>•</span>
-                          <span>{new Date(activity.created_at).toLocaleString()}</span>
-                        </div>
+                        {isSelected && (
+                          <div className="ml-2 flex-shrink-0">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          </div>
+                        )}
                       </div>
-                      {isSelected && (
-                        <div className="ml-2 flex-shrink-0">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                        </div>
-                      )}
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditActivityModal(activity)
+                      }}
+                      className="mt-2 w-full px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit Activity
+                    </button>
                   </div>
                 )
               })}
@@ -1964,6 +1998,15 @@ function ActivitiesTab({
           document={generateModal}
           onClose={() => setGenerateModal(null)}
           onGenerated={handleDocumentGenerated}
+        />
+      )}
+
+      {/* Activity Editor Modal */}
+      {editActivityModal && (
+        <ActivityEditor
+          activity={editActivityModal}
+          onClose={() => setEditActivityModal(null)}
+          onSaved={handleActivityEdited}
         />
       )}
 

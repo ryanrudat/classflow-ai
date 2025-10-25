@@ -399,6 +399,64 @@ export async function getActivity(req, res) {
 }
 
 /**
+ * Update activity content
+ * PUT /api/activities/:activityId/content
+ * Body:
+ *   - content: object (the updated activity content)
+ */
+export async function updateActivityContent(req, res) {
+  try {
+    const { activityId } = req.params
+    const { content } = req.body
+    const teacherId = req.user.userId
+
+    if (!content) {
+      return res.status(400).json({ message: 'Content is required' })
+    }
+
+    console.log('📝 Updating activity content:', activityId)
+
+    // Verify activity exists and check ownership
+    const activityCheck = await db.query(
+      `SELECT a.id, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1`,
+      [activityId]
+    )
+
+    if (activityCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    if (activityCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Update the activity
+    const result = await db.query(
+      'UPDATE activities SET content = $1 WHERE id = $2 RETURNING *',
+      [content, activityId]
+    )
+
+    console.log('✅ Activity content updated')
+
+    res.json({
+      success: true,
+      activity: result.rows[0],
+      message: 'Activity content updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Update activity content error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update activity content'
+    })
+  }
+}
+
+/**
  * Get all activities for a session
  * GET /api/sessions/:sessionId/activities?pushedOnly=true
  * Protected: Teacher only

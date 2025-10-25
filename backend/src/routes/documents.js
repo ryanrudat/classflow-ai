@@ -4,6 +4,7 @@ import {
   saveDocument,
   generateFromSavedDocument,
   getSessionDocuments,
+  updateDocumentContent,
   deleteDocument,
   documentUploadMiddleware
 } from '../controllers/documentController.js'
@@ -41,6 +42,14 @@ router.post('/save', documentUploadMiddleware, saveDocument)
  * GET /api/documents/session/:sessionId
  */
 router.get('/session/:sessionId', getSessionDocuments)
+
+/**
+ * Update document content
+ * PUT /api/documents/:documentId/content
+ * Body:
+ *   - extractedText: string
+ */
+router.put('/:documentId/content', updateDocumentContent)
 
 /**
  * Delete a saved document
