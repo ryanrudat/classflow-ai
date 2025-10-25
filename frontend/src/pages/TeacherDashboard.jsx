@@ -14,6 +14,7 @@ import SaveToLibraryButton from '../components/SaveToLibraryButton'
 import DocumentUpload from '../components/DocumentUpload'
 import GenerateFromDocumentModal from '../components/GenerateFromDocumentModal'
 import ActivityEditor from '../components/ActivityEditor'
+import QuizEditor from '../components/QuizEditor'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -2003,11 +2004,18 @@ function ActivitiesTab({
 
       {/* Activity Editor Modal */}
       {editActivityModal && (
-        <ActivityEditor
+        editActivityModal.type === 'quiz' ? (<QuizEditor
           activity={editActivityModal}
           onClose={() => setEditActivityModal(null)}
           onSaved={handleActivityEdited}
         />
+        ) : (
+          <ActivityEditor
+            activity={editActivityModal}
+            onClose={() => setEditActivityModal(null)}
+            onSaved={handleActivityEdited}
+          />
+        )
       )}
 
       {/* Delete Confirmation Modal */}
