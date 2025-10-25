@@ -118,7 +118,7 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -140,7 +140,7 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Document Info */}
           <div className="p-4 bg-gray-50 rounded-lg space-y-3">
             <div className="flex items-center justify-between">
@@ -171,10 +171,10 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
                     <button
                       type="button"
                       onClick={() => setEditMode(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                       Edit Document
                     </button>
@@ -183,52 +183,65 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
 
                 {editMode ? (
                   <div className="space-y-3">
+                    {/* Character counter */}
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Edit your document below</span>
+                      <span>{editedText.length.toLocaleString()} characters</span>
+                    </div>
+
                     <textarea
+                      ref={(el) => el && el.focus()}
                       value={editedText}
                       onChange={(e) => setEditedText(e.target.value)}
-                      className="w-full h-60 p-3 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full h-[400px] p-4 bg-white border-2 border-blue-300 rounded-lg text-base text-gray-800 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Edit document text..."
                     />
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditMode(false)
-                          setEditedText('')
-                        }}
-                        disabled={saving}
-                        className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveEdit}
-                        disabled={saving || !editedText.trim()}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                      >
-                        {saving ? (
-                          <>
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Save Changes
-                          </>
-                        )}
-                      </button>
+
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                      <div className="text-sm text-gray-600">
+                        <span className="font-medium">Tip:</span> Make your changes and click Save Changes when done
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditMode(false)
+                            setEditedText('')
+                          }}
+                          disabled={saving}
+                          className="px-5 py-2.5 border-2 border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveEdit}
+                          disabled={saving || !editedText.trim()}
+                          className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                          {saving ? (
+                            <>
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Save Changes
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="p-3 bg-white border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <div className="p-4 bg-white border border-gray-200 rounded-lg max-h-[400px] overflow-y-auto">
+                    <p className="text-base text-gray-800 whitespace-pre-wrap leading-relaxed">
                       {documentContent.extractedText}
                     </p>
                   </div>
@@ -292,12 +305,12 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 flex gap-3">
+        <div className="p-6 border-t border-gray-200 flex gap-3 bg-gray-50">
           {viewMode ? (
             // View mode: Just a close button
             <button
               onClick={onClose}
-              className="w-full px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
+              className="w-full px-6 py-3 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors shadow-sm"
             >
               Close
             </button>
