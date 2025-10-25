@@ -15,6 +15,9 @@ import DocumentUpload from '../components/DocumentUpload'
 import GenerateFromDocumentModal from '../components/GenerateFromDocumentModal'
 import ActivityEditor from '../components/ActivityEditor'
 import QuizEditor from '../components/QuizEditor'
+import ReadingEditor from '../components/ReadingEditor'
+import DiscussionQuestionsEditor from '../components/DiscussionQuestionsEditor'
+import DiscussionPromptsEditor from '../components/DiscussionPromptsEditor'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -2033,21 +2036,27 @@ function ActivitiesTab({
         />
       )}
 
-      {/* Activity Editor Modal */}
-      {editActivityModal && (
-        editActivityModal.type === 'quiz' ? (<QuizEditor
-          activity={editActivityModal}
-          onClose={() => setEditActivityModal(null)}
-          onSaved={handleActivityEdited}
-        />
-        ) : (
-          <ActivityEditor
-            activity={editActivityModal}
-            onClose={() => setEditActivityModal(null)}
-            onSaved={handleActivityEdited}
-          />
-        )
-      )}
+      {/* Activity Editor Modal - Choose editor based on activity type */}
+      {editActivityModal && (() => {
+        const editorProps = {
+          activity: editActivityModal,
+          onClose: () => setEditActivityModal(null),
+          onSaved: handleActivityEdited
+        }
+
+        switch (editActivityModal.type) {
+          case 'quiz':
+            return <QuizEditor {...editorProps} />
+          case 'reading':
+            return <ReadingEditor {...editorProps} />
+          case 'questions':
+            return <DiscussionQuestionsEditor {...editorProps} />
+          case 'discussion':
+            return <DiscussionPromptsEditor {...editorProps} />
+          default:
+            return <ActivityEditor {...editorProps} />
+        }
+      })()}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal && (
