@@ -5,13 +5,14 @@ import { useToast } from './Toast'
 /**
  * GenerateFromDocumentModal
  * Modal to generate an activity from a previously saved document
+ * @param {boolean} viewMode - If true, opens with document text visible for viewing/editing
  */
-export default function GenerateFromDocumentModal({ document, onClose, onGenerated }) {
+export default function GenerateFromDocumentModal({ document, onClose, onGenerated, viewMode = false }) {
   const toast = useToast()
   const [activityType, setActivityType] = useState('quiz')
   const [difficulty, setDifficulty] = useState('medium')
   const [generating, setGenerating] = useState(false)
-  const [showDocumentText, setShowDocumentText] = useState(false)
+  const [showDocumentText, setShowDocumentText] = useState(viewMode)
   const [editMode, setEditMode] = useState(false)
   const [editedText, setEditedText] = useState('')
   const [saving, setSaving] = useState(false)
@@ -122,7 +123,9 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Generate Activity from Document</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {viewMode ? 'View/Edit Document' : 'Generate Activity from Document'}
+              </h2>
               <p className="text-sm text-gray-600 mt-1">{documentContent.filename}</p>
             </div>
             <button

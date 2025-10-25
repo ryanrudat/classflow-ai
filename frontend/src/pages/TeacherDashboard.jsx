@@ -1584,6 +1584,7 @@ function ActivitiesTab({
 }) {
   const { notifySuccess, notifyError } = useNotifications()
   const [generateModal, setGenerateModal] = useState(null)
+  const [viewDocumentModal, setViewDocumentModal] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const [editActivityModal, setEditActivityModal] = useState(null)
@@ -1899,7 +1900,7 @@ function ActivitiesTab({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setGenerateModal(activity)
+                            setViewDocumentModal(activity)
                           }}
                           className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5"
                         >
@@ -2012,12 +2013,23 @@ function ActivitiesTab({
         )}
       </div>
 
+      {/* View/Edit Document Modal */}
+      {viewDocumentModal && (
+        <GenerateFromDocumentModal
+          document={viewDocumentModal}
+          onClose={() => setViewDocumentModal(null)}
+          onGenerated={handleDocumentGenerated}
+          viewMode={true}
+        />
+      )}
+
       {/* Generate From Document Modal */}
       {generateModal && (
         <GenerateFromDocumentModal
           document={generateModal}
           onClose={() => setGenerateModal(null)}
           onGenerated={handleDocumentGenerated}
+          viewMode={false}
         />
       )}
 
