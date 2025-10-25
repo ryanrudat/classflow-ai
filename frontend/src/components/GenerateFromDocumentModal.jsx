@@ -11,6 +11,7 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
   const [activityType, setActivityType] = useState('quiz')
   const [difficulty, setDifficulty] = useState('medium')
   const [generating, setGenerating] = useState(false)
+  const [showDocumentText, setShowDocumentText] = useState(false)
 
   const activityTypes = [
     {
@@ -107,15 +108,34 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
         {/* Content */}
         <div className="p-6 space-y-6">
           {/* Document Info */}
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>
-                {documentContent.textLength?.toLocaleString()} characters extracted
-              </span>
+          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>
+                  {documentContent.textLength?.toLocaleString()} characters extracted
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDocumentText(!showDocumentText)}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              >
+                {showDocumentText ? 'Hide' : 'View'} Content
+                <svg className={`w-4 h-4 transition-transform ${showDocumentText ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
+            {showDocumentText && (
+              <div className="mt-3 p-3 bg-white border border-gray-200 rounded-lg max-h-60 overflow-y-auto">
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {documentContent.extractedText}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Activity Type Selector */}

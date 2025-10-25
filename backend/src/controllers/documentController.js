@@ -449,6 +449,54 @@ export async function saveDocument(req, res) {
 }
 
 /**
+ * Get all saved documents for a session
+ * GET /api/documents/session/:sessionId
+ */
+export async function getSessionDocuments(req, res) {
+  try {
+    const { sessionId } = req.params
+    const teacherId = req.user.userId
+
+    console.log('📄 Fetching documents for session:', sessionId)
+
+    // Verify session ownership
+    const sessionCheck = await db.query(
+      'SELECT teacher_id FROM sessions WHERE id = $1',
+      [sessionId]
+    )
+
+    if (sessionCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    if (sessionCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    // Get all documents for this session
+    const result = await db.query(
+      `SELECT id, prompt as title, content, created_at
+       FROM activities
+       WHERE session_id = $1 AND type = 'document'
+       ORDER BY created_at DESC`,
+      [sessionId]
+    )
+
+    res.json({
+      success: true,
+      documents: result.rows
+    })
+
+  } catch (error) {
+    console.error('Get documents error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch documents'
+    })
+  }
+}
+
+/**
  * Generate activity from previously saved document
  * POST /api/documents/generate/:activityId
  * Body:

@@ -3,6 +3,7 @@ import {
   uploadAndGenerateActivity,
   saveDocument,
   generateFromSavedDocument,
+  getSessionDocuments,
   documentUploadMiddleware
 } from '../controllers/documentController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -33,6 +34,12 @@ router.post('/upload', documentUploadMiddleware, uploadAndGenerateActivity)
  *   - title: string (optional)
  */
 router.post('/save', documentUploadMiddleware, saveDocument)
+
+/**
+ * Get all saved documents for a session
+ * GET /api/documents/session/:sessionId
+ */
+router.get('/session/:sessionId', getSessionDocuments)
 
 /**
  * Generate activity from previously saved document
