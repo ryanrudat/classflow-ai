@@ -470,6 +470,11 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       try {
         setLoadingActivities(true)
         const data = await sessionsAPI.getActivities(session.id)
+        console.log('📋 Frontend received activities:', {
+          count: data.activities?.length || 0,
+          types: data.activities?.map(a => a.type) || [],
+          activities: data.activities
+        })
         setSessionActivities(data.activities || [])
       } catch (err) {
         console.error('Failed to load session activities:', err)

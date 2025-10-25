@@ -141,6 +141,13 @@ export default function DocumentUpload({ sessionId, onActivityGenerated }) {
       clearInterval(progressInterval)
       setProgress(100)
 
+      console.log('📄 Document saved successfully:', {
+        id: response.data.activity.id,
+        type: response.data.activity.type,
+        sessionId: response.data.activity.session_id,
+        activity: response.data.activity
+      })
+
       toast.success('Success', 'Document saved! You can generate activities from it later.')
 
       // Pass the saved document to parent

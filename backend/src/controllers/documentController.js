@@ -418,7 +418,14 @@ export async function saveDocument(req, res) {
     )
 
     const savedDocument = result.rows[0]
-    console.log('✅ Document saved with ID:', savedDocument.id)
+    console.log('✅ Document saved successfully:', {
+      id: savedDocument.id,
+      type: savedDocument.type,
+      sessionId: savedDocument.session_id,
+      prompt: savedDocument.prompt,
+      hasContent: !!savedDocument.content,
+      pushedTo: savedDocument.pushed_to
+    })
 
     // Clean up uploaded file
     await fs.unlink(file.path)

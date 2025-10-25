@@ -503,6 +503,12 @@ export async function getSessionActivities(req, res) {
     // Get all activities for this session
     const activitiesResult = await db.query(query, [sessionId])
 
+    console.log(`📋 getSessionActivities for session ${sessionId}:`, {
+      count: activitiesResult.rows.length,
+      pushedOnly,
+      types: activitiesResult.rows.map(a => a.type)
+    })
+
     // Parse content for each activity (only parse JSON types, not plain text)
     const activities = activitiesResult.rows.map(activity => {
       let parsedContent = activity.content
