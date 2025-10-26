@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
-import { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI, completionAPI } from '../services/api'
+import api, { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI, completionAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import LiveMonitoring from '../components/LiveMonitoring'
 import StudentDetailModal from '../components/StudentDetailModal'
@@ -1592,6 +1592,11 @@ function ActivitiesTab({
   const [deleting, setDeleting] = useState(false)
   const [editActivityModal, setEditActivityModal] = useState(null)
 
+  // Inline editing state
+  const [inlineEditMode, setInlineEditMode] = useState(false)
+  const [editedContent, setEditedContent] = useState(null)
+  const [saving, setSaving] = useState(false)
+
   const handleDocumentGenerated = async (newActivity) => {
     setGeneratedContent(newActivity)
     // Reload session activities
@@ -1634,6 +1639,47 @@ function ActivitiesTab({
       }
     } catch (err) {
       console.error('Failed to reload activities:', err)
+    }
+  }
+
+  const handleEnterEditMode = () => {
+    if (!generatedContent) return
+    setEditedContent(generatedContent.content)
+    setInlineEditMode(true)
+  }
+
+  const handleCancelEdit = () => {
+    setInlineEditMode(false)
+    setEditedContent(null)
+  }
+
+  const handleSaveInlineEdit = async () => {
+    if (!generatedContent || !editedContent) return
+
+    setSaving(true)
+    try {
+      const response = await api.put(`/activities/${generatedContent.id}/content`, {
+        content: editedContent
+      })
+
+      notifySuccess('Activity updated successfully!')
+
+      // Update local state
+      const updatedActivity = response.data.activity
+      setGeneratedContent(updatedActivity)
+
+      // Update in session activities list
+      setSessionActivities(sessionActivities.map(a =>
+        a.id === updatedActivity.id ? updatedActivity : a
+      ))
+
+      setInlineEditMode(false)
+      setEditedContent(null)
+    } catch (error) {
+      console.error('Save error:', error)
+      notifyError(error.response?.data?.message || 'Failed to update activity')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -1728,7 +1774,14 @@ function ActivitiesTab({
         {generatedContent && (
           <div className="mt-6 border-t pt-6">
             <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-gray-800">Generated Content:</h4>
+              <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                Generated Content:
+                {!inlineEditMode && (
+                  <span className="text-xs text-gray-500 font-normal">
+                    (Double-click to edit)
+                  </span>
+                )}
+              </h4>
               <div className="flex items-center gap-2">
                 <SaveToLibraryButton
                   activity={generatedContent}
@@ -1743,9 +1796,61 @@ function ActivitiesTab({
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto border border-gray-200">
-              <ContentPreview content={generatedContent.content} type={generatedContent.type} />
+            <div
+              className={`p-4 rounded-lg max-h-96 overflow-y-auto border-2 transition-all ${
+                inlineEditMode
+                  ? 'bg-white border-blue-400'
+                  : 'bg-gray-50 border-gray-200 cursor-pointer hover:border-gray-300'
+              }`}
+              onDoubleClick={!inlineEditMode ? handleEnterEditMode : undefined}
+            >
+              {inlineEditMode ? (
+                <InlineContentEditor
+                  content={editedContent}
+                  setContent={setEditedContent}
+                  type={generatedContent.type}
+                />
+              ) : (
+                <ContentPreview content={generatedContent.content} type={generatedContent.type} />
+              )}
             </div>
+
+            {/* Save/Cancel buttons when in edit mode */}
+            {inlineEditMode && (
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveInlineEdit}
+                  disabled={saving}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {saving ? (
+                    <>
+                      <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Save Changes
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Generate from Content Options */}
             {generatedContent.type === 'reading' && (
@@ -1987,19 +2092,6 @@ function ActivitiesTab({
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditActivityModal(activity)
-                      }}
-                      className="mt-2 w-full px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-1.5"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit Activity
-                    </button>
                   </div>
                 )
               })}
@@ -2483,4 +2575,372 @@ function ContentPreview({ content, type }) {
   }
 
   return <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>
+}
+
+function InlineContentEditor({ content, setContent, type }) {
+  // Handle reading activities
+  if (type === 'reading') {
+    const passage = content?.passage || content || ''
+    const vocabulary = content?.vocabulary || []
+    const questions = content?.questions || []
+
+    const handlePassageChange = (value) => {
+      setContent({
+        ...content,
+        passage: value
+      })
+    }
+
+    const handleVocabChange = (index, field, value) => {
+      const updated = [...vocabulary]
+      updated[index] = { ...updated[index], [field]: value }
+      setContent({ ...content, vocabulary: updated })
+    }
+
+    const addVocabWord = () => {
+      setContent({ ...content, vocabulary: [...vocabulary, { word: '', definition: '' }] })
+    }
+
+    const removeVocabWord = (index) => {
+      setContent({ ...content, vocabulary: vocabulary.filter((_, i) => i !== index) })
+    }
+
+    const handleQuestionChange = (index, value) => {
+      const updated = [...questions]
+      updated[index] = value
+      setContent({ ...content, questions: updated })
+    }
+
+    const addQuestion = () => {
+      setContent({ ...content, questions: [...questions, ''] })
+    }
+
+    const removeQuestion = (index) => {
+      setContent({ ...content, questions: questions.filter((_, i) => i !== index) })
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Reading Passage */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Reading Passage
+          </label>
+          <textarea
+            value={typeof passage === 'string' ? passage : passage.passage || ''}
+            onChange={(e) => handlePassageChange(e.target.value)}
+            className="w-full h-48 p-3 border-2 border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter the reading passage..."
+          />
+        </div>
+
+        {/* Vocabulary Words */}
+        {vocabulary.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Vocabulary Words
+            </label>
+            <div className="space-y-2">
+              {vocabulary.map((vocab, index) => (
+                <div key={index} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={vocab.word}
+                    onChange={(e) => handleVocabChange(index, 'word', e.target.value)}
+                    className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                    placeholder="Word"
+                  />
+                  <input
+                    type="text"
+                    value={vocab.definition}
+                    onChange={(e) => handleVocabChange(index, 'definition', e.target.value)}
+                    className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                    placeholder="Definition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeVocabWord(index)}
+                    className="text-red-600 hover:text-red-700 p-1"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addVocabWord}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + Add Vocabulary Word
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Questions */}
+        {questions.length > 0 && (
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Comprehension Questions
+            </label>
+            <div className="space-y-2">
+              {questions.map((question, index) => (
+                <div key={index} className="flex gap-2">
+                  <span className="text-sm font-semibold text-gray-700 mt-2">
+                    {index + 1}.
+                  </span>
+                  <textarea
+                    value={question}
+                    onChange={(e) => handleQuestionChange(index, e.target.value)}
+                    className="flex-1 p-2 border border-gray-300 rounded text-sm resize-none"
+                    rows="2"
+                    placeholder="Enter question..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeQuestion(index)}
+                    className="text-red-600 hover:text-red-700 p-1"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={addQuestion}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + Add Question
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Handle quiz activities
+  if (type === 'quiz') {
+    const questions = content?.quiz || content?.questions || []
+
+    const handleQuestionChange = (index, field, value) => {
+      const updated = [...questions]
+      updated[index] = { ...updated[index], [field]: value }
+      setContent({ ...content, quiz: updated })
+    }
+
+    const handleOptionChange = (qIndex, optIndex, value) => {
+      const updated = [...questions]
+      const options = [...(updated[qIndex].options || [])]
+      options[optIndex] = value
+      updated[qIndex] = { ...updated[qIndex], options }
+      setContent({ ...content, quiz: updated })
+    }
+
+    const addQuestion = () => {
+      setContent({
+        ...content,
+        quiz: [...questions, { question: '', options: ['', '', '', ''], correct: 0 }]
+      })
+    }
+
+    const removeQuestion = (index) => {
+      setContent({ ...content, quiz: questions.filter((_, i) => i !== index) })
+    }
+
+    return (
+      <div className="space-y-4">
+        {questions.map((q, qIndex) => (
+          <div key={qIndex} className="p-4 border-2 border-gray-200 rounded-lg">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm flex-shrink-0">
+                {qIndex + 1}
+              </div>
+              <textarea
+                value={q.question}
+                onChange={(e) => handleQuestionChange(qIndex, 'question', e.target.value)}
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                rows="2"
+                placeholder="Enter question..."
+              />
+              <button
+                type="button"
+                onClick={() => removeQuestion(qIndex)}
+                className="text-red-600 hover:text-red-700 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="ml-11 space-y-2">
+              {q.options?.map((opt, optIndex) => (
+                <div key={optIndex} className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`correct-${qIndex}`}
+                    checked={q.correct === optIndex}
+                    onChange={() => handleQuestionChange(qIndex, 'correct', optIndex)}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm font-medium text-gray-600">
+                    {String.fromCharCode(65 + optIndex)}.
+                  </span>
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}
+                    className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                    placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addQuestion}
+          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all font-medium"
+        >
+          + Add Question
+        </button>
+      </div>
+    )
+  }
+
+  // Handle discussion questions
+  if (type === 'questions') {
+    const questions = content?.questions || []
+
+    const handleQuestionChange = (index, value) => {
+      const updated = [...questions]
+      updated[index] = value
+      setContent({ ...content, questions: updated })
+    }
+
+    const addQuestion = () => {
+      setContent({ ...content, questions: [...questions, ''] })
+    }
+
+    const removeQuestion = (index) => {
+      setContent({ ...content, questions: questions.filter((_, i) => i !== index) })
+    }
+
+    return (
+      <div className="space-y-3">
+        {questions.map((question, index) => (
+          <div key={index} className="p-3 border-2 border-gray-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-semibold text-sm flex-shrink-0">
+                {index + 1}
+              </div>
+              <textarea
+                value={question}
+                onChange={(e) => handleQuestionChange(index, e.target.value)}
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="3"
+                placeholder="Enter discussion question..."
+              />
+              <button
+                type="button"
+                onClick={() => removeQuestion(index)}
+                className="text-red-600 hover:text-red-700 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addQuestion}
+          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all font-medium"
+        >
+          + Add Question
+        </button>
+      </div>
+    )
+  }
+
+  // Handle discussion prompts
+  if (type === 'discussion') {
+    const prompts = content?.prompts || []
+
+    const handlePromptChange = (index, value) => {
+      const updated = [...prompts]
+      updated[index] = value
+      setContent({ ...content, prompts: updated })
+    }
+
+    const addPrompt = () => {
+      setContent({ ...content, prompts: [...prompts, ''] })
+    }
+
+    const removePrompt = (index) => {
+      setContent({ ...content, prompts: prompts.filter((_, i) => i !== index) })
+    }
+
+    return (
+      <div className="space-y-3">
+        {prompts.map((prompt, index) => (
+          <div key={index} className="p-3 border-2 border-gray-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm flex-shrink-0">
+                {index + 1}
+              </div>
+              <textarea
+                value={prompt}
+                onChange={(e) => handlePromptChange(index, e.target.value)}
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                rows="3"
+                placeholder="Enter discussion prompt..."
+              />
+              <button
+                type="button"
+                onClick={() => removePrompt(index)}
+                className="text-red-600 hover:text-red-700 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={addPrompt}
+          className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-all font-medium"
+        >
+          + Add Prompt
+        </button>
+      </div>
+    )
+  }
+
+  // Fallback for unknown types
+  return (
+    <textarea
+      value={JSON.stringify(content, null, 2)}
+      onChange={(e) => {
+        try {
+          setContent(JSON.parse(e.target.value))
+        } catch (err) {
+          // Invalid JSON, ignore
+        }
+      }}
+      className="w-full h-64 p-3 border-2 border-gray-300 rounded-lg text-sm font-mono resize-none"
+    />
+  )
 }
