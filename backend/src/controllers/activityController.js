@@ -898,3 +898,41 @@ export async function getStudentCompletions(req, res) {
     res.status(500).json({ message: 'Failed to get student completions' })
   }
 }
+
+/**
+ * Delete an activity
+ * DELETE /api/activities/:activityId
+ * Protected: Teacher only (must own the session)
+ */
+export async function deleteActivity(req, res) {
+  try {
+    const { activityId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify activity exists and teacher owns the session
+    const activityCheck = await db.query(
+      `SELECT a.id, s.teacher_id
+       FROM activities a
+       JOIN sessions s ON a.session_id = s.id
+       WHERE a.id = $1`,
+      [activityId]
+    )
+
+    if (activityCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    if (activityCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Not authorized to delete this activity' })
+    }
+
+    // Delete activity (cascade will handle related records)
+    await db.query('DELETE FROM activities WHERE id = $1', [activityId])
+
+    res.json({ message: 'Activity deleted successfully' })
+
+  } catch (error) {
+    console.error('Delete activity error:', error)
+    res.status(500).json({ message: 'Failed to delete activity' })
+  }
+}

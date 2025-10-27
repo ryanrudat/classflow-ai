@@ -6,7 +6,8 @@ import {
   submitQuestionResponse,
   unlockActivity,
   getStudentCompletions,
-  updateActivityContent
+  updateActivityContent,
+  deleteActivity
 } from '../controllers/activityController.js'
 import { authenticateToken } from '../middleware/auth.js'
 
@@ -16,6 +17,7 @@ const router = express.Router()
 router.post('/:activityId/push', authenticateToken, pushActivity)
 router.post('/:activityId/unlock', authenticateToken, unlockActivity)
 router.put('/:activityId/content', authenticateToken, updateActivityContent)
+router.delete('/:activityId', authenticateToken, deleteActivity)
 router.get('/:activityId', authenticateToken, getActivity)
 router.get('/completions/:studentAccountId', authenticateToken, getStudentCompletions)
 

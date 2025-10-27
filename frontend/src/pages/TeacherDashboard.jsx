@@ -1627,6 +1627,30 @@ function ActivitiesTab({
     }
   }
 
+  const handleDeleteActivity = async (activityId) => {
+    setDeleting(true)
+    try {
+      await api.delete(`/activities/${activityId}`)
+      notifySuccess('Activity deleted successfully')
+
+      // Remove from local state
+      setSessionActivities(sessionActivities.filter(a => a.id !== activityId))
+
+      // Clear generated content if it was the deleted activity
+      if (generatedContent?.id === activityId) {
+        setGeneratedContent(null)
+      }
+
+      // Close modal
+      setDeleteConfirmModal(null)
+    } catch (err) {
+      console.error('Delete activity error:', err)
+      notifyError(err.response?.data?.message || 'Failed to delete activity')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleActivityEdited = async (updatedActivity) => {
     // Reload activities to get updated content
     try {
@@ -2112,11 +2136,24 @@ function ActivitiesTab({
                             <span>{new Date(activity.created_at).toLocaleString()}</span>
                           </div>
                         </div>
-                        {isSelected && (
-                          <div className="ml-2 flex-shrink-0">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                          </div>
-                        )}
+                        <div className="ml-2 flex-shrink-0 flex items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteConfirmModal(activity)
+                            }}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                            title="Delete activity"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                          {isSelected && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mt-1" />
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2188,18 +2225,23 @@ function ActivitiesTab({
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">Delete Document</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Delete {deleteConfirmModal.type === 'document' ? 'Document' : 'Activity'}
+                </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Are you sure you want to delete this document? This action cannot be undone.
+                  Are you sure you want to delete this {deleteConfirmModal.type === 'document' ? 'document' : 'activity'}? This action cannot be undone.
                 </p>
               </div>
             </div>
 
             <div className="p-3 bg-gray-50 rounded-lg mb-4">
               <p className="text-sm font-medium text-gray-900">
-                {typeof deleteConfirmModal.content === 'string'
-                  ? JSON.parse(deleteConfirmModal.content).filename
-                  : deleteConfirmModal.content?.filename || deleteConfirmModal.prompt}
+                {deleteConfirmModal.type === 'document'
+                  ? (typeof deleteConfirmModal.content === 'string'
+                      ? JSON.parse(deleteConfirmModal.content).filename
+                      : deleteConfirmModal.content?.filename || deleteConfirmModal.prompt)
+                  : `${deleteConfirmModal.type.charAt(0).toUpperCase() + deleteConfirmModal.type.slice(1)}: ${deleteConfirmModal.prompt}`
+                }
               </p>
             </div>
 
@@ -2214,7 +2256,13 @@ function ActivitiesTab({
               </button>
               <button
                 type="button"
-                onClick={() => handleDeleteDocument(deleteConfirmModal.id)}
+                onClick={() => {
+                  if (deleteConfirmModal.type === 'document') {
+                    handleDeleteDocument(deleteConfirmModal.id)
+                  } else {
+                    handleDeleteActivity(deleteConfirmModal.id)
+                  }
+                }}
                 disabled={deleting}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
@@ -2231,7 +2279,7 @@ function ActivitiesTab({
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    Delete Document
+                    Delete {deleteConfirmModal.type === 'document' ? 'Document' : 'Activity'}
                   </>
                 )}
               </button>
