@@ -9,7 +9,7 @@ import { useToast } from './Toast'
  */
 export default function GenerateFromDocumentModal({ document, onClose, onGenerated, viewMode = false }) {
   const toast = useToast()
-  const [activityType, setActivityType] = useState('quiz')
+  const [activityType, setActivityType] = useState('questions')
   const [difficulty, setDifficulty] = useState('medium')
   const [generating, setGenerating] = useState(false)
   const [showDocumentText, setShowDocumentText] = useState(viewMode)
@@ -19,9 +19,19 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
 
   const activityTypes = [
     {
+      value: 'questions',
+      label: 'Critical Thinking',
+      description: 'Open-ended questions',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      )
+    },
+    {
       value: 'quiz',
-      label: 'Quiz',
-      description: 'Multiple choice questions',
+      label: 'Multiple Choice',
+      description: 'Quiz questions with options',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -29,12 +39,12 @@ export default function GenerateFromDocumentModal({ document, onClose, onGenerat
       )
     },
     {
-      value: 'questions',
-      label: 'Discussion Questions',
-      description: 'Open-ended questions',
+      value: 'mixed',
+      label: 'Mixed Questions',
+      description: 'Combination of both types',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
         </svg>
       )
     },

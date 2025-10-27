@@ -1729,8 +1729,9 @@ function ActivitiesTab({
                 disabled={generating}
               >
                 <option value="reading">Reading Passage</option>
-                <option value="questions">Comprehension Questions</option>
-                <option value="quiz">Quiz</option>
+                <option value="questions">Critical Thinking Questions</option>
+                <option value="quiz">Multiple Choice Quiz</option>
+                <option value="mixed">Mixed Questions (Both Types)</option>
                 <option value="discussion">Discussion Prompts</option>
               </select>
             </div>
@@ -1861,36 +1862,52 @@ function ActivitiesTab({
                   </svg>
                   Generate activities based on this passage:
                 </p>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => handleGenerateFromContent('questions')}
-                    className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="py-3 px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5"
                     disabled={generating}
                   >
                     {generating ? (
                       'Generating...'
                     ) : (
                       <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
-                        Generate Questions
+                        <span className="text-xs leading-tight">Critical Thinking</span>
                       </>
                     )}
                   </button>
                   <button
                     onClick={() => handleGenerateFromContent('quiz')}
-                    className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="py-3 px-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5"
                     disabled={generating}
                   >
                     {generating ? (
                       'Generating...'
                     ) : (
                       <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                         </svg>
-                        Generate Quiz
+                        <span className="text-xs leading-tight">Multiple Choice</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleGenerateFromContent('mixed')}
+                    className="py-3 px-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5"
+                    disabled={generating}
+                  >
+                    {generating ? (
+                      'Generating...'
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        <span className="text-xs leading-tight">Mixed Questions</span>
                       </>
                     )}
                   </button>
@@ -2554,6 +2571,65 @@ function ContentPreview({ content, type }) {
     )
   }
 
+  if (type === 'mixed') {
+    const quizQuestions = content.quiz || []
+    const openQuestions = content.questions || []
+    return (
+      <div className="space-y-6">
+        {/* Multiple Choice Section */}
+        {quizQuestions.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-purple-700 mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+              Multiple Choice Questions
+            </h4>
+            <div className="space-y-4">
+              {quizQuestions.map((q, i) => (
+                <div key={i} className="border-b pb-3">
+                  <div className="font-medium text-gray-900 mb-2">
+                    {i + 1}. {q.question}
+                  </div>
+                  {q.options && (
+                    <div className="ml-4 space-y-1">
+                      {q.options.map((opt, j) => (
+                        <div key={j} className={`text-sm ${j === q.correct ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                          {String.fromCharCode(65 + j)}. {opt} {j === q.correct && '✓'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Critical Thinking Section */}
+        {openQuestions.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Critical Thinking Questions
+            </h4>
+            <div className="space-y-3">
+              {openQuestions.map((q, i) => (
+                <div key={i} className="border-b pb-2">
+                  <div className="font-medium text-gray-900">
+                    {quizQuestions.length + i + 1}. {typeof q === 'string' ? q : q.question}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (type === 'discussion') {
     const prompts = content.prompts || []
     return (
@@ -2927,6 +3003,98 @@ function InlineContentEditor({ content, setContent, type }) {
         >
           + Add Prompt
         </button>
+      </div>
+    )
+  }
+
+  // Handle mixed type (combination of quiz and critical thinking questions)
+  if (type === 'mixed') {
+    const quizQuestions = content?.quiz || []
+    const openQuestions = content?.questions || []
+
+    const handleQuizQuestionChange = (index, field, value) => {
+      const updated = [...quizQuestions]
+      updated[index] = { ...updated[index], [field]: value }
+      setContent({ ...content, quiz: updated })
+    }
+
+    const handleQuizOptionChange = (qIndex, optIndex, value) => {
+      const updated = [...quizQuestions]
+      const options = [...(updated[qIndex].options || [])]
+      options[optIndex] = value
+      updated[qIndex] = { ...updated[qIndex], options }
+      setContent({ ...content, quiz: updated })
+    }
+
+    const handleOpenQuestionChange = (index, value) => {
+      const updated = [...openQuestions]
+      updated[index] = value
+      setContent({ ...content, questions: updated })
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Multiple Choice Section */}
+        <div>
+          <h4 className="font-semibold text-purple-700 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            Multiple Choice Questions
+          </h4>
+          {quizQuestions.map((q, qIndex) => (
+            <div key={qIndex} className="mb-4 p-4 border-2 border-purple-100 rounded-lg">
+              <textarea
+                value={q.question}
+                onChange={(e) => handleQuizQuestionChange(qIndex, 'question', e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-base resize-y mb-3"
+                rows="2"
+                placeholder="Enter question..."
+              />
+              <div className="ml-4 space-y-2">
+                {q.options?.map((opt, optIndex) => (
+                  <div key={optIndex} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name={`correct-${qIndex}`}
+                      checked={q.correct === optIndex}
+                      onChange={() => handleQuizQuestionChange(qIndex, 'correct', optIndex)}
+                      className="flex-shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => handleQuizOptionChange(qIndex, optIndex, e.target.value)}
+                      className="flex-1 p-2 border border-gray-300 rounded text-sm"
+                      placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Critical Thinking Section */}
+        <div>
+          <h4 className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            Critical Thinking Questions
+          </h4>
+          {openQuestions.map((question, index) => (
+            <div key={index} className="mb-3 p-3 border-2 border-blue-100 rounded-lg">
+              <textarea
+                value={typeof question === 'string' ? question : question.question}
+                onChange={(e) => handleOpenQuestionChange(index, e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-base resize-y"
+                rows="2"
+                placeholder="Enter critical thinking question..."
+              />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

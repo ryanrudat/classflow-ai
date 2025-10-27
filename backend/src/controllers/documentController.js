@@ -129,13 +129,42 @@ ${content.substring(0, 15000)}`
         break
 
       case 'questions':
-        prompt = `Based on the following content, create 8-10 thought-provoking discussion questions that encourage critical thinking and deeper understanding.
+        prompt = `Based on the following content, create 8-10 thought-provoking critical thinking questions that encourage deeper understanding and analysis. These should be open-ended questions that require explanation and reasoning.
 
 Format as JSON:
 {
   "questions": [
     "Question 1",
     "Question 2",
+    ...
+  ]
+}
+
+Content:
+${content.substring(0, 15000)}`
+        break
+
+      case 'mixed':
+        prompt = `Based on the following content, create a comprehensive assessment with BOTH types of questions:
+
+1. First, create 5 multiple-choice questions (each with 4 options, one correct answer)
+2. Then, create 5 critical thinking questions (open-ended, requiring explanation)
+
+This provides a balanced mix of objective assessment and deeper analysis.
+
+Format as JSON:
+{
+  "quiz": [
+    {
+      "question": "Multiple choice question text",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": 0,
+      "explanation": "Why this is correct"
+    }
+  ],
+  "questions": [
+    "Critical thinking question 1",
+    "Critical thinking question 2",
     ...
   ]
 }
