@@ -1797,10 +1797,10 @@ function ActivitiesTab({
             </div>
 
             <div
-              className={`p-4 rounded-lg max-h-96 overflow-y-auto border-2 transition-all ${
+              className={`p-4 rounded-lg border-2 transition-all ${
                 inlineEditMode
                   ? 'bg-white border-blue-400'
-                  : 'bg-gray-50 border-gray-200 cursor-pointer hover:border-gray-300'
+                  : 'bg-gray-50 border-gray-200 cursor-pointer hover:border-gray-300 max-h-96 overflow-y-auto'
               }`}
               onDoubleClick={!inlineEditMode ? handleEnterEditMode : undefined}
             >
@@ -2623,14 +2623,16 @@ function InlineContentEditor({ content, setContent, type }) {
       <div className="space-y-4">
         {/* Reading Passage */}
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Reading Passage
+          <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center justify-between">
+            <span>Reading Passage</span>
+            <span className="text-xs font-normal text-gray-500">Drag corner to resize</span>
           </label>
           <textarea
             value={typeof passage === 'string' ? passage : passage.passage || ''}
             onChange={(e) => handlePassageChange(e.target.value)}
-            className="w-full h-48 p-3 border-2 border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full min-h-[500px] p-4 border-2 border-gray-300 rounded-lg text-[15px] leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             placeholder="Enter the reading passage..."
+            style={{ lineHeight: '1.7' }}
           />
         </div>
 
@@ -2763,7 +2765,7 @@ function InlineContentEditor({ content, setContent, type }) {
               <textarea
                 value={q.question}
                 onChange={(e) => handleQuestionChange(qIndex, 'question', e.target.value)}
-                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-y focus:outline-none focus:ring-2 focus:ring-purple-500"
                 rows="2"
                 placeholder="Enter question..."
               />
@@ -2844,7 +2846,7 @@ function InlineContentEditor({ content, setContent, type }) {
               <textarea
                 value={question}
                 onChange={(e) => handleQuestionChange(index, e.target.value)}
-                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-y focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows="3"
                 placeholder="Enter discussion question..."
               />
@@ -2901,7 +2903,7 @@ function InlineContentEditor({ content, setContent, type }) {
               <textarea
                 value={prompt}
                 onChange={(e) => handlePromptChange(index, e.target.value)}
-                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="flex-1 p-3 border border-gray-300 rounded-lg text-base resize-y focus:outline-none focus:ring-2 focus:ring-purple-500"
                 rows="3"
                 placeholder="Enter discussion prompt..."
               />
