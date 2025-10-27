@@ -171,31 +171,28 @@ Return ONLY the reading passage, no titles or metadata.`
   }
 
   if (type === 'questions') {
-    return `${systemPrompt}Generate ${count} comprehension questions about: ${basePrompt}
+    return `${systemPrompt}Generate ${count} open-ended critical thinking questions about: ${basePrompt}
 
 Requirements:
-- Mix of question types (multiple choice, short answer, analysis)
+- ALL questions must be open-ended (NO multiple choice)
+- Focus on analysis, evaluation, and deeper understanding
+- Encourage explanation, reasoning, and critical thinking
 - Difficulty: ${difficulty}
-- Questions should build from basic recall to higher-order thinking
-- For multiple choice: provide 4 options
+- Questions should require students to explain their thinking
+- Avoid simple recall questions - focus on "why" and "how"
 
-Return as JSON in this exact format:
+Return as JSON array of question strings (simple format):
 {
   "questions": [
-    {
-      "type": "multiple_choice",
-      "question": "...",
-      "options": ["A", "B", "C", "D"],
-      "correct": 0,
-      "explanation": "..."
-    },
-    {
-      "type": "short_answer",
-      "question": "...",
-      "sampleAnswer": "..."
-    }
+    "Why do you think...?",
+    "How would you explain...?",
+    "What evidence supports...?",
+    "Compare and contrast...",
+    "What might happen if...?"
   ]
-}`
+}
+
+DO NOT include multiple choice options. These are discussion/essay questions.`
   }
 
   if (type === 'quiz') {
@@ -218,6 +215,39 @@ Return as JSON in this exact format:
     }
   ]
 }`
+  }
+
+  if (type === 'mixed') {
+    // Mixed type: combination of multiple choice and critical thinking
+    const quizCount = Math.ceil(count / 2)
+    const questionCount = count - quizCount
+
+    return `${systemPrompt}Generate a balanced assessment with BOTH question types about: ${basePrompt}
+
+Requirements:
+- Generate ${quizCount} multiple-choice questions (with 4 options each)
+- Generate ${questionCount} open-ended critical thinking questions
+- Difficulty: ${difficulty}
+- Multiple choice questions test knowledge and comprehension
+- Critical thinking questions require analysis and explanation
+
+Return as JSON in this exact format:
+{
+  "quiz": [
+    {
+      "question": "Multiple choice question...",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct": 0,
+      "explanation": "Why this answer is correct"
+    }
+  ],
+  "questions": [
+    "Open-ended critical thinking question 1?",
+    "Open-ended critical thinking question 2?"
+  ]
+}
+
+Ensure clear separation between objective assessment (quiz) and analytical thinking (questions).`
   }
 
   if (type === 'discussion') {
@@ -248,7 +278,7 @@ Return as JSON in this format:
  */
 function parseResponse(content, type) {
   // For JSON types, try to parse
-  if (['questions', 'quiz', 'discussion'].includes(type)) {
+  if (['questions', 'quiz', 'mixed', 'discussion'].includes(type)) {
     try {
       // Extract JSON from response (in case AI added explanatory text)
       const jsonMatch = content.match(/\{[\s\S]*\}/)
