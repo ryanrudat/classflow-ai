@@ -18,6 +18,7 @@ import QuizEditor from '../components/QuizEditor'
 import ReadingEditor from '../components/ReadingEditor'
 import DiscussionQuestionsEditor from '../components/DiscussionQuestionsEditor'
 import DiscussionPromptsEditor from '../components/DiscussionPromptsEditor'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -44,6 +45,7 @@ export default function TeacherDashboard() {
   const [sessionToReactivate, setSessionToReactivate] = useState(null)
   const [clickedInstanceForReactivation, setClickedInstanceForReactivation] = useState(null)
   const [reactivateInstances, setReactivateInstances] = useState([])
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Load sessions on mount
   useEffect(() => {
@@ -88,18 +90,27 @@ export default function TeacherDashboard() {
   }
 
   async function endSession(sessionId) {
-    if (!confirm('End this session? Students will no longer be able to join.')) return
-
-    try {
-      await sessionsAPI.end(sessionId)
-      loadSessions()
-      if (activeSession?.id === sessionId) {
-        setActiveSession(null)
-      }
-      notifySuccess('Session has been ended successfully')
-    } catch (err) {
-      notifyError('Failed to end session. Please try again.')
-    }
+    setConfirmDialog({
+      title: 'End Session?',
+      message: 'Students will no longer be able to join this session. You can reactivate it later if needed.',
+      confirmText: 'End Session',
+      cancelText: 'Cancel',
+      severity: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await sessionsAPI.end(sessionId)
+          loadSessions()
+          if (activeSession?.id === sessionId) {
+            setActiveSession(null)
+          }
+          notifySuccess('Session has been ended successfully')
+        } catch (err) {
+          notifyError('Failed to end session. Please try again.')
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    })
   }
 
   async function reactivateSession(sessionId) {
@@ -150,18 +161,27 @@ export default function TeacherDashboard() {
   }
 
   async function deleteSession(sessionId) {
-    if (!confirm('Permanently delete this session? All data will be lost.')) return
-
-    try {
-      await sessionsAPI.delete(sessionId)
-      loadSessions()
-      if (activeSession?.id === sessionId) {
-        setActiveSession(null)
-      }
-      notifySuccess('Session deleted successfully')
-    } catch (err) {
-      notifyError('Failed to delete session. Please try again.')
-    }
+    setConfirmDialog({
+      title: 'Delete Session Permanently?',
+      message: 'This action cannot be undone. All activities, student data, and analytics for this session will be permanently deleted.',
+      confirmText: 'Delete Session',
+      cancelText: 'Cancel',
+      severity: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await sessionsAPI.delete(sessionId)
+          loadSessions()
+          if (activeSession?.id === sessionId) {
+            setActiveSession(null)
+          }
+          notifySuccess('Session deleted successfully')
+        } catch (err) {
+          notifyError('Failed to delete session. Please try again.')
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    })
   }
 
   function handleLogout() {
@@ -313,6 +333,20 @@ export default function TeacherDashboard() {
             setSessionToReactivate(null)
             setClickedInstanceForReactivation(null)
           }}
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
         />
       )}
     </div>
@@ -1313,15 +1347,25 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                       </div>
                       <button
                         onClick={() => {
-                          if (confirm(`Remove ${student.name} from this session?`)) {
-                            removeStudent(session.id, student.id)
-                            setStudents(prev => prev.filter(s => s.id !== student.id))
-                          }
+                          setConfirmDialog({
+                            title: 'Remove Student?',
+                            message: `Remove ${student.name} from this session? They will no longer be able to participate.`,
+                            confirmText: 'Remove Student',
+                            cancelText: 'Cancel',
+                            severity: 'warning',
+                            onConfirm: () => {
+                              setConfirmDialog(null)
+                              removeStudent(session.id, student.id)
+                              setStudents(prev => prev.filter(s => s.id !== student.id))
+                            },
+                            onCancel: () => setConfirmDialog(null)
+                          })
                         }}
                         className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
                         title="Remove student"
+                        aria-label={`Remove ${student.name} from session`}
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>

@@ -100,8 +100,7 @@ export default function ConfusionButton({
       {/* Privacy Note */}
       <div className="mt-2 text-center">
         <p className="text-xs text-gray-500">
-          🔒 Your teacher will see someone needs help, {' '}
-          <span className="font-semibold">but will know it's you</span> so they can provide targeted support
+          🔒 Your teacher will be notified that you need help and can identify you to provide support.
         </p>
       </div>
     </div>

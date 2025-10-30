@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { slidesAPI, presentationAPI } from '../services/api'
 import PresentationControls from '../components/slides/PresentationControls'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useSocket } from '../hooks/useSocket'
 import { useAuthStore } from '../stores/authStore'
 
@@ -20,6 +21,7 @@ export default function Presentation() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   const currentSlide = deck?.slides?.find(s => s.slideNumber === currentSlideNumber)
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -127,9 +129,18 @@ export default function Presentation() {
   }
 
   const handleEndPresentation = () => {
-    if (confirm('End presentation and return to session dashboard?')) {
-      navigate('/dashboard')
-    }
+    setConfirmDialog({
+      title: 'End Presentation?',
+      message: 'This will close the presentation and return you to the session dashboard.',
+      confirmText: 'End Presentation',
+      cancelText: 'Continue Presenting',
+      severity: 'info',
+      onConfirm: () => {
+        setConfirmDialog(null)
+        navigate('/dashboard')
+      },
+      onCancel: () => setConfirmDialog(null)
+    })
   }
 
   const openProjectorView = () => {
@@ -306,6 +317,20 @@ export default function Presentation() {
         <div>F for fullscreen</div>
         <div>ESC to exit fullscreen</div>
       </div>
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
+      )}
     </div>
   )
 }

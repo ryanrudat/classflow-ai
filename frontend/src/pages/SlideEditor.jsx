@@ -24,6 +24,7 @@ import ResizableImage from '../components/slides/ResizableImage'
 import ImageLibrary from '../components/slides/ImageLibrary'
 import ImageToolbar from '../components/slides/ImageToolbar'
 import ImageCropMode from '../components/slides/ImageCropMode'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 /**
  * SortableSlidePreview - Draggable slide thumbnail
@@ -99,6 +100,7 @@ export default function SlideEditor() {
   const [saveStatus, setSaveStatus] = useState('saved') // 'saving', 'saved', 'error'
   const [imageSelected, setImageSelected] = useState(false)
   const [showCropMode, setShowCropMode] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
 
   // Current slide
   const currentSlide = deck?.slides?.[currentSlideIndex]
@@ -204,20 +206,27 @@ export default function SlideEditor() {
   const handleDeleteSlide = async () => {
     if (!currentSlide) return
 
-    if (!confirm('Delete this slide? This cannot be undone.')) {
-      return
-    }
+    setConfirmDialog({
+      title: 'Delete Slide?',
+      message: 'This action cannot be undone. The slide will be permanently deleted from this presentation.',
+      confirmText: 'Delete Slide',
+      cancelText: 'Cancel',
+      severity: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await slidesAPI.deleteSlide(currentSlide.id)
+          await loadDeck()
 
-    try {
-      await slidesAPI.deleteSlide(currentSlide.id)
-      await loadDeck()
-
-      if (currentSlideIndex >= deck.slides.length - 1) {
-        setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete slide')
-    }
+          if (currentSlideIndex >= deck.slides.length - 1) {
+            setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))
+          }
+        } catch (err) {
+          setError(err.response?.data?.message || 'Failed to delete slide')
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    })
   }
 
   const handleGenerateVariant = async (direction) => {
@@ -596,6 +605,20 @@ export default function SlideEditor() {
           imageUrl={`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${currentSlide.image.url}`}
           onApply={handleCropApply}
           onCancel={() => setShowCropMode(false)}
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
         />
       )}
     </div>

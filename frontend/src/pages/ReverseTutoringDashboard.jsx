@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 import { useAuthStore } from '../stores/authStore'
+import ConfirmDialog from '../components/ConfirmDialog'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -36,6 +37,7 @@ export default function ReverseTutoringDashboard() {
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [transcript, setTranscript] = useState(null)
   const [showTranscript, setShowTranscript] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState(null)
   const [filter, setFilter] = useState('all') // 'all', 'mastery', 'progressing', 'struggling', 'needs_help'
   const [activeTab, setActiveTab] = useState('topics') // 'topics' or 'conversations'
 
@@ -152,19 +154,28 @@ export default function ReverseTutoringDashboard() {
    * Delete a topic
    */
   const deleteTopic = async (topicId) => {
-    if (!confirm('Are you sure you want to delete this topic?')) return
-
-    try {
-      await axios.delete(
-        `${API_URL}/api/reverse-tutoring/topics/${topicId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      toast.success('Success', 'Topic deleted successfully')
-      loadTopics()
-    } catch (error) {
-      console.error('Delete topic error:', error)
-      toast.error('Error', 'Failed to delete topic')
-    }
+    setConfirmDialog({
+      title: 'Delete Topic?',
+      message: 'This will permanently delete the topic and all associated student conversations. This action cannot be undone.',
+      confirmText: 'Delete Topic',
+      cancelText: 'Cancel',
+      severity: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null)
+        try {
+          await axios.delete(
+            `${API_URL}/api/reverse-tutoring/topics/${topicId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          toast.success('Success', 'Topic deleted successfully')
+          loadTopics()
+        } catch (error) {
+          console.error('Delete topic error:', error)
+          toast.error('Error', 'Failed to delete topic')
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    })
   }
 
   /**
@@ -998,6 +1009,20 @@ export default function ReverseTutoringDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          isOpen={true}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText={confirmDialog.cancelText}
+          severity={confirmDialog.severity}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
       )}
     </div>
   )

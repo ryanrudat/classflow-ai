@@ -44,13 +44,18 @@ export default function ActivityEditor({ activity, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="activity-editor-title"
+    >
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] flex flex-col max-w-full sm:max-w-4xl">
         {/* Header */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Edit Activity</h2>
+              <h2 id="activity-editor-title" className="text-xl font-bold text-gray-900">Edit Activity</h2>
               <p className="text-sm text-gray-600 mt-1">
                 {activity.type.charAt(0).toUpperCase() + activity.type.slice(1)} • {activity.difficulty_level || 'Medium'}
               </p>
@@ -58,9 +63,10 @@ export default function ActivityEditor({ activity, onClose, onSaved }) {
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+              aria-label="Close activity editor"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

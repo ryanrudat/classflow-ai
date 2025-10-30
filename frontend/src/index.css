@@ -6,6 +6,16 @@
   body {
     @apply font-sans antialiased;
   }
+
+  /* Consistent focus styles for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-blue-600 ring-offset-2;
+  }
+
+  /* Remove focus styles when not using keyboard */
+  *:focus:not(:focus-visible) {
+    @apply outline-none ring-0;
+  }
 }
 
 @layer components {
