@@ -7,6 +7,7 @@ import StudentPresentationViewer from '../components/slides/StudentPresentationV
 import StudentHelpModal from '../components/StudentHelpModal'
 import CreateAccountBanner from '../components/CreateAccountBanner'
 import ConfusionButton from '../components/ConfusionButton'
+import InteractiveVideoPlayer from '../components/InteractiveVideoPlayer'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -842,6 +843,16 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
           </div>
         )}
       </div>
+    )
+  }
+
+  if (activity.type === 'interactive_video') {
+    return (
+      <InteractiveVideoPlayer
+        activity={activity}
+        studentId={student?.id}
+        token={localStorage.getItem('studentToken')}
+      />
     )
   }
 
