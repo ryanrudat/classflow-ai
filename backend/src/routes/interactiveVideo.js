@@ -1,6 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
-import { studentAuthMiddleware } from '../middleware/studentAuth.js'
+import { authMiddleware, authenticateStudent } from '../middleware/auth.js'
 import {
   createInteractiveVideoActivity,
   addVideoQuestion,
@@ -46,12 +45,12 @@ router.get('/activities/:activityId/video-analytics',
 
 // Student routes (require student auth)
 router.post('/video-questions/:questionId/respond',
-  studentAuthMiddleware,
+  authenticateStudent,
   submitVideoQuestionResponse
 )
 
 router.post('/activities/:activityId/video-progress',
-  studentAuthMiddleware,
+  authenticateStudent,
   updateVideoProgress
 )
 
