@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url'
 import fs from 'fs/promises'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import FormData from 'form-data'
+import axios from 'axios'
 import db from '../database/db.js'
 
 const execAsync = promisify(exec)
@@ -227,6 +229,236 @@ export async function deleteVideo(req, res) {
   } catch (error) {
     console.error('Delete video error:', error)
     res.status(500).json({ message: 'Failed to delete video' })
+  }
+}
+
+/**
+ * Transcribe a video using OpenAI Whisper
+ * POST /api/videos/:videoId/transcribe
+ */
+export async function transcribeVideo(req, res) {
+  try {
+    const { videoId } = req.params
+    const teacherId = req.user.userId
+
+    // Get video and verify ownership
+    const videoResult = await db.query(
+      'SELECT * FROM uploaded_videos WHERE id = $1 AND user_id = $2',
+      [videoId, teacherId]
+    )
+
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Video not found or unauthorized' })
+    }
+
+    const video = videoResult.rows[0]
+
+    // Check if already transcribed
+    if (video.transcript) {
+      return res.json({
+        message: 'Video already transcribed',
+        transcript: video.transcript
+      })
+    }
+
+    const filePath = path.join(__dirname, '../../public', video.url)
+
+    // Check if file exists
+    try {
+      await fs.access(filePath)
+    } catch (error) {
+      return res.status(404).json({ message: 'Video file not found on server' })
+    }
+
+    // Prepare form data for OpenAI Whisper API
+    const formData = new FormData()
+    formData.append('file', await fs.readFile(filePath), {
+      filename: video.filename,
+      contentType: video.mime_type
+    })
+    formData.append('model', 'whisper-1')
+    formData.append('response_format', 'verbose_json') // Get timestamps
+
+    // Call OpenAI Whisper API
+    const response = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          ...formData.getHeaders()
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
+      }
+    )
+
+    const transcriptData = response.data
+
+    // Store transcript in database
+    await db.query(
+      `UPDATE uploaded_videos
+       SET transcript = $1, updated_at = NOW()
+       WHERE id = $2`,
+      [JSON.stringify(transcriptData), videoId]
+    )
+
+    res.json({
+      message: 'Video transcribed successfully',
+      transcript: transcriptData
+    })
+
+  } catch (error) {
+    console.error('Transcription error:', error.response?.data || error.message)
+
+    if (error.response?.status === 401) {
+      return res.status(500).json({
+        message: 'OpenAI API key not configured or invalid'
+      })
+    }
+
+    res.status(500).json({
+      message: `Transcription failed: ${error.message}`
+    })
+  }
+}
+
+/**
+ * Generate AI questions from video transcript
+ * POST /api/videos/:videoId/generate-questions
+ */
+export async function generateQuestionsFromTranscript(req, res) {
+  try {
+    const { videoId } = req.params
+    const teacherId = req.user.userId
+    const { difficulty = 'medium', count = 5 } = req.body
+
+    // Get video and verify ownership
+    const videoResult = await db.query(
+      'SELECT * FROM uploaded_videos WHERE id = $1 AND user_id = $2',
+      [videoId, teacherId]
+    )
+
+    if (videoResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Video not found or unauthorized' })
+    }
+
+    const video = videoResult.rows[0]
+
+    // Check if video has transcript
+    if (!video.transcript) {
+      return res.status(400).json({
+        message: 'Video must be transcribed first. Please run transcription before generating questions.'
+      })
+    }
+
+    const transcript = typeof video.transcript === 'string'
+      ? JSON.parse(video.transcript)
+      : video.transcript
+
+    // Prepare transcript text with timestamps
+    const segments = transcript.segments || []
+    const transcriptWithTimestamps = segments.map(seg =>
+      `[${Math.floor(seg.start)}s] ${seg.text}`
+    ).join('\n')
+
+    const fullText = transcript.text || transcriptWithTimestamps
+
+    // Call Claude AI to generate questions
+    const aiResponse = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: `You are an expert educator creating interactive video questions. Analyze this video transcript and generate ${count} engaging questions at key moments.
+
+Video Duration: ${video.duration_seconds} seconds
+Difficulty: ${difficulty}
+
+TRANSCRIPT:
+${transcriptWithTimestamps || fullText}
+
+Generate ${count} questions that:
+1. Test comprehension of key concepts
+2. Are placed at important moments (use timestamps from transcript)
+3. Include a mix of multiple choice and open-ended questions
+4. Are appropriate for ${difficulty} difficulty level
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "questions": [
+    {
+      "timestamp_seconds": 45,
+      "question_type": "multiple_choice",
+      "question_text": "What is the main topic discussed in this section?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_answer": 0,
+      "rationale": "Why this question is important"
+    },
+    {
+      "timestamp_seconds": 120,
+      "question_type": "open_ended",
+      "question_text": "Explain the concept in your own words.",
+      "rationale": "Why this question is important"
+    }
+  ]
+}`
+        }]
+      },
+      {
+        headers: {
+          'x-api-key': process.env.CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        }
+      }
+    )
+
+    // Parse Claude's response
+    const aiContent = aiResponse.data.content[0].text
+
+    // Extract JSON from response (handle markdown code blocks if present)
+    let questionsData
+    try {
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/)
+      questionsData = JSON.parse(jsonMatch ? jsonMatch[0] : aiContent)
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', aiContent)
+      throw new Error('AI generated invalid response format')
+    }
+
+    // Validate and clean questions
+    const validQuestions = questionsData.questions.filter(q => {
+      return q.timestamp_seconds >= 0 &&
+        q.timestamp_seconds <= video.duration_seconds &&
+        q.question_text &&
+        q.question_type &&
+        (q.question_type !== 'multiple_choice' || (q.options && q.options.length >= 2))
+    })
+
+    res.json({
+      message: 'Questions generated successfully',
+      questions: validQuestions,
+      video: {
+        id: video.id,
+        duration: video.duration_seconds
+      }
+    })
+
+  } catch (error) {
+    console.error('Question generation error:', error.response?.data || error.message)
+
+    if (error.response?.status === 401) {
+      return res.status(500).json({
+        message: 'Claude API key not configured or invalid'
+      })
+    }
+
+    res.status(500).json({
+      message: `Question generation failed: ${error.message}`
+    })
   }
 }
 

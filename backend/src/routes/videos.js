@@ -4,6 +4,8 @@ import {
   uploadVideo,
   getUserVideos,
   deleteVideo,
+  transcribeVideo,
+  generateQuestionsFromTranscript,
   uploadMiddleware
 } from '../controllers/videoController.js'
 
@@ -20,5 +22,11 @@ router.get('/', getUserVideos)
 
 // Delete video
 router.delete('/:videoId', deleteVideo)
+
+// Transcribe video
+router.post('/:videoId/transcribe', transcribeVideo)
+
+// Generate AI questions from transcript
+router.post('/:videoId/generate-questions', generateQuestionsFromTranscript)
 
 export default router
