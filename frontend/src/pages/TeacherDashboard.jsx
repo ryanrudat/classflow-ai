@@ -351,20 +351,6 @@ export default function TeacherDashboard() {
         />
       )}
 
-      {/* Interactive Video Editor */}
-      {showVideoEditor && session && (
-        <InteractiveVideoEditor
-          sessionId={session.id}
-          onClose={() => setShowVideoEditor(false)}
-          onSaved={(activity) => {
-            // Reload activities to show the new video activity
-            if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
-            }
-            setShowVideoEditor(false)
-          }}
-        />
-      )}
     </div>
   )
 }
@@ -1004,6 +990,21 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
           onGenerate={handleGenerateSlides}
           loading={generatingSlides}
           subject={session.subject}
+        />
+      )}
+
+      {/* Interactive Video Editor */}
+      {showVideoEditor && session && (
+        <InteractiveVideoEditor
+          sessionId={session.id}
+          onClose={() => setShowVideoEditor(false)}
+          onSaved={(activity) => {
+            // Reload activities to show the new video activity
+            if (selectedInstance) {
+              loadSessionActivities(session.id, selectedInstance.id)
+            }
+            setShowVideoEditor(false)
+          }}
         />
       )}
     </div>
