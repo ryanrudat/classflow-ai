@@ -958,6 +958,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               setReactivateInstances={setReactivateInstances}
               handleSelectPreviousActivity={handleSelectPreviousActivity}
               setActiveTab={setActiveTab}
+              setConfirmDialog={setConfirmDialog}
             />
           )}
 
