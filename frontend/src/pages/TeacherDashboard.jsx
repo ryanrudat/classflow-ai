@@ -20,6 +20,8 @@ import DiscussionQuestionsEditor from '../components/DiscussionQuestionsEditor'
 import DiscussionPromptsEditor from '../components/DiscussionPromptsEditor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import InteractiveVideoEditor from '../components/InteractiveVideoEditor'
+import SentenceOrderingEditor from '../components/SentenceOrderingEditor'
+import Leaderboard from '../components/Leaderboard'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
   LoadingSpinner,
@@ -462,6 +464,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const [generatingSlides, setGeneratingSlides] = useState(false)
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
   const [showVideoEditor, setShowVideoEditor] = useState(false)
+  const [showSentenceOrderingEditor, setShowSentenceOrderingEditor] = useState(false)
   const [helpHistory, setHelpHistory] = useState([])
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
@@ -1007,6 +1010,21 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
           }}
         />
       )}
+
+      {/* Sentence Ordering Editor */}
+      {showSentenceOrderingEditor && session && (
+        <SentenceOrderingEditor
+          sessionId={session.id}
+          onClose={() => setShowSentenceOrderingEditor(false)}
+          onSaved={(activity) => {
+            // Reload activities to show the new sentence ordering activity
+            if (selectedInstance) {
+              loadSessionActivities(session.id, selectedInstance.id)
+            }
+            setShowSentenceOrderingEditor(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -1549,6 +1567,16 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         </div>
       )}
 
+      {/* Leaderboard */}
+      {selectedInstance && (
+        <Leaderboard
+          sessionId={session.id}
+          instanceId={selectedInstance.id}
+          viewMode="teacher"
+          maxEntries={10}
+        />
+      )}
+
       {/* Student Detail Modal */}
       {selectedStudentDetail && (
         <StudentDetailModal
@@ -1878,6 +1906,17 @@ function ActivitiesTab({
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
           Upload Interactive Video
+        </button>
+
+        {/* Sentence Ordering Button */}
+        <button
+          onClick={() => setShowSentenceOrderingEditor(true)}
+          className="w-full px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 mt-3"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          Create Sentence Ordering
         </button>
 
         {/* Generated Content Preview */}

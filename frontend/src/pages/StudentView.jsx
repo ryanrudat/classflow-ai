@@ -8,6 +8,8 @@ import StudentHelpModal from '../components/StudentHelpModal'
 import CreateAccountBanner from '../components/CreateAccountBanner'
 import ConfusionButton from '../components/ConfusionButton'
 import InteractiveVideoPlayer from '../components/InteractiveVideoPlayer'
+import SentenceOrderingActivity from '../components/SentenceOrderingActivity'
+import Leaderboard from '../components/Leaderboard'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -358,6 +360,17 @@ export default function StudentView() {
                 disabled={!isConnected || screenLocked}
               />
             </div>
+
+            {/* Leaderboard */}
+            {session && student && (
+              <Leaderboard
+                sessionId={session.id}
+                instanceId={session.currentInstanceId}
+                viewMode="student"
+                currentStudentId={student.id}
+                maxEntries={10}
+              />
+            )}
 
             {/* Reverse Tutoring Option */}
             <div className="card bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200">
@@ -852,6 +865,15 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
         activity={activity}
         studentId={student?.id}
         token={localStorage.getItem('studentToken')}
+      />
+    )
+  }
+
+  if (activity.type === 'sentence_ordering') {
+    return (
+      <SentenceOrderingActivity
+        activity={activity}
+        onSubmit={onSubmit}
       />
     )
   }

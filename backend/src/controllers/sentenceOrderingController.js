@@ -1,5 +1,6 @@
 import axios from 'axios'
 import db from '../database/db.js'
+import { getIO } from '../services/ioInstance.js'
 
 /**
  * Generate sentence ordering activity using AI
@@ -193,6 +194,25 @@ export async function submitSentenceOrdering(req, res) {
         isCorrect
       ]
     )
+
+    // Emit WebSocket event for real-time leaderboard update
+    try {
+      const io = getIO()
+      const sessionId = activity.session_id
+
+      io.to(`session-${sessionId}`).emit('leaderboard-updated', {
+        sessionInstanceId: req.student.sessionInstanceId,
+        studentId,
+        activityId,
+        score,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`📊 Leaderboard update emitted for session ${sessionId}`)
+    } catch (error) {
+      console.error('Failed to emit leaderboard update:', error)
+      // Don't fail the request if WebSocket emission fails
+    }
 
     res.json({
       message: 'Response submitted successfully',

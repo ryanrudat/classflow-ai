@@ -42,6 +42,7 @@ import interactiveVideoRoutes from './routes/interactiveVideo.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
+import { setIO } from './services/ioInstance.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -179,6 +180,7 @@ app.use('/api/videos', videoRoutes)
 app.use('/api', interactiveVideoRoutes)
 
 // Setup WebSocket
+setIO(io)
 setupSocketIO(io)
 
 // Error handling middleware
