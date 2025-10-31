@@ -1569,15 +1569,15 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         </div>
       )}
 
-      {/* Leaderboard */}
-      {selectedInstance && (
+      {/* Leaderboard - TEMPORARILY DISABLED */}
+      {/* {selectedInstance && (
         <Leaderboard
           sessionId={session.id}
           instanceId={selectedInstance.id}
           viewMode="teacher"
           maxEntries={10}
         />
-      )}
+      )} */}
 
       {/* Student Detail Modal */}
       {selectedStudentDetail && (
