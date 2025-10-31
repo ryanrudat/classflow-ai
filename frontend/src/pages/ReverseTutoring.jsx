@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 import axios from 'axios'
-import io from 'socket.io-client'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -45,10 +44,9 @@ export default function ReverseTutoring() {
   const [understanding, setUnderstanding] = useState(0)
   const [messageCount, setMessageCount] = useState(0)
 
-  // ELL Support
-  const [languageProficiency, setLanguageProficiency] = useState('intermediate')
-  const [nativeLanguage, setNativeLanguage] = useState('en')
-  const [showProficiencySelector, setShowProficiencySelector] = useState(false)
+  // ELL Support - AI will automatically adjust based on student responses
+  const [languageProficiency] = useState('intermediate')
+  const [nativeLanguage] = useState('en')
 
   // Session Status
   const [sessionStatus, setSessionStatus] = useState('active') // 'active', 'paused', 'ended'
@@ -60,7 +58,6 @@ export default function ReverseTutoring() {
   const mediaRecorder = useRef(null)
   const audioChunks = useRef([])
   const messagesEndRef = useRef(null)
-  const socketRef = useRef(null)
   const scaffoldingCloseButtonRef = useRef(null)
   const textInputRef = useRef(null)
 
@@ -83,58 +80,6 @@ export default function ReverseTutoring() {
 
     loadAvailableTopics()
   }, [])
-
-  // WebSocket for session status updates
-  useEffect(() => {
-    if (!sessionId) return
-
-    // Initialize WebSocket
-    const socket = io(API_URL, {
-      transports: ['websocket', 'polling']
-    })
-
-    socketRef.current = socket
-
-    socket.on('connect', () => {
-      console.log('✅ WebSocket connected')
-      // Join session room
-      socket.emit('join-session', {
-        sessionId,
-        role: 'student',
-        studentId
-      })
-    })
-
-    // Listen for session status changes
-    socket.on('session-status-changed', (data) => {
-      console.log('📡 Session status changed:', data)
-      const { status, gracePeriodEndsAt, message } = data
-
-      setSessionStatus(status)
-
-      if (gracePeriodEndsAt) {
-        setGracePeriodEndsAt(new Date(gracePeriodEndsAt))
-      }
-
-      if (status === 'paused' || status === 'ended') {
-        setShowSessionModal(true)
-        toast.warning(status === 'paused' ? 'Session Paused' : 'Session Ending', message, 10000)
-      } else if (status === 'active') {
-        setShowSessionModal(false)
-        setGracePeriodEndsAt(null)
-        toast.success('Session Resumed', message)
-      }
-    })
-
-    socket.on('disconnect', () => {
-      console.log('❌ WebSocket disconnected')
-    })
-
-    // Cleanup
-    return () => {
-      socket.disconnect()
-    }
-  }, [sessionId, studentId])
 
   // Grace period countdown timer
   useEffect(() => {
@@ -175,8 +120,6 @@ export default function ReverseTutoring() {
           if (timeRemaining && timeRemaining !== 0) {
             setShowSessionModal(false)
           }
-        } else if (showProficiencySelector) {
-          setShowProficiencySelector(false)
         }
       }
 
@@ -190,7 +133,7 @@ export default function ReverseTutoring() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [showScaffolding, showSessionModal, showProficiencySelector, timeRemaining, textInput, isSending])
+  }, [showScaffolding, showSessionModal, timeRemaining, textInput, isSending])
 
   // Focus management for modals
   useEffect(() => {
@@ -229,22 +172,12 @@ export default function ReverseTutoring() {
   }
 
   /**
-   * Select a topic and show proficiency selector
+   * Select a topic and start conversation immediately
    */
   const selectTopic = async (topic) => {
     console.log('🎯 Topic selected:', topic)
-    console.log('🎯 Setting selectedTopic to:', topic)
     setSelectedTopic(topic)
-    console.log('🎯 Setting showProficiencySelector to true')
-    setShowProficiencySelector(true)
-  }
-
-  /**
-   * Start conversation after proficiency is selected
-   */
-  const startWithProficiency = async () => {
-    setShowProficiencySelector(false)
-    await startConversation(selectedTopic)
+    await startConversation(topic)
     setView('conversation')
   }
 
@@ -511,30 +444,14 @@ export default function ReverseTutoring() {
                   Select what you'd like to teach the AI about
                 </p>
               </div>
-              <div className="flex gap-2">
-                {/* Debug button - remove after testing */}
-                <button
-                  onClick={() => {
-                    console.log('🧪 DEBUG: Force showing modal')
-                    console.log('Available topics:', availableTopics)
-                    if (availableTopics.length > 0) {
-                      setSelectedTopic(availableTopics[0])
-                      setShowProficiencySelector(true)
-                    }
-                  }}
-                  className="px-3 py-1 bg-yellow-500 text-white text-sm rounded"
-                >
-                  DEBUG
-                </button>
-                <button
-                  onClick={() => navigate(-1)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                onClick={() => navigate(-1)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
 
@@ -629,124 +546,6 @@ export default function ReverseTutoring() {
             </div>
           )}
         </div>
-
-        {/* Language Proficiency Selector Modal */}
-        {(() => {
-          console.log('🔍 Modal render check:', { showProficiencySelector, selectedTopic })
-          return null
-        })()}
-        {showProficiencySelector && selectedTopic && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
-              <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Before we start...</h2>
-                <p className="text-gray-600">
-                  This will help us match the conversation to your English level
-                </p>
-              </div>
-
-              {/* English Proficiency Level */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  How comfortable are you speaking English in class?
-                </label>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setLanguageProficiency('beginner')}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                      languageProficiency === 'beginner'
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
-                    }`}
-                  >
-                    <div className="font-semibold text-gray-900">Beginner</div>
-                    <div className="text-sm text-gray-600">
-                      I'm still learning. Simpler words and sentences help me understand better.
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setLanguageProficiency('intermediate')}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                      languageProficiency === 'intermediate'
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
-                    }`}
-                  >
-                    <div className="font-semibold text-gray-900">Intermediate</div>
-                    <div className="text-sm text-gray-600">
-                      I can understand most conversations but sometimes need help with harder words.
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setLanguageProficiency('advanced')}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                      languageProficiency === 'advanced'
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300'
-                    }`}
-                  >
-                    <div className="font-semibold text-gray-900">Advanced</div>
-                    <div className="text-sm text-gray-600">
-                      I'm comfortable with academic English and complex vocabulary.
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Native Language (Optional) */}
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  What's your first language? (optional)
-                </label>
-                <select
-                  value={nativeLanguage}
-                  onChange={(e) => setNativeLanguage(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="en">English</option>
-                  <option value="es">Spanish (Español)</option>
-                  <option value="zh">Chinese (中文)</option>
-                  <option value="ar">Arabic (العربية)</option>
-                  <option value="vi">Vietnamese (Tiếng Việt)</option>
-                  <option value="tl">Tagalog (Filipino)</option>
-                  <option value="fr">French (Français)</option>
-                  <option value="ko">Korean (한국어)</option>
-                  <option value="ru">Russian (Русский)</option>
-                  <option value="pt">Portuguese (Português)</option>
-                  <option value="hi">Hindi (हिन्दी)</option>
-                  <option value="bn">Bengali (বাংলা)</option>
-                  <option value="ja">Japanese (日本語)</option>
-                  <option value="de">German (Deutsch)</option>
-                  <option value="other">Other</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-2">
-                  We can provide translations and examples in your language if needed
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowProficiencySelector(false)
-                    setSelectedTopic(null)
-                  }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
-                >
-                  Go Back
-                </button>
-                <button
-                  onClick={startWithProficiency}
-                  className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
-                >
-                  Start Teaching
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     )
   }
