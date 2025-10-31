@@ -971,6 +971,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               handlePush={handlePush}
               handleGenerateFromContent={handleGenerateFromContent}
               handleSelectPreviousActivity={handleSelectPreviousActivity}
+              setShowVideoEditor={setShowVideoEditor}
+              setShowSentenceOrderingEditor={setShowSentenceOrderingEditor}
             />
           )}
 
@@ -1675,7 +1677,8 @@ function ActivitiesTab({
   session, generatedContent, setGeneratedContent, generating, setGenerating,
   prompt, setPrompt, type, setType, difficulty, setDifficulty, error, setError,
   sessionActivities, setSessionActivities, loadingActivities,
-  handleGenerate, handlePush, handleGenerateFromContent, handleSelectPreviousActivity
+  handleGenerate, handlePush, handleGenerateFromContent, handleSelectPreviousActivity,
+  setShowVideoEditor, setShowSentenceOrderingEditor
 }) {
   const { notifySuccess, notifyError } = useNotifications()
   const [generateModal, setGenerateModal] = useState(null)
