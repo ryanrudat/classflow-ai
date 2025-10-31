@@ -635,6 +635,25 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
     joinSession(session.id, 'teacher')
 
+    // Listen for students who are already online (sent when teacher joins)
+    const handleStudentsOnline = ({ students: onlineStudents }) => {
+      console.log('📢 Received online students:', onlineStudents)
+      setStudents(prev => {
+        const updated = [...prev]
+        onlineStudents.forEach(({ studentId, studentName }) => {
+          const existingIndex = updated.findIndex(s => s.id === studentId)
+          if (existingIndex !== -1) {
+            // Mark existing student as connected
+            updated[existingIndex] = { ...updated[existingIndex], connected: true }
+          } else {
+            // Add new student
+            updated.push({ id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}`, connected: true })
+          }
+        })
+        return updated
+      })
+    }
+
     // Listen for student joins
     const handleUserJoined = ({ role, studentId, studentName }) => {
       if (role === 'student') {
@@ -682,6 +701,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       }
     }
 
+    on('students-online', handleStudentsOnline)
     on('user-joined', handleUserJoined)
     on('student-responded', handleStudentResponded)
     on('user-left', handleUserLeft)
@@ -689,6 +709,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     on('live-progress-update', handleLiveProgressUpdate)
 
     return () => {
+      off('students-online', handleStudentsOnline)
       off('user-joined', handleUserJoined)
       off('student-responded', handleStudentResponded)
       off('user-left', handleUserLeft)

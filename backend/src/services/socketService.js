@@ -19,6 +19,28 @@ export function setupSocketIO(io) {
       console.log(`   Total sockets in ${roomName}:`, socketsInRoom.size)
       console.log(`   Socket IDs in room:`, Array.from(socketsInRoom))
 
+      // If a teacher just joined, notify them of all currently connected students
+      if (role === 'teacher') {
+        const students = []
+        const sockets = await io.in(roomName).fetchSockets()
+        for (const s of sockets) {
+          if (s.role === 'student' && s.id !== socket.id) {
+            students.push({
+              socketId: s.id,
+              role: 'student',
+              studentId: s.studentId,
+              studentName: s.studentName,
+              timestamp: new Date().toISOString()
+            })
+          }
+        }
+        // Send all currently connected students to the teacher
+        if (students.length > 0) {
+          socket.emit('students-online', { students })
+          console.log(`📢 Sent ${students.length} online students to teacher`)
+        }
+      }
+
       // Notify others in the session
       socket.to(roomName).emit('user-joined', {
         socketId: socket.id,
