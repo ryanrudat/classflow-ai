@@ -32,8 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_activities_type ON activities(type);
 CREATE OR REPLACE VIEW activity_leaderboard AS
 SELECT
   sr.student_id,
-  s.name as student_name,
-  sr.session_instance_id,
+  ss.student_name,
+  ss.instance_id as session_instance_id,
   COUNT(DISTINCT sr.activity_id) as activities_completed,
   AVG(
     CASE
@@ -56,12 +56,12 @@ SELECT
       ELSE 100
     END
   ) as total_score,
-  MAX(sr.submitted_at) as last_activity_time
+  MAX(sr.created_at) as last_activity_time
 FROM student_responses sr
 JOIN activities a ON sr.activity_id = a.id
-LEFT JOIN students s ON sr.student_id = s.id
-WHERE sr.submitted_at IS NOT NULL
-GROUP BY sr.student_id, s.name, sr.session_instance_id
+LEFT JOIN session_students ss ON sr.student_id = ss.id
+WHERE sr.created_at IS NOT NULL
+GROUP BY sr.student_id, ss.student_name, ss.instance_id
 ORDER BY total_score DESC, last_activity_time DESC;
 
 -- Create function to get leaderboard for a specific session instance
