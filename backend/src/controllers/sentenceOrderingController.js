@@ -244,7 +244,7 @@ export async function getLeaderboard(req, res) {
     // Verify session ownership if teacher is requesting
     if (teacherId) {
       const sessionCheck = await db.query(
-        'SELECT * FROM sessions WHERE id = $1 AND user_id = $2',
+        'SELECT * FROM sessions WHERE id = $1 AND teacher_id = $2',
         [sessionId, teacherId]
       )
 
