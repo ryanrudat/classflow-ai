@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware, authenticateStudent } from '../middleware/auth.js'
+import { authenticateToken, authenticateStudent } from '../middleware/auth.js'
 import {
   createInteractiveVideoActivity,
   addVideoQuestion,
@@ -15,12 +15,12 @@ const router = express.Router()
 
 // Teacher routes (require auth)
 router.post('/sessions/:sessionId/activities/interactive-video',
-  authMiddleware,
+  authenticateToken,
   createInteractiveVideoActivity
 )
 
 router.post('/activities/:activityId/video-questions',
-  authMiddleware,
+  authenticateToken,
   addVideoQuestion
 )
 
@@ -29,17 +29,17 @@ router.get('/activities/:activityId/video-questions',
 )
 
 router.put('/video-questions/:questionId',
-  authMiddleware,
+  authenticateToken,
   updateVideoQuestion
 )
 
 router.delete('/video-questions/:questionId',
-  authMiddleware,
+  authenticateToken,
   deleteVideoQuestion
 )
 
 router.get('/activities/:activityId/video-analytics',
-  authMiddleware,
+  authenticateToken,
   getVideoAnalytics
 )
 

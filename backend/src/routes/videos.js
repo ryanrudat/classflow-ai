@@ -1,5 +1,5 @@
 import express from 'express'
-import { authMiddleware } from '../middleware/auth.js'
+import { authenticateToken } from '../middleware/auth.js'
 import {
   uploadVideo,
   getUserVideos,
@@ -12,7 +12,7 @@ import {
 const router = express.Router()
 
 // All routes require authentication
-router.use(authMiddleware)
+router.use(authenticateToken)
 
 // Video upload
 router.post('/upload', uploadMiddleware, uploadVideo)
