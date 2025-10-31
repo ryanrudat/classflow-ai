@@ -171,6 +171,9 @@ export async function startConversation(req, res) {
       console.log('⚠️  Caught duplicate key error, fetching existing conversation...')
 
       try {
+        // Extract variables from req.body (they're not in scope here)
+        const { sessionId, studentId, topic } = req.body
+
         // Fetch the existing conversation
         const existing = await db.query(
           `SELECT id FROM reverse_tutoring_conversations
