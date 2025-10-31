@@ -16,7 +16,8 @@ import {
   exportGrades
 } from '../controllers/sessionController.js'
 import { getSessionActivities } from '../controllers/activityController.js'
-import { authenticateToken, optionalStudentAuth } from '../middleware/auth.js'
+import { getLeaderboard, getMyScore } from '../controllers/sentenceOrderingController.js'
+import { authenticateToken, optionalStudentAuth, authenticateStudent } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -30,6 +31,7 @@ router.get('/:sessionId/instances/:instanceId', authenticateToken, getInstanceDe
 router.get('/:sessionId/activities', authenticateToken, getSessionActivities)
 router.get('/:sessionId/activities/:activityId/progress', authenticateToken, getActivityProgress)
 router.get('/:sessionId/export-grades', authenticateToken, exportGrades)
+router.get('/:sessionId/instances/:instanceId/leaderboard', authenticateToken, getLeaderboard)
 router.post('/:id/end', authenticateToken, endSession)
 router.post('/:id/pause', authenticateToken, pauseSession)
 router.post('/:id/resume', authenticateToken, resumeSession)
@@ -38,5 +40,8 @@ router.delete('/:id', authenticateToken, deleteSession)
 
 // Public routes (students) - with optional authentication
 router.post('/join', optionalStudentAuth, joinSession)
+
+// Student routes (require student authentication)
+router.get('/:sessionId/instances/:instanceId/my-score', authenticateStudent, getMyScore)
 
 export default router

@@ -9,7 +9,12 @@ import {
   updateActivityContent,
   deleteActivity
 } from '../controllers/activityController.js'
-import { authenticateToken } from '../middleware/auth.js'
+import {
+  submitSentenceOrdering,
+  getLeaderboard,
+  getMyScore
+} from '../controllers/sentenceOrderingController.js'
+import { authenticateToken, authenticateStudent } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -24,5 +29,8 @@ router.get('/completions/:studentAccountId', authenticateToken, getStudentComple
 // Public routes (students)
 router.post('/:activityId/respond', submitResponse)
 router.post('/:activityId/submit-question', submitQuestionResponse)
+
+// Sentence ordering routes
+router.post('/:activityId/sentence-ordering/submit', authenticateStudent, submitSentenceOrdering)
 
 export default router
