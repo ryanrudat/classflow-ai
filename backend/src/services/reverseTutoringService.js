@@ -139,7 +139,7 @@ CRITICAL RULES:
 Start by expressing confusion about the topic and asking them to explain it.`
 
     const initialMessage = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 200,
       system: systemPrompt,
       messages: [{
@@ -307,7 +307,7 @@ Continue the conversation based on what the student just said.`
 
     // Get AI response
     const response = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 300,
       system: systemPrompt,
       messages: messages
@@ -345,7 +345,7 @@ Return ONLY a JSON object with these fields:
 }`
 
     const analysisResponse = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 500,
       messages: [{
         role: 'user',
@@ -470,7 +470,7 @@ Return as JSON:
 }`
 
     const response = await claude.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: 500,
       messages: [{
         role: 'user',
