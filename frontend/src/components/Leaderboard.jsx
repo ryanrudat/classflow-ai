@@ -25,7 +25,11 @@ export default function Leaderboard({
   const [previousRanks, setPreviousRanks] = useState({})
 
   const { on, off, isConnected } = useSocket()
-  const token = localStorage.getItem('token')
+
+  // Get the appropriate token based on view mode
+  const token = viewMode === 'student'
+    ? localStorage.getItem('studentToken')
+    : localStorage.getItem('token')
 
   // Fetch leaderboard data
   const fetchLeaderboard = useCallback(async () => {
@@ -124,22 +128,13 @@ export default function Leaderboard({
     return 'text-gray-400'
   }
 
+  // Don't show while loading if no data yet (avoid "loitering" empty leaderboard)
   if (loading && leaderboard.length === 0) {
-    return (
-      <div className="card">
-        {showHeader && (
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-900">Leaderboard</h3>
-          </div>
-        )}
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
-        </div>
-      </div>
-    )
+    return null
   }
 
-  if (error) {
+  // Only show error if we previously had data (don't show for empty leaderboards)
+  if (error && leaderboard.length > 0) {
     return (
       <div className="card">
         {showHeader && (
@@ -156,23 +151,14 @@ export default function Leaderboard({
         </div>
       </div>
     )
+  } else if (error && leaderboard.length === 0) {
+    // Hide leaderboard on error if no data
+    return null
   }
 
+  // Don't show leaderboard if there are no scores (students not active in activities)
   if (leaderboard.length === 0) {
-    return (
-      <div className="card">
-        {showHeader && (
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Leaderboard</h3>
-        )}
-        <div className="text-center py-12">
-          <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <p className="text-gray-500">No scores yet</p>
-          <p className="text-sm text-gray-400 mt-1">Students will appear here as they complete activities</p>
-        </div>
-      </div>
-    )
+    return null
   }
 
   const displayedLeaderboard = leaderboard.slice(0, maxEntries)
