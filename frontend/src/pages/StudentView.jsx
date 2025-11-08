@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import { useStudentAuthStore } from '../stores/studentAuthStore'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
 import CreateAccountBanner from '../components/CreateAccountBanner'
@@ -12,6 +15,7 @@ import SentenceOrderingActivity from '../components/SentenceOrderingActivity'
 import MatchingActivity from '../components/MatchingActivity'
 import LivePoll from '../components/LivePoll'
 import Leaderboard from '../components/Leaderboard'
+import LessonFlowView from '../components/LessonFlowView'
 
 export default function StudentView() {
   const { joinCode } = useParams()
@@ -26,6 +30,10 @@ export default function StudentView() {
   const [error, setError] = useState('')
   const [currentActivity, setCurrentActivity] = useState(null)
   const [screenLocked, setScreenLocked] = useState(false)
+
+  // Lesson flow state
+  const [activeFlowId, setActiveFlowId] = useState(null)
+  const [flowActivity, setFlowActivity] = useState(null)
 
   // Presentation state
   const [presentationActive, setPresentationActive] = useState(false)
@@ -167,12 +175,28 @@ export default function StudentView() {
       setCurrentDeck(null)
     }
 
+    // Listen for lesson flow started
+    const handleLessonFlowStarted = ({ flowId, firstActivity }) => {
+      console.log('📚 Lesson flow started:', flowId)
+      setActiveFlowId(flowId)
+      setCurrentActivity(null) // Clear any individual activity
+    }
+
+    // Listen for lesson flow stopped
+    const handleLessonFlowStopped = ({ flowId }) => {
+      console.log('📚 Lesson flow stopped:', flowId)
+      setActiveFlowId(null)
+      setFlowActivity(null)
+    }
+
     on('activity-received', handleActivityReceived)
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
     on('presentation-started', handlePresentationStarted)
     on('confusion-cleared', handleConfusionCleared)
     on('force-disconnect', handleForceDisconnect)
+    on('lesson-flow-started', handleLessonFlowStarted)
+    on('lesson-flow-stopped', handleLessonFlowStopped)
 
     // Cleanup
     return () => {
@@ -182,6 +206,8 @@ export default function StudentView() {
       off('presentation-started', handlePresentationStarted)
       off('confusion-cleared', handleConfusionCleared)
       off('force-disconnect', handleForceDisconnect)
+      off('lesson-flow-started', handleLessonFlowStarted)
+      off('lesson-flow-stopped', handleLessonFlowStopped)
     }
   }, [session, student, joinSession, on, off])
 
@@ -189,6 +215,24 @@ export default function StudentView() {
   const handleConfusionToggle = (newConfusedState) => {
     setIsConfused(newConfusedState)
     toggleConfusion(session.id, student.id, student.student_name, newConfusedState)
+  }
+
+  // Handle auto-advance in lesson flow
+  const handleFlowAdvance = async (completedActivityId) => {
+    if (!activeFlowId || !student) return
+
+    try {
+      await axios.post(
+        `${API_URL}/api/lesson-flows/${activeFlowId}/advance`,
+        {
+          studentId: student.id,
+          completedActivityId
+        }
+      )
+      // WebSocket will handle the transition to next activity
+    } catch (error) {
+      console.error('Failed to advance flow:', error)
+    }
   }
 
   if (step === 'join') {
@@ -330,7 +374,33 @@ export default function StudentView() {
         )}
 
         {/* Activity display */}
-        {currentActivity ? (
+        {activeFlowId ? (
+          // Lesson Flow Mode - Sequential activities with progress tracking
+          <LessonFlowView
+            flowId={activeFlowId}
+            sessionId={session.id}
+            studentId={student.id}
+            onActivityChange={(activity, progress) => {
+              setFlowActivity(activity)
+            }}
+          >
+            {flowActivity && (
+              <ActivityDisplay
+                activity={flowActivity}
+                student={student}
+                studentId={student.id}
+                sessionId={session.id}
+                emit={emit}
+                onSubmit={(response) => {
+                  submitResponse(flowActivity.id, student.id, response)
+                  // Trigger auto-advance to next activity
+                  handleFlowAdvance(flowActivity.id)
+                }}
+              />
+            )}
+          </LessonFlowView>
+        ) : currentActivity ? (
+          // Normal mode - Individual activity
           <ActivityDisplay
             activity={currentActivity}
             student={student}

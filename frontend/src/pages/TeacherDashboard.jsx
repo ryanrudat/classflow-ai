@@ -23,6 +23,7 @@ import InteractiveVideoEditor from '../components/InteractiveVideoEditor'
 import SentenceOrderingEditor from '../components/SentenceOrderingEditor'
 import MatchingEditor from '../components/MatchingEditor'
 import PollEditor from '../components/PollEditor'
+import LessonFlowBuilder from '../components/LessonFlowBuilder'
 import Leaderboard from '../components/Leaderboard'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
@@ -470,6 +471,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const [showSentenceOrderingEditor, setShowSentenceOrderingEditor] = useState(false)
   const [showMatchingEditor, setShowMatchingEditor] = useState(false)
   const [showPollEditor, setShowPollEditor] = useState(false)
+  const [showLessonFlowBuilder, setShowLessonFlowBuilder] = useState(false)
   const [helpHistory, setHelpHistory] = useState([])
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
@@ -985,6 +987,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               setGeneratedContent={setGeneratedContent}
               generating={generating}
               setGenerating={setGenerating}
+              showLessonFlowBuilder={showLessonFlowBuilder}
+              setShowLessonFlowBuilder={setShowLessonFlowBuilder}
               prompt={prompt}
               setPrompt={setPrompt}
               type={type}
@@ -1745,9 +1749,10 @@ function ActivitiesTab({
   prompt, setPrompt, type, setType, difficulty, setDifficulty, error, setError,
   sessionActivities, setSessionActivities, loadingActivities,
   handleGenerate, handlePush, handleGenerateFromContent, handleSelectPreviousActivity,
-  setShowVideoEditor, setShowSentenceOrderingEditor, setShowMatchingEditor, setShowPollEditor
+  setShowVideoEditor, setShowSentenceOrderingEditor, setShowMatchingEditor, setShowPollEditor,
+  showLessonFlowBuilder, setShowLessonFlowBuilder
 }) {
-  const { notifySuccess, notifyError } = useNotifications()
+  const { notifySuccess, notifyError} = useNotifications()
   const [generateModal, setGenerateModal] = useState(null)
   const [viewDocumentModal, setViewDocumentModal] = useState(null)
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(null)
@@ -1758,6 +1763,10 @@ function ActivitiesTab({
   const [inlineEditMode, setInlineEditMode] = useState(false)
   const [editedContent, setEditedContent] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  // Lesson flow state
+  const [lessonFlows, setLessonFlows] = useState([])
+  const [loadingFlows, setLoadingFlows] = useState(false)
 
   const handleDocumentGenerated = async (newActivity) => {
     setGeneratedContent(newActivity)
@@ -1837,6 +1846,89 @@ function ActivitiesTab({
   const handleCancelEdit = () => {
     setInlineEditMode(false)
     setEditedContent(null)
+  }
+
+  // Load lesson flows
+  const loadLessonFlows = async () => {
+    if (!session?.id) return
+
+    try {
+      setLoadingFlows(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/sessions/${session.id}/lesson-flows`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      setLessonFlows(data.flows || [])
+    } catch (error) {
+      console.error('Failed to load lesson flows:', error)
+    } finally {
+      setLoadingFlows(false)
+    }
+  }
+
+  useEffect(() => {
+    loadLessonFlows()
+  }, [session?.id])
+
+  const handleStartFlow = async (flowId) => {
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/start`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      // Update local state
+      setLessonFlows(flows => flows.map(f => ({
+        ...f,
+        is_active: f.id === flowId
+      })))
+
+      notifySuccess('Lesson flow started! Students will now see sequential activities.')
+    } catch (error) {
+      console.error('Failed to start flow:', error)
+      notifyError('Failed to start lesson flow')
+    }
+  }
+
+  const handleStopFlow = async (flowId) => {
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/stop`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      // Update local state
+      setLessonFlows(flows => flows.map(f => ({
+        ...f,
+        is_active: false
+      })))
+
+      notifySuccess('Lesson flow stopped')
+    } catch (error) {
+      console.error('Failed to stop flow:', error)
+      notifyError('Failed to stop lesson flow')
+    }
+  }
+
+  const handleDeleteFlow = async (flowId) => {
+    try {
+      const token = localStorage.getItem('token')
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      // Remove from local state
+      setLessonFlows(flows => flows.filter(f => f.id !== flowId))
+
+      notifySuccess('Lesson flow deleted')
+    } catch (error) {
+      console.error('Failed to delete flow:', error)
+      notifyError('Failed to delete lesson flow')
+    }
   }
 
   const handleSaveInlineEdit = async () => {
@@ -2011,6 +2103,90 @@ function ActivitiesTab({
           </svg>
           Create Live Poll
         </button>
+
+        {/* Lesson Flow Builder Button */}
+        <button
+          onClick={() => setShowLessonFlowBuilder(true)}
+          className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2 mt-3 shadow-lg"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Create Lesson Flow ✨
+        </button>
+
+        {/* Existing Lesson Flows */}
+        {lessonFlows.length > 0 && (
+          <div className="mt-6 border-t pt-6">
+            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="text-2xl">✨</span>
+              Your Lesson Flows
+            </h4>
+            <div className="space-y-3">
+              {lessonFlows.map(flow => (
+                <div
+                  key={flow.id}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    flow.is_active
+                      ? 'border-purple-600 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h5 className="font-semibold text-gray-900">{flow.title}</h5>
+                        {flow.is_active && (
+                          <span className="px-2 py-0.5 bg-purple-600 text-white text-xs font-medium rounded-full">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      {flow.description && (
+                        <p className="text-sm text-gray-600 mb-2">{flow.description}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          {flow.total_activities} activities
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 ml-4">
+                      {flow.is_active ? (
+                        <button
+                          onClick={() => handleStopFlow(flow.id)}
+                          className="px-3 py-1.5 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+                        >
+                          Stop
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleStartFlow(flow.id)}
+                          className="px-3 py-1.5 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 transition-colors"
+                        >
+                          Start
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete "${flow.title}"? This cannot be undone.`)) {
+                            handleDeleteFlow(flow.id)
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 text-sm rounded hover:bg-red-100 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Generated Content Preview */}
         {generatedContent && (
@@ -2503,6 +2679,19 @@ function ActivitiesTab({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Lesson Flow Builder Modal */}
+      {showLessonFlowBuilder && session && (
+        <LessonFlowBuilder
+          sessionId={session.id}
+          onClose={() => setShowLessonFlowBuilder(false)}
+          onSaved={(flow) => {
+            // Reload lesson flows to show the new one
+            loadLessonFlows()
+            setShowLessonFlowBuilder(false)
+          }}
+        />
       )}
     </div>
   )
