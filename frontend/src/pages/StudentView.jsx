@@ -9,6 +9,8 @@ import CreateAccountBanner from '../components/CreateAccountBanner'
 import ConfusionButton from '../components/ConfusionButton'
 import InteractiveVideoPlayer from '../components/InteractiveVideoPlayer'
 import SentenceOrderingActivity from '../components/SentenceOrderingActivity'
+import MatchingActivity from '../components/MatchingActivity'
+import LivePoll from '../components/LivePoll'
 import Leaderboard from '../components/Leaderboard'
 
 export default function StudentView() {
@@ -873,6 +875,27 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
     return (
       <SentenceOrderingActivity
         activity={activity}
+        onSubmit={onSubmit}
+      />
+    )
+  }
+
+  if (activity.type === 'matching') {
+    return (
+      <MatchingActivity
+        activity={activity}
+        onSubmit={onSubmit}
+      />
+    )
+  }
+
+  if (activity.type === 'poll') {
+    return (
+      <LivePoll
+        activity={activity}
+        viewMode="student"
+        sessionId={sessionId}
+        studentId={studentId}
         onSubmit={onSubmit}
       />
     )

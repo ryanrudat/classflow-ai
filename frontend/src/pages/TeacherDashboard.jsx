@@ -21,6 +21,8 @@ import DiscussionPromptsEditor from '../components/DiscussionPromptsEditor'
 import ConfirmDialog from '../components/ConfirmDialog'
 import InteractiveVideoEditor from '../components/InteractiveVideoEditor'
 import SentenceOrderingEditor from '../components/SentenceOrderingEditor'
+import MatchingEditor from '../components/MatchingEditor'
+import PollEditor from '../components/PollEditor'
 import Leaderboard from '../components/Leaderboard'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
@@ -466,6 +468,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const [showSlideGenerator, setShowSlideGenerator] = useState(false)
   const [showVideoEditor, setShowVideoEditor] = useState(false)
   const [showSentenceOrderingEditor, setShowSentenceOrderingEditor] = useState(false)
+  const [showMatchingEditor, setShowMatchingEditor] = useState(false)
+  const [showPollEditor, setShowPollEditor] = useState(false)
   const [helpHistory, setHelpHistory] = useState([])
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
@@ -825,7 +829,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         slideData.topic,
         slideData.gradeLevel,
         slideData.difficulty,
-        slideData.slideCount
+        slideData.slideCount,
+        slideData.includeQuizzes,
+        slideData.presentationStyle
       )
 
       // Navigate to the slide editor
@@ -996,6 +1002,8 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               handleSelectPreviousActivity={handleSelectPreviousActivity}
               setShowVideoEditor={setShowVideoEditor}
               setShowSentenceOrderingEditor={setShowSentenceOrderingEditor}
+              setShowMatchingEditor={setShowMatchingEditor}
+              setShowPollEditor={setShowPollEditor}
             />
           )}
 
@@ -1047,6 +1055,36 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               loadSessionActivities(session.id, selectedInstance.id)
             }
             setShowSentenceOrderingEditor(false)
+          }}
+        />
+      )}
+
+      {/* Matching Editor */}
+      {showMatchingEditor && session && (
+        <MatchingEditor
+          sessionId={session.id}
+          onClose={() => setShowMatchingEditor(false)}
+          onSaved={(activity) => {
+            // Reload activities to show the new matching activity
+            if (selectedInstance) {
+              loadSessionActivities(session.id, selectedInstance.id)
+            }
+            setShowMatchingEditor(false)
+          }}
+        />
+      )}
+
+      {/* Poll Editor */}
+      {showPollEditor && session && (
+        <PollEditor
+          sessionId={session.id}
+          onClose={() => setShowPollEditor(false)}
+          onSaved={(activity) => {
+            // Reload activities to show the new poll
+            if (selectedInstance) {
+              loadSessionActivities(session.id, selectedInstance.id)
+            }
+            setShowPollEditor(false)
           }}
         />
       )}
@@ -1521,6 +1559,12 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                     return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                   case 'interactive_video':
                     return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                  case 'sentence_ordering':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" /></svg>
+                  case 'matching':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M14 3v6h6" /></svg>
+                  case 'poll':
+                    return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                   default:
                     return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 }
@@ -1592,15 +1636,15 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         </div>
       )}
 
-      {/* Leaderboard - TEMPORARILY DISABLED */}
-      {/* {selectedInstance && (
+      {/* Leaderboard */}
+      {selectedInstance && (
         <Leaderboard
           sessionId={session.id}
           instanceId={selectedInstance.id}
           viewMode="teacher"
           maxEntries={10}
         />
-      )} */}
+      )}
 
       {/* Student Detail Modal */}
       {selectedStudentDetail && (
@@ -1701,7 +1745,7 @@ function ActivitiesTab({
   prompt, setPrompt, type, setType, difficulty, setDifficulty, error, setError,
   sessionActivities, setSessionActivities, loadingActivities,
   handleGenerate, handlePush, handleGenerateFromContent, handleSelectPreviousActivity,
-  setShowVideoEditor, setShowSentenceOrderingEditor
+  setShowVideoEditor, setShowSentenceOrderingEditor, setShowMatchingEditor, setShowPollEditor
 }) {
   const { notifySuccess, notifyError } = useNotifications()
   const [generateModal, setGenerateModal] = useState(null)
@@ -1943,6 +1987,29 @@ function ActivitiesTab({
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           Create Sentence Ordering
+        </button>
+
+        {/* Matching Activity Button */}
+        <button
+          onClick={() => setShowMatchingEditor(true)}
+          className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 mt-3"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v6h6" />
+          </svg>
+          Create Drag & Drop Matching
+        </button>
+
+        {/* Live Poll Button */}
+        <button
+          onClick={() => setShowPollEditor(true)}
+          className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 mt-3"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Create Live Poll
         </button>
 
         {/* Generated Content Preview */}
@@ -2620,10 +2687,12 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
   const [gradeLevel, setGradeLevel] = useState('9th-10th')
   const [difficulty, setDifficulty] = useState('medium')
   const [slideCount, setSlideCount] = useState(10)
+  const [includeQuizzes, setIncludeQuizzes] = useState(true)
+  const [presentationStyle, setPresentationStyle] = useState('professional')
 
   function handleSubmit(e) {
     e.preventDefault()
-    onGenerate({ topic, gradeLevel, difficulty, slideCount })
+    onGenerate({ topic, gradeLevel, difficulty, slideCount, includeQuizzes, presentationStyle })
   }
 
   return (
@@ -2683,6 +2752,24 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              Presentation Style
+            </label>
+            <select
+              value={presentationStyle}
+              onChange={(e) => setPresentationStyle(e.target.value)}
+              className="input-field"
+              disabled={loading}
+            >
+              <option value="minimal">Minimal - Clean and simple</option>
+              <option value="professional">Professional - Corporate and polished</option>
+              <option value="creative">Creative - Vibrant and engaging</option>
+              <option value="academic">Academic - Traditional and scholarly</option>
+              <option value="modern">Modern - Bold and contemporary</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Number of Slides: {slideCount}
             </label>
             <input
@@ -2698,6 +2785,20 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
               <span>5 slides</span>
               <span>15 slides</span>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <input
+              type="checkbox"
+              id="includeQuizzes"
+              checked={includeQuizzes}
+              onChange={(e) => setIncludeQuizzes(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              disabled={loading}
+            />
+            <label htmlFor="includeQuizzes" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Include quiz questions in slides
+            </label>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

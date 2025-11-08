@@ -39,6 +39,8 @@ import libraryRoutes from './routes/library.js'
 import documentRoutes from './routes/documents.js'
 import videoRoutes from './routes/videos.js'
 import interactiveVideoRoutes from './routes/interactiveVideo.js'
+import matchingRoutes from './routes/matching.js'
+import pollRoutes from './routes/poll.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -178,6 +180,8 @@ app.use('/api/library', libraryRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/videos', videoRoutes)
 app.use('/api', interactiveVideoRoutes)
+app.use('/api', matchingRoutes)
+app.use('/api', pollRoutes)
 
 // Setup WebSocket
 setIO(io)
