@@ -67,10 +67,14 @@ export default function Leaderboard({
 
   // Initial load
   useEffect(() => {
-    if (sessionId && instanceId) {
+    // Only fetch if we have the required IDs and a valid token
+    if (sessionId && instanceId && token) {
       fetchLeaderboard()
+    } else if (!token) {
+      // If no token (guest student), just show empty state
+      setLoading(false)
     }
-  }, [sessionId, instanceId, fetchLeaderboard])
+  }, [sessionId, instanceId, token, fetchLeaderboard])
 
   // Real-time updates via WebSocket
   useEffect(() => {
@@ -126,6 +130,11 @@ export default function Leaderboard({
     if (rank === 2) return 'text-gray-500'
     if (rank === 3) return 'text-amber-700'
     return 'text-gray-400'
+  }
+
+  // Don't show if no token (guest students)
+  if (!token) {
+    return null
   }
 
   // Don't show while loading if no data yet (avoid "loitering" empty leaderboard)
