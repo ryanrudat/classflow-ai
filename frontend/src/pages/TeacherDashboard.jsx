@@ -1854,7 +1854,7 @@ function ActivitiesTab({
 
     try {
       setLoadingFlows(true)
-      const token = localStorage.getItem('token')
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/sessions/${session.id}/lesson-flows`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -1873,7 +1873,7 @@ function ActivitiesTab({
 
   const handleStartFlow = async (flowId) => {
     try {
-      const token = localStorage.getItem('token')
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
       await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/start`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1894,7 +1894,7 @@ function ActivitiesTab({
 
   const handleStopFlow = async (flowId) => {
     try {
-      const token = localStorage.getItem('token')
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
       await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/stop`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -1915,7 +1915,7 @@ function ActivitiesTab({
 
   const handleDeleteFlow = async (flowId) => {
     try {
-      const token = localStorage.getItem('token')
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
       await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
