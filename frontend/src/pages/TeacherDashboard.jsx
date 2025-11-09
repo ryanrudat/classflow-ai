@@ -497,7 +497,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview', badge: students.length },
+    { id: 'overview', label: 'Overview', badge: students.filter(s => s.connected !== false).length },
     { id: 'present', label: 'Present' },
     { id: 'activities', label: 'Activities', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
     { id: 'analytics', label: 'Analytics' }
@@ -863,7 +863,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                 </span>
               </div>
               <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                {students.length} {students.length === 1 ? 'Student' : 'Students'}
+                {students.filter(s => s.connected !== false).length} Online
               </div>
               <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded font-mono text-sm font-bold">
                 {session.join_code}
