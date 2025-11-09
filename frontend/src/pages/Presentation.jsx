@@ -54,15 +54,10 @@ export default function Presentation() {
     try {
       const result = await slidesAPI.getDeck(deckId)
 
-      // Restructure the data properly
+      // Convert camelCase to snake_case for session_id
       const deckData = {
-        id: result.deck.id,
-        session_id: result.deck.sessionId, // Convert camelCase to snake_case
-        title: result.deck.title,
-        gradeLevel: result.deck.gradeLevel,
-        difficulty: result.deck.difficulty,
-        totalSlides: result.deck.totalSlides,
-        slides: result.slides
+        ...result,
+        session_id: result.sessionId
       }
 
       setDeck(deckData)
@@ -242,7 +237,7 @@ export default function Presentation() {
             {/* Slide body */}
             {currentSlide.body && (
               <div
-                className="prose prose-xl max-w-none mb-8 flex-1"
+                className="max-w-none mb-8 flex-1"
                 dangerouslySetInnerHTML={{ __html: currentSlide.body }}
               />
             )}

@@ -69,10 +69,8 @@ export default function ProjectorView() {
       const result = await slidesAPI.getDeck(deckId)
 
       const deckData = {
-        id: result.deck.id,
-        session_id: result.deck.sessionId,
-        title: result.deck.title,
-        slides: result.slides
+        ...result,
+        session_id: result.sessionId
       }
 
       setDeck(deckData)
@@ -118,7 +116,7 @@ export default function ProjectorView() {
           {/* Slide body */}
           {currentSlide.body && (
             <div
-              className="prose prose-2xl max-w-none mb-10 flex-1"
+              className="max-w-none mb-10 flex-1"
               dangerouslySetInnerHTML={{ __html: currentSlide.body }}
             />
           )}

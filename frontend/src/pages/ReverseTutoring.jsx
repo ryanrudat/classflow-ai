@@ -258,6 +258,20 @@ export default function ReverseTutoring() {
    */
   const startRecording = async () => {
     try {
+      // Check if browser supports getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error('Not Supported', 'Your browser does not support microphone access. Please use Chrome, Firefox, or Edge.')
+        setInputMode('text')
+        return
+      }
+
+      // Check if page is served over HTTPS (required for getUserMedia)
+      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        toast.error('HTTPS Required', 'Microphone access requires a secure connection (HTTPS).')
+        setInputMode('text')
+        return
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
 
       mediaRecorder.current = new MediaRecorder(stream, {
@@ -285,7 +299,18 @@ export default function ReverseTutoring() {
 
     } catch (error) {
       console.error('Microphone error:', error)
-      toast.error('Microphone Error', 'Could not access microphone. Try typing instead.')
+
+      // Provide specific error messages
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Permission Denied', 'Please allow microphone access in your browser settings and refresh the page.')
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No Microphone Found', 'No microphone detected. Please connect a microphone and try again.')
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        toast.error('Microphone In Use', 'Your microphone is being used by another application. Please close other apps and try again.')
+      } else {
+        toast.error('Microphone Error', `Could not access microphone: ${error.message}. Try typing instead.`)
+      }
+
       setInputMode('text')
     }
   }
@@ -810,12 +835,17 @@ export default function ReverseTutoring() {
                       )}
                     </div>
 
-                    <p className="text-sm text-gray-700 mt-16 flex items-center gap-2" aria-live="polite">
+                    <p className="text-sm text-gray-700 mt-16 flex items-center gap-2 text-center" aria-live="polite">
                       {isRecording && (
                         <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
                       )}
-                      {isRecording ? 'Recording... Release to stop' : 'Press and hold to speak'}
+                      {isRecording ? 'Recording... Release to stop' : 'Press and HOLD to speak (don\'t just click)'}
                     </p>
+                    {!isRecording && (
+                      <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
+                        Tip: Press and hold the button while you speak, then release when done. Make sure your browser has microphone permission.
+                      </p>
+                    )}
                   </div>
                 )}
 

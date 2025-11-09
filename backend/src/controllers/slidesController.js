@@ -13,7 +13,9 @@ export async function generateDeck(req, res) {
       topic,
       gradeLevel = '9th-10th',
       difficulty = 'medium',
-      slideCount = 10
+      slideCount = 10,
+      includeQuizzes = true,
+      presentationStyle = 'professional'
     } = req.body
 
     const teacherId = req.user.userId
@@ -47,10 +49,15 @@ export async function generateDeck(req, res) {
       subject: session.subject,
       gradeLevel,
       difficulty,
-      slideCount
+      slideCount,
+      includeQuizzes,
+      presentationStyle
     })
 
     const generationTime = Date.now() - startTime
+
+    console.log('📚 Generated deck with', slides.length, 'slides')
+    console.log('🎯 Deck title:', deck.title)
 
     // Save deck to database
     const deckResult = await db.query(
@@ -84,6 +91,8 @@ export async function generateDeck(req, res) {
     })
 
     const savedSlides = await Promise.all(slideInserts)
+
+    console.log('💾 Saved', savedSlides.length, 'slides to database')
 
     // Log analytics
     await db.query(
@@ -159,16 +168,14 @@ export async function getDeck(req, res) {
     )
 
     res.json({
-      deck: {
-        id: deck.id,
-        sessionId: deck.session_id,
-        title: deck.title,
-        gradeLevel: deck.grade_level,
-        difficulty: deck.difficulty,
-        totalSlides: deck.total_slides,
-        createdAt: deck.created_at,
-        updatedAt: deck.updated_at
-      },
+      id: deck.id,
+      sessionId: deck.session_id,
+      title: deck.title,
+      gradeLevel: deck.grade_level,
+      difficulty: deck.difficulty,
+      totalSlides: deck.total_slides,
+      createdAt: deck.created_at,
+      updatedAt: deck.updated_at,
       slides: slidesResult.rows.map(slide => ({
         id: slide.id,
         slideNumber: parseFloat(slide.slide_number),

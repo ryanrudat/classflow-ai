@@ -183,13 +183,15 @@ export const analyticsAPI = {
 // Slides API
 export const slidesAPI = {
   // Generate a new slide deck with AI
-  generate: async (sessionId, topic, gradeLevel, difficulty, slideCount) => {
+  generate: async (sessionId, topic, gradeLevel, difficulty, slideCount, includeQuizzes = true, presentationStyle = 'professional') => {
     const response = await api.post('/slides/generate', {
       sessionId,
       topic,
       gradeLevel,
       difficulty,
-      slideCount
+      slideCount,
+      includeQuizzes,
+      presentationStyle
     })
     return response.data
   },

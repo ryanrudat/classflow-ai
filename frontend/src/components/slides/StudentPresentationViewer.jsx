@@ -273,7 +273,7 @@ export default function StudentPresentationViewer({ deck, sessionId, studentId, 
           {/* Slide body */}
           {currentSlide.body && (
             <div
-              className="prose prose-lg max-w-none mb-6 flex-1"
+              className="max-w-none mb-6 flex-1"
               dangerouslySetInnerHTML={{ __html: currentSlide.body }}
             />
           )}

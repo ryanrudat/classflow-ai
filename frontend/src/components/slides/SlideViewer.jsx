@@ -11,6 +11,9 @@ export default function SlideViewer({ deck, initialSlideNumber = 1, studentId })
   const [mode, setMode] = useState('student') // 'teacher', 'student', 'bounded'
   const [checkpoints, setCheckpoints] = useState([])
   const [slideStartTime, setSlideStartTime] = useState(Date.now())
+  const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   const { on, off, emit } = useSocket()
 
@@ -61,11 +64,14 @@ export default function SlideViewer({ deck, initialSlideNumber = 1, studentId })
     }
   }, [deck, on, off])
 
-  // Track slide start
+  // Track slide start and reset quiz state
   useEffect(() => {
     if (!currentSlide || !studentId) return
 
     setSlideStartTime(Date.now())
+    setSelectedAnswer(null)
+    setHasSubmitted(false)
+    setShowFeedback(false)
 
     // Emit slide-started event
     emit('slide-started', {
@@ -117,6 +123,22 @@ export default function SlideViewer({ deck, initialSlideNumber = 1, studentId })
         slideId: deck.slides[prevNumber - 1]?.id
       })
     }
+  }
+
+  const handleSubmitAnswer = () => {
+    if (selectedAnswer === null || hasSubmitted) return
+
+    setHasSubmitted(true)
+    setShowFeedback(true)
+
+    // Emit answer to teacher
+    emit('question-answered', {
+      slideId: currentSlide.id,
+      studentId,
+      answer: selectedAnswer,
+      correct: selectedAnswer === currentSlide.question.correct,
+      questionText: currentSlide.question.text
+    })
   }
 
   if (!deck || !currentSlide) {
@@ -184,7 +206,7 @@ export default function SlideViewer({ deck, initialSlideNumber = 1, studentId })
           {/* Slide Body */}
           {currentSlide.body && (
             <div
-              className="prose prose-lg max-w-none mb-6 flex-1"
+              className="max-w-none mb-6 flex-1"
               dangerouslySetInnerHTML={{ __html: currentSlide.body }}
             />
           )}
@@ -217,24 +239,66 @@ export default function SlideViewer({ deck, initialSlideNumber = 1, studentId })
               </h3>
 
               {currentSlide.question.type === 'multiple_choice' && (
-                <div className="space-y-2">
-                  {currentSlide.question.options.map((option, index) => (
-                    <label
-                      key={index}
-                      className="flex items-center p-3 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-400 cursor-pointer transition-colors"
+                <>
+                  <div className="space-y-2 mb-4">
+                    {currentSlide.question.options.map((option, index) => {
+                      const isCorrect = index === currentSlide.question.correct
+                      const isSelected = selectedAnswer === index
+                      const showCorrectness = showFeedback
+
+                      return (
+                        <label
+                          key={index}
+                          className={`flex items-center p-3 border-2 rounded-lg transition-all cursor-pointer ${
+                            !hasSubmitted ? 'bg-white border-gray-200 hover:border-blue-400' :
+                            showCorrectness && isCorrect ? 'bg-green-100 border-green-500' :
+                            showCorrectness && isSelected && !isCorrect ? 'bg-red-100 border-red-500' :
+                            'bg-white border-gray-200'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="question"
+                            value={index}
+                            checked={selectedAnswer === index}
+                            onChange={() => !hasSubmitted && setSelectedAnswer(index)}
+                            disabled={hasSubmitted}
+                            className="mr-3 w-4 h-4"
+                          />
+                          <span className="text-gray-900 flex-1">
+                            {String.fromCharCode(65 + index)}. {option}
+                          </span>
+                          {showCorrectness && isCorrect && (
+                            <span className="ml-2 text-green-600 font-bold">✓ Correct</span>
+                          )}
+                          {showCorrectness && isSelected && !isCorrect && (
+                            <span className="ml-2 text-red-600 font-bold">✗ Incorrect</span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+
+                  {!hasSubmitted ? (
+                    <button
+                      onClick={handleSubmitAnswer}
+                      disabled={selectedAnswer === null}
+                      className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      <input
-                        type="radio"
-                        name="question"
-                        value={index}
-                        className="mr-3 w-4 h-4"
-                      />
-                      <span className="text-gray-900">
-                        {String.fromCharCode(65 + index)}. {option}
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                      Submit Answer
+                    </button>
+                  ) : (
+                    <div className={`p-4 rounded-lg text-center font-medium ${
+                      selectedAnswer === currentSlide.question.correct
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedAnswer === currentSlide.question.correct
+                        ? '🎉 Correct! Great job!'
+                        : '❌ Not quite right. Review the correct answer above.'}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

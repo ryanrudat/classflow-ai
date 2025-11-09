@@ -101,6 +101,9 @@ export default function SlideEditor() {
   const [imageSelected, setImageSelected] = useState(false)
   const [showCropMode, setShowCropMode] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
+  const [showSidebar, setShowSidebar] = useState(true)
+  const [sidebarWidth, setSidebarWidth] = useState(256) // Default 256px (w-64)
+  const [isResizing, setIsResizing] = useState(false)
 
   // Current slide
   const currentSlide = deck?.slides?.[currentSlideIndex]
@@ -120,6 +123,30 @@ export default function SlideEditor() {
     loadDeck()
   }, [deckId])
 
+  // Handle sidebar resize
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isResizing) {
+        const newWidth = Math.max(200, Math.min(500, e.clientX))
+        setSidebarWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing])
+
   // Auto-save when slide changes (debounced)
   useEffect(() => {
     if (debouncedSlide && deck) {
@@ -130,6 +157,9 @@ export default function SlideEditor() {
   const loadDeck = async () => {
     try {
       const result = await slidesAPI.getDeck(deckId)
+      console.log('📊 Loaded deck:', result)
+      console.log('📄 Number of slides:', result?.slides?.length)
+      console.log('📋 Slides:', result?.slides)
       setDeck(result)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load deck')
@@ -340,10 +370,27 @@ export default function SlideEditor() {
     )
   }
 
+  if (!deck.slides || deck.slides.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⚠️</div>
+          <p className="text-gray-600 mb-2">No slides found in this deck</p>
+          <p className="text-sm text-gray-500">Deck ID: {deckId}</p>
+          {error && <p className="text-red-600 mt-2">{error}</p>}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Slide thumbnails sidebar with drag-and-drop */}
-      <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto flex flex-col">
+      {showSidebar && (
+        <aside
+          className="bg-white border-r border-gray-200 overflow-y-auto flex flex-col relative"
+          style={{ width: `${sidebarWidth}px`, minWidth: '200px', maxWidth: '500px' }}
+        >
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-bold text-lg text-gray-900">Slides</h2>
           <p className="text-sm text-gray-600">{deck.slides.length} slides</p>
@@ -383,15 +430,41 @@ export default function SlideEditor() {
             New Blank Slide
           </button>
         </div>
+
+        {/* Resize handle */}
+        <div
+          className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 hover:w-1.5 transition-all"
+          onMouseDown={() => setIsResizing(true)}
+          title="Drag to resize sidebar"
+        >
+          <div className="absolute inset-y-0 -right-1 w-3" /> {/* Wider hit area */}
+        </div>
       </aside>
+      )}
 
       {/* Main editor */}
       <main className="flex-1 flex flex-col">
         {/* Top toolbar */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{deck.title}</h1>
+            <div className="flex items-center gap-3">
+              {/* Sidebar toggle button */}
+              <button
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {showSidebar ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  )}
+                </svg>
+              </button>
+
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{deck.title}</h1>
               <div className="flex items-center gap-3 text-sm text-gray-600">
                 <span>Slide {currentSlideIndex + 1} of {deck.slides.length}</span>
                 <span className="text-gray-400">•</span>
@@ -419,6 +492,7 @@ export default function SlideEditor() {
                   )}
                   {saveStatus === 'error' && 'Save failed'}
                 </span>
+              </div>
               </div>
             </div>
 

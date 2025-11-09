@@ -120,6 +120,22 @@ export default function SlideEditorCanvas() {
   const loadDeck = async () => {
     try {
       const result = await slidesAPI.getDeck(deckId)
+
+      // Check if this deck has HTML-based slides (not canvas elements)
+      // If slides have 'body' content (HTML), they should use the HTML editor instead
+      const hasHtmlContent = result?.slides?.some(slide => slide.body && slide.body.trim().length > 0)
+
+      if (hasHtmlContent) {
+        console.log('⚠️ This deck uses HTML slides, redirecting to HTML editor...')
+        console.log('First slide body:', result.slides[0].body?.substring(0, 100))
+
+        // Use setTimeout to ensure navigation happens after render
+        setTimeout(() => {
+          navigate(`/slides/edit/${deckId}`, { replace: true })
+        }, 0)
+        return
+      }
+
       setDeck(result)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load deck')
@@ -387,6 +403,32 @@ export default function SlideEditorCanvas() {
         <div className="text-center">
           <div className="text-6xl mb-4">📚</div>
           <p className="text-gray-600">Loading deck...</p>
+          <p className="text-sm text-gray-500 mt-2">Checking slide format...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Additional check: if deck has HTML slides, show switch button
+  const hasHtmlContent = deck.slides?.some(slide => slide.body && slide.body.trim().length > 0)
+  if (hasHtmlContent) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-lg mx-auto p-8">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Wrong Editor Type</h2>
+          <p className="text-gray-700 mb-6">
+            This deck contains AI-generated HTML slides and should be edited in the HTML Editor, not the Canvas Editor.
+          </p>
+          <button
+            onClick={() => navigate(`/slides/edit/${deckId}`, { replace: true })}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+          >
+            Switch to HTML Editor →
+          </button>
+          <p className="text-sm text-gray-500 mt-4">
+            The HTML Editor is designed for editing AI-generated slides with styled content.
+          </p>
         </div>
       </div>
     )
