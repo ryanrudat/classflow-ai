@@ -27,7 +27,9 @@ export default function LivePoll({ activity, viewMode = 'student', sessionId, st
   useEffect(() => {
     async function loadResults() {
       try {
-        const token = viewMode === 'teacher' ? localStorage.getItem('token') : localStorage.getItem('studentToken')
+        const token = viewMode === 'teacher'
+          ? JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+          : localStorage.getItem('studentToken')
         const response = await axios.get(
           `${API_URL}/api/activities/${activity.id}/poll/results`,
           {

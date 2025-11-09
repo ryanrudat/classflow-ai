@@ -14,7 +14,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  */
 export default function MatchingEditor({ sessionId, onClose, onSaved }) {
   const { notifySuccess, notifyError } = useNotifications()
-  const token = localStorage.getItem('token')
+  const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
   const [mode, setMode] = useState('pairs') // 'pairs' or 'categories'
   const [title, setTitle] = useState('')

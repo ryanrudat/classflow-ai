@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  */
 export default function SentenceOrderingEditor({ sessionId, onClose, onSaved }) {
   const toast = useToast()
-  const token = localStorage.getItem('token')
+  const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
   const [step, setStep] = useState('create') // 'create', 'preview'
   const [generating, setGenerating] = useState(false)

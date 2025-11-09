@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  */
 export default function PollEditor({ sessionId, onClose, onSaved }) {
   const { notifySuccess, notifyError } = useNotifications()
-  const token = localStorage.getItem('token')
+  const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
   const [question, setQuestion] = useState('')
   const [description, setDescription] = useState('')

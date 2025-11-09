@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  */
 export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) {
   const toast = useToast()
-  const token = localStorage.getItem('token')
+  const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
   const videoRef = useRef(null)
   const fileInputRef = useRef(null)
 
