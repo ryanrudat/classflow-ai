@@ -85,7 +85,7 @@ export async function transcribeStudentSpeech(audioBuffer, language = 'en', less
  *
  * @param {string} sessionId - Current session ID
  * @param {string} studentId - Student instance ID
- * @param {object} lessonInfo - { topic, subject, gradeLevel, keyVocabulary, languageProficiency, nativeLanguage }
+ * @param {object} lessonInfo - { topic, subject, gradeLevel, keyVocabulary, languageProficiency, nativeLanguage, languageComplexity, responseLength }
  * @returns {object} Conversation starter from AI
  */
 export async function startReverseTutoringConversation(sessionId, studentId, lessonInfo) {
@@ -95,23 +95,37 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
     gradeLevel = '7th grade',
     keyVocabulary = [],
     languageProficiency = 'intermediate',
-    nativeLanguage = 'en'
+    nativeLanguage = 'en',
+    languageComplexity = 'standard',
+    responseLength = 'medium'
   } = lessonInfo
 
   try {
-    // Language complexity guidance based on proficiency
-    const languageGuidance = {
-      beginner: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
-      intermediate: 'Use clear, everyday vocabulary. Keep sentences moderate length (10-15 words). Occasionally use academic words but keep them simple. Use common phrases.',
-      advanced: 'Use grade-appropriate academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and sophisticated language.'
+    // Language complexity guidance based on teacher settings
+    const complexityGuidance = {
+      simple: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
+      standard: 'Use clear, grade-appropriate vocabulary. Keep sentences moderate length (10-15 words). Use common academic words that match the grade level.',
+      advanced: 'Use sophisticated academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and advanced language structures.'
+    }
+
+    // Response length guidance
+    const lengthGuidance = {
+      short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
+      medium: 'Keep your responses concise - 2 to 3 sentences.',
+      long: 'You can give more detailed responses - 3 to 4 sentences with examples or follow-up questions.'
     }
 
     // Create initial AI student persona with strict guardrails
     const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
 
-LANGUAGE LEVEL ADAPTATION:
+LANGUAGE COMPLEXITY SETTINGS:
+${complexityGuidance[languageComplexity]}
+
+RESPONSE LENGTH:
+${lengthGuidance[responseLength]}
+
+ELL STUDENT SUPPORT:
 The student is an English language learner at ${languageProficiency} proficiency level.
-${languageGuidance[languageProficiency]}
 ${nativeLanguage !== 'en' ? `The student's first language is not English. Be patient with grammar errors and focus on their ideas, not their English mistakes.` : ''}
 
 STRICT TOPIC BOUNDARIES:
@@ -142,7 +156,7 @@ CRITICAL RULES:
 - Your job is to ASK questions, not ANSWER them (unless concluding)
 - Let the student be the teacher
 - If they use a key vocabulary word correctly, acknowledge it briefly
-- Keep responses SHORT (2-3 sentences max)
+- Follow the response length guidance above
 - Stay 100% focused on ${topic}
 - Look for natural conclusion points when understanding is demonstrated
 
@@ -235,9 +249,17 @@ export async function continueConversation(conversationId, studentMessage, metad
   } = metadata
 
   try {
-    // Get conversation history
+    // Get conversation history and topic settings
     const conversationResult = await db.query(
-      `SELECT * FROM reverse_tutoring_conversations WHERE id = $1`,
+      `SELECT rtc.*,
+              COALESCE(rtt.language_complexity, 'standard') as language_complexity,
+              COALESCE(rtt.response_length, 'medium') as response_length
+       FROM reverse_tutoring_conversations rtc
+       LEFT JOIN reverse_tutoring_topics rtt
+         ON rtc.session_id = rtt.session_id
+         AND rtc.topic = rtt.topic
+         AND rtt.is_active = true
+       WHERE rtc.id = $1`,
       [conversationId]
     )
 
@@ -272,22 +294,36 @@ export async function continueConversation(conversationId, studentMessage, metad
       content: studentMessage
     })
 
-    // Language complexity guidance based on proficiency
-    const languageGuidance = {
-      beginner: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
-      intermediate: 'Use clear, everyday vocabulary. Keep sentences moderate length (10-15 words). Occasionally use academic words but keep them simple. Use common phrases.',
-      advanced: 'Use grade-appropriate academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and sophisticated language.'
+    // Language complexity guidance based on teacher settings
+    const complexityGuidance = {
+      simple: 'Use very simple vocabulary (elementary school level). Use short sentences (5-10 words). Avoid idioms and complex grammar. Speak like you would to a young student.',
+      standard: 'Use clear, grade-appropriate vocabulary. Keep sentences moderate length (10-15 words). Use common academic words that match the grade level.',
+      advanced: 'Use sophisticated academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and advanced language structures.'
+    }
+
+    // Response length guidance
+    const lengthGuidance = {
+      short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
+      medium: 'Keep your responses concise - 2 to 3 sentences.',
+      long: 'You can give more detailed responses - 3 to 4 sentences with examples or follow-up questions.'
     }
 
     const proficiency = conversation.language_proficiency || 'intermediate'
     const native = conversation.native_language || 'en'
+    const languageComplexity = conversation.language_complexity || 'standard'
+    const responseLength = conversation.response_length || 'medium'
 
     // Create system prompt with multilingual support if needed
     const systemPrompt = `You are Alex, a curious ${conversation.grade_level} student learning about ${conversation.topic} in ${conversation.subject} class.
 
-LANGUAGE LEVEL ADAPTATION:
+LANGUAGE COMPLEXITY SETTINGS:
+${complexityGuidance[languageComplexity]}
+
+RESPONSE LENGTH:
+${lengthGuidance[responseLength]}
+
+ELL STUDENT SUPPORT:
 The student is an English language learner at ${proficiency} proficiency level.
-${languageGuidance[proficiency]}
 ${native !== 'en' ? `The student's first language is not English. Be patient with grammar errors and focus on their ideas, not their English mistakes.` : ''}
 
 STRICT TOPIC BOUNDARIES:
@@ -339,7 +375,7 @@ CRITICAL RULES:
 - Your job is to ASK questions, not ANSWER them (unless concluding)
 - Let the student be the teacher
 - If they use a key vocabulary word correctly, acknowledge it briefly
-- Keep responses SHORT (2-3 sentences max)
+- Follow the response length guidance above
 - Stay 100% focused on ${conversation.topic}
 - After 8 messages, start wrapping up if understanding is demonstrated
 - After 10 messages, CONCLUDE the conversation gracefully

@@ -27,6 +27,8 @@ export default function ReverseTutoringDashboard() {
     subject: 'Science',
     gradeLevel: '7th grade',
     keyVocabulary: '',
+    languageComplexity: 'standard', // 'simple', 'standard', 'advanced'
+    responseLength: 'medium', // 'short', 'medium', 'long'
     assignedStudentIds: []
   })
   const [sessionStudents, setSessionStudents] = useState([])
@@ -111,6 +113,8 @@ export default function ReverseTutoringDashboard() {
         subject: topicForm.subject,
         gradeLevel: topicForm.gradeLevel,
         keyVocabulary,
+        languageComplexity: topicForm.languageComplexity,
+        responseLength: topicForm.responseLength,
         assignedStudentIds: topicForm.assignedStudentIds
       }
 
@@ -140,6 +144,8 @@ export default function ReverseTutoringDashboard() {
         subject: 'Science',
         gradeLevel: '7th grade',
         keyVocabulary: '',
+        languageComplexity: 'standard',
+        responseLength: 'medium',
         assignedStudentIds: []
       })
       loadTopics()
@@ -188,6 +194,8 @@ export default function ReverseTutoringDashboard() {
       subject: topic.subject,
       gradeLevel: topic.gradeLevel,
       keyVocabulary: topic.keyVocabulary.join(', '),
+      languageComplexity: topic.languageComplexity || 'standard',
+      responseLength: topic.responseLength || 'medium',
       assignedStudentIds: topic.assignedStudentIds
     })
     setShowTopicForm(true)
@@ -489,6 +497,73 @@ export default function ReverseTutoringDashboard() {
                         <p className="text-xs text-gray-500 mt-1">
                           The AI will listen for these terms and acknowledge when students use them correctly
                         </p>
+                      </div>
+
+                      {/* AI Response Settings */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Alex AI Response Settings
+                        </h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Language Complexity */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Language Complexity
+                            </label>
+                            <select
+                              value={topicForm.languageComplexity}
+                              onChange={(e) => setTopicForm({ ...topicForm, languageComplexity: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                              <option value="simple">Simple - Basic vocabulary & short sentences</option>
+                              <option value="standard">Standard - Grade-appropriate language</option>
+                              <option value="advanced">Advanced - Complex vocabulary & concepts</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Adjust Alex's language to match student reading level
+                            </p>
+                          </div>
+
+                          {/* Response Length */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Response Length
+                            </label>
+                            <select
+                              value={topicForm.responseLength}
+                              onChange={(e) => setTopicForm({ ...topicForm, responseLength: e.target.value })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            >
+                              <option value="short">Short - 1-2 sentences</option>
+                              <option value="medium">Medium - 2-3 sentences</option>
+                              <option value="long">Long - 3-4 sentences with details</option>
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Control how verbose Alex's feedback is
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-purple-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div className="text-xs text-purple-800">
+                              <p className="font-medium mb-1">These settings help differentiate instruction:</p>
+                              <ul className="list-disc list-inside space-y-0.5 ml-1">
+                                <li><strong>Simple</strong>: Great for ELL students or struggling readers</li>
+                                <li><strong>Standard</strong>: Appropriate for most grade-level students</li>
+                                <li><strong>Advanced</strong>: For gifted students or advanced topics</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Assign to Students */}

@@ -125,6 +125,20 @@ export async function startConversation(req, res) {
       })
     }
 
+    // Fetch topic settings for language complexity and response length
+    console.log('📚 Fetching topic settings for:', topic)
+    const topicSettings = await db.query(
+      `SELECT language_complexity, response_length
+       FROM reverse_tutoring_topics
+       WHERE session_id = $1 AND topic = $2 AND is_active = true
+       LIMIT 1`,
+      [sessionId, topic]
+    )
+
+    const languageComplexity = topicSettings.rows.length > 0 ? topicSettings.rows[0].language_complexity : 'standard'
+    const responseLength = topicSettings.rows.length > 0 ? topicSettings.rows[0].response_length : 'medium'
+
+    console.log('⚙️  Topic settings:', { languageComplexity, responseLength })
     console.log('🤖 Calling Claude API to start conversation...')
 
     // Start the conversation
@@ -137,7 +151,9 @@ export async function startConversation(req, res) {
         gradeLevel,
         keyVocabulary,
         languageProficiency,
-        nativeLanguage
+        nativeLanguage,
+        languageComplexity,
+        responseLength
       }
     )
 
