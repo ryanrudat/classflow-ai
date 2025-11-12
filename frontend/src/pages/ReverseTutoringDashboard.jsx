@@ -304,10 +304,23 @@ export default function ReverseTutoringDashboard() {
   })
 
   /**
+   * Check if a student is currently active (last updated within 2 minutes)
+   */
+  const isStudentActive = (lastUpdated) => {
+    if (!lastUpdated) return false
+    const lastUpdateTime = new Date(lastUpdated).getTime()
+    const now = new Date().getTime()
+    const twoMinutesAgo = now - (2 * 60 * 1000)
+    return lastUpdateTime > twoMinutesAgo
+  }
+
+  /**
    * Calculate stats
    */
   const stats = {
     total: conversations.length,
+    uniqueStudents: new Set(conversations.map(c => c.studentId)).size,
+    activeNow: conversations.filter(c => isStudentActive(c.lastUpdated)).length,
     mastery: conversations.filter(c => c.status === 'mastery').length,
     progressing: conversations.filter(c => c.status === 'progressing').length,
     struggling: conversations.filter(c => c.status === 'struggling').length,
@@ -678,10 +691,17 @@ export default function ReverseTutoringDashboard() {
         {activeTab === 'conversations' && (
           <div>
             {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            <div className="text-sm text-gray-600">Total Students</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.uniqueStudents}</div>
+            <div className="text-sm text-gray-600">Unique Students</div>
+          </div>
+          <div className="bg-indigo-50 rounded-lg shadow p-4 border-2 border-indigo-200">
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold text-indigo-600">{stats.activeNow}</div>
+              <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            </div>
+            <div className="text-sm text-gray-600">Active Now</div>
           </div>
           <div className="bg-green-50 rounded-lg shadow p-4">
             <div className="text-2xl font-bold text-green-600">{stats.mastery}</div>
@@ -750,9 +770,17 @@ export default function ReverseTutoringDashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {conv.studentName}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {conv.studentName}
+                          </h3>
+                          {isStudentActive(conv.lastUpdated) && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded-full">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-xs font-medium text-green-700">Online</span>
+                            </div>
+                          )}
+                        </div>
                         {getStatusBadge(conv.status, conv.understandingLevel)}
                       </div>
 
