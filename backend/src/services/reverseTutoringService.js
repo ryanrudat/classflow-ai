@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import db from '../database/db.js'
 
 // Hard limit to prevent excessive API usage
-const MAX_MESSAGES = 20 // ~10 exchanges (must match frontend constant)
+const MAX_MESSAGES = 15 // ~7-8 exchanges (must match frontend constant)
 
 // Initialize Claude (always required)
 const claude = new Anthropic({
@@ -319,14 +319,14 @@ ${messages.length >= 8 ? `
 - DON'T ask another question if they've adequately explained the main concepts
 - It's okay to end the conversation when they've taught you well
 ` : ''}
-${messages.length >= 12 ? `
+${messages.length >= 10 ? `
 🛑 CRITICAL: This conversation has gone on long enough (${messages.length} messages).
 - The student has been teaching for a while - they deserve closure
 - Express understanding and gratitude, then STOP asking questions
 - Conclude with: "I really get it now! You're a great teacher. Thank you so much for explaining [topic] to me!"
 - DO NOT ask another question - let the conversation end naturally
 ` : ''}
-${messages.length >= 16 ? `
+${messages.length >= 12 ? `
 🚨 URGENT: Approaching maximum message limit (${MAX_MESSAGES} messages)!
 - You MUST conclude this conversation NOW
 - Express gratitude and understanding immediately
@@ -341,8 +341,8 @@ CRITICAL RULES:
 - If they use a key vocabulary word correctly, acknowledge it briefly
 - Keep responses SHORT (2-3 sentences max)
 - Stay 100% focused on ${conversation.topic}
-- After 8-10 exchanges, start wrapping up if understanding is demonstrated
-- After 12+ exchanges, CONCLUDE the conversation gracefully
+- After 8 messages, start wrapping up if understanding is demonstrated
+- After 10 messages, CONCLUDE the conversation gracefully
 - HARD SYSTEM LIMIT: Conversation will be automatically terminated at ${MAX_MESSAGES} messages
 
 Continue the conversation based on what the student just said.`

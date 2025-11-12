@@ -6,7 +6,7 @@ import axios from 'axios'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 // Hard limit to prevent excessive API usage
-const MAX_MESSAGES = 20 // ~10 exchanges (each exchange = student message + AI response)
+const MAX_MESSAGES = 15 // ~7-8 exchanges (each exchange = student message + AI response)
 
 /**
  * Reverse Tutoring - Student teaches the AI
