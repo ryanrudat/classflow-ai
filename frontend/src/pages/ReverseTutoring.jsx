@@ -851,15 +851,26 @@ export default function ReverseTutoring() {
                   </div>
                 )}
 
-                {/* Fallback to typing option */}
+                {/* Fallback to typing option - Only available after using voice */}
                 {!currentTranscript && !isTranscribing && !isRecording && (
                   <div className="text-center mt-4">
                     <button
-                      onClick={() => setShowTextFallback(true)}
-                      className="text-sm text-gray-600 hover:text-purple-600 underline focus:outline-none focus:ring-2 focus:ring-purple-500 rounded px-2 py-1"
+                      onClick={() => hasUsedVoice && setShowTextFallback(true)}
+                      disabled={!hasUsedVoice}
+                      className={`text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        hasUsedVoice
+                          ? 'text-gray-600 hover:text-purple-600 underline cursor-pointer'
+                          : 'text-gray-400 cursor-not-allowed'
+                      }`}
+                      title={hasUsedVoice ? 'Switch to typing' : 'You must speak first before you can type'}
                     >
                       Can't use voice? Type instead
                     </button>
+                    {!hasUsedVoice && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        You must record your voice at least once before typing
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -880,22 +891,42 @@ export default function ReverseTutoring() {
                     ← Back to voice
                   </button>
                 </div>
+                {!hasUsedVoice && (
+                  <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-3 flex items-start gap-3">
+                    <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-yellow-900">
+                        You must speak first!
+                      </p>
+                      <p className="text-xs text-yellow-800 mt-1">
+                        Please go back to voice mode and record yourself speaking before you can type.
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <textarea
                   id="text-input"
                   ref={textInputRef}
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Type your explanation here... (Enter to send)"
-                  className="w-full border-2 border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-gray-900"
+                  placeholder={hasUsedVoice ? "Type your explanation here... (Enter to send)" : "You must speak first before typing"}
+                  disabled={!hasUsedVoice}
+                  className={`w-full border-2 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none ${
+                    hasUsedVoice
+                      ? 'border-gray-300 text-gray-900 bg-white'
+                      : 'border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
+                  }`}
                   rows={4}
                   aria-label="Type your explanation here"
-                  autoFocus
+                  autoFocus={hasUsedVoice}
                 />
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => sendMessage(textInput)}
-                    disabled={isSending || !textInput.trim()}
+                    disabled={isSending || !textInput.trim() || !hasUsedVoice}
                     className="flex-1 min-h-[44px] bg-blue-700 text-white px-6 py-3 rounded-lg hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                     aria-label="Send your message"
                     type="button"
