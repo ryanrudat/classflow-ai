@@ -37,7 +37,8 @@ export default function ReverseTutoring() {
 
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
-  const [inputMode, setInputMode] = useState('voice') // 'voice' or 'text'
+  const [hasUsedVoice, setHasUsedVoice] = useState(false) // Track if student has tried voice
+  const [showTextFallback, setShowTextFallback] = useState(false) // Show type option if voice fails
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isSending, setIsSending] = useState(false)
@@ -300,22 +301,24 @@ export default function ReverseTutoring() {
 
       mediaRecorder.current.start()
       setIsRecording(true)
+      setHasUsedVoice(true)
 
     } catch (error) {
       console.error('Microphone error:', error)
 
       // Provide specific error messages
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        toast.error('Permission Denied', 'Please allow microphone access in your browser settings and refresh the page.')
+        toast.error('Permission Denied', 'Please allow microphone access in your browser settings. You can type instead.')
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        toast.error('No Microphone Found', 'No microphone detected. Please connect a microphone and try again.')
+        toast.error('No Microphone Found', 'No microphone detected. You can type instead.')
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        toast.error('Microphone In Use', 'Your microphone is being used by another application. Please close other apps and try again.')
+        toast.error('Microphone In Use', 'Your microphone is being used by another application. You can type instead.')
       } else {
-        toast.error('Microphone Error', `Could not access microphone: ${error.message}. Try typing instead.`)
+        toast.error('Microphone Error', `Could not access microphone: ${error.message}. You can type instead.`)
       }
 
-      setInputMode('text')
+      // Show text fallback option
+      setShowTextFallback(true)
     }
   }
 
@@ -384,6 +387,7 @@ export default function ReverseTutoring() {
     setMessages(prev => [...prev, newMessage])
     setCurrentTranscript('')
     setTextInput('')
+    setShowTextFallback(false) // Return to voice mode after sending
     setIsSending(true)
 
     try {
@@ -447,7 +451,7 @@ export default function ReverseTutoring() {
    */
   const useSentenceStarter = (starter) => {
     setTextInput(starter + ' ')
-    setInputMode('text')
+    setShowTextFallback(true)
     setShowScaffolding(false)
   }
 
@@ -704,46 +708,8 @@ export default function ReverseTutoring() {
               </div>
             )}
 
-            {/* Mode Toggle */}
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <button
-                onClick={() => setInputMode('voice')}
-                disabled={messageCount >= MAX_MESSAGES}
-                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
-                  messageCount >= MAX_MESSAGES
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : inputMode === 'voice'
-                    ? 'bg-purple-700 text-white'
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
-                aria-label="Use voice input mode"
-                aria-pressed={inputMode === 'voice'}
-                type="button"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span>Speak</span>
-              </button>
-              <button
-                onClick={() => setInputMode('text')}
-                disabled={messageCount >= MAX_MESSAGES}
-                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
-                  messageCount >= MAX_MESSAGES
-                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    : inputMode === 'text'
-                    ? 'bg-purple-700 text-white'
-                    : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                }`}
-                aria-label="Use text input mode"
-                aria-pressed={inputMode === 'text'}
-                type="button"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                <span>Type</span>
-              </button>
+            {/* Need Help Button - centered above input */}
+            <div className="flex items-center justify-center mb-4">
               <button
                 onClick={requestHelp}
                 disabled={messageCount >= MAX_MESSAGES}
@@ -762,8 +728,8 @@ export default function ReverseTutoring() {
               </button>
             </div>
 
-            {/* Voice Input */}
-            {inputMode === 'voice' && messageCount < MAX_MESSAGES && (
+            {/* Voice Input - Always primary */}
+            {!showTextFallback && messageCount < MAX_MESSAGES && (
               <div className="space-y-3">
                 {/* Transcribed Text (editable) */}
                 {currentTranscript && (
@@ -866,23 +832,47 @@ export default function ReverseTutoring() {
                     <p className="text-sm text-gray-600 mt-3">Transcribing your speech...</p>
                   </div>
                 )}
+
+                {/* Fallback to typing option */}
+                {!currentTranscript && !isTranscribing && !isRecording && (
+                  <div className="text-center mt-4">
+                    <button
+                      onClick={() => setShowTextFallback(true)}
+                      className="text-sm text-gray-600 hover:text-purple-600 underline focus:outline-none focus:ring-2 focus:ring-purple-500 rounded px-2 py-1"
+                    >
+                      Can't use voice? Type instead
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Text Input */}
-            {inputMode === 'text' && messageCount < MAX_MESSAGES && (
+            {/* Text Input - Only shown if voice fails or student chooses */}
+            {showTextFallback && messageCount < MAX_MESSAGES && (
               <div>
-                <label htmlFor="text-input" className="sr-only">Type your explanation</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="text-input" className="text-sm font-medium text-gray-700">Type your explanation</label>
+                  <button
+                    onClick={() => {
+                      setShowTextFallback(false)
+                      setTextInput('')
+                    }}
+                    className="text-sm text-purple-600 hover:text-purple-700 underline focus:outline-none focus:ring-2 focus:ring-purple-500 rounded px-2 py-1"
+                  >
+                    ← Back to voice
+                  </button>
+                </div>
                 <textarea
                   id="text-input"
                   ref={textInputRef}
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Type your explanation here... (Cmd/Ctrl + Enter to send)"
+                  placeholder="Type your explanation here... (Enter to send)"
                   className="w-full border-2 border-gray-300 rounded-lg p-4 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none text-gray-900"
                   rows={4}
                   aria-label="Type your explanation here"
+                  autoFocus
                 />
                 <div className="flex gap-2 mt-2">
                   <button
