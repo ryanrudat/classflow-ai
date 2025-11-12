@@ -520,6 +520,12 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
 
+  // Inline editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [isEditingSubject, setIsEditingSubject] = useState(false)
+  const [editedTitle, setEditedTitle] = useState('')
+  const [editedSubject, setEditedSubject] = useState('')
+
   const { joinSession, pushActivity, on, off, isConnected, removeStudent, emit } = useSocket()
 
   // Tab configuration
@@ -887,6 +893,45 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     } finally {
       setGeneratingSlides(false)
     }
+  }
+
+  // Inline editing functions
+  async function updateSessionDetails(field, value) {
+    if (!session) return
+
+    try {
+      const updateData = { [field]: value }
+      const response = await api.put(`/api/sessions/${session.id}`, updateData)
+
+      // Trigger parent to reload sessions
+      if (onUpdate) {
+        onUpdate()
+      }
+
+      notifySuccess('Session updated successfully')
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Failed to update session')
+    } finally {
+      setIsEditingTitle(false)
+      setIsEditingSubject(false)
+    }
+  }
+
+  function startEditingTitle() {
+    setEditedTitle(session.title)
+    setIsEditingTitle(true)
+  }
+
+  function startEditingSubject() {
+    setEditedSubject(session.subject || '')
+    setIsEditingSubject(true)
+  }
+
+  function cancelEdit() {
+    setIsEditingTitle(false)
+    setIsEditingSubject(false)
+    setEditedTitle('')
+    setEditedSubject('')
   }
 
   return (
