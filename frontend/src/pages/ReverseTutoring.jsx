@@ -693,6 +693,21 @@ export default function ReverseTutoring() {
 
           {/* Input Area */}
           <div className="border-t border-gray-200 p-4">
+            {/* Wrap-up warning at message 12 */}
+            {messageCount >= 12 && messageCount < MAX_MESSAGES && (
+              <div className="mb-4 bg-orange-50 border-2 border-orange-200 rounded-lg p-4 animate-fade-in">
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-orange-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <div className="font-semibold text-orange-800 mb-1">Time to Wrap Up!</div>
+                    <div className="text-orange-700 text-sm">The conversation is ending soon. Try to finish explaining the main concepts to Alex.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Conversation limit warning */}
             {messageCount >= MAX_MESSAGES && (
               <div className="mb-4 bg-green-50 border-2 border-green-200 rounded-lg p-4">
