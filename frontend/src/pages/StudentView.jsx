@@ -2,13 +2,11 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
-import { useStudentAuthStore } from '../stores/studentAuthStore'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
-import CreateAccountBanner from '../components/CreateAccountBanner'
 import ConfusionButton from '../components/ConfusionButton'
 import InteractiveVideoPlayer from '../components/InteractiveVideoPlayer'
 import SentenceOrderingActivity from '../components/SentenceOrderingActivity'
@@ -20,7 +18,6 @@ import LessonFlowView from '../components/LessonFlowView'
 export default function StudentView() {
   const { joinCode } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated } = useStudentAuthStore()
   const [step, setStep] = useState('join') // 'join', 'active'
   const [session, setSession] = useState(null)
   const [student, setStudent] = useState(null)
@@ -66,8 +63,9 @@ export default function StudentView() {
       setStudent(data.student)
       setStep('active')
 
-      // Store in localStorage so they don't lose it on refresh
-      localStorage.setItem('student_session', JSON.stringify({
+      // Store in sessionStorage (cleared when tab closes) - NOT localStorage
+      // This ensures students must re-enter the code if they close the tab
+      sessionStorage.setItem('student_session', JSON.stringify({
         session: data.session,
         student: data.student
       }))
@@ -79,9 +77,9 @@ export default function StudentView() {
     }
   }
 
-  // Try to restore session from localStorage
+  // Try to restore session from sessionStorage (only persists within same tab/window)
   useEffect(() => {
-    const stored = localStorage.getItem('student_session')
+    const stored = sessionStorage.getItem('student_session')
     if (stored) {
       try {
         const data = JSON.parse(stored)
@@ -89,8 +87,35 @@ export default function StudentView() {
         setStudent(data.student)
         setStep('active')
       } catch (e) {
-        localStorage.removeItem('student_session')
+        sessionStorage.removeItem('student_session')
       }
+    }
+  }, [])
+
+  // Clear session data when page is closed or navigated away
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear session data from sessionStorage
+      sessionStorage.removeItem('student_session')
+
+      // Also clear any persisted auth if student is in guest/temp mode
+      // (Don't clear if they have a real account - only clear session-specific data)
+    }
+
+    const handleUnload = () => {
+      sessionStorage.removeItem('student_session')
+    }
+
+    // Listen for page close/refresh
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('unload', handleUnload)
+
+    // Cleanup listeners on component unmount
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('unload', handleUnload)
+      // Also clear when component unmounts (navigation away)
+      sessionStorage.removeItem('student_session')
     }
   }, [])
 
@@ -167,7 +192,7 @@ export default function StudentView() {
     // Listen for force disconnect (when teacher removes student)
     const handleForceDisconnect = ({ message }) => {
       alert(message || 'You have been removed from the session')
-      localStorage.removeItem('student_session')
+      sessionStorage.removeItem('student_session')
       setStep('join')
       setSession(null)
       setStudent(null)
@@ -328,9 +353,6 @@ export default function StudentView() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Create Account Banner - Only show for anonymous students */}
-      {!isAuthenticated() && <CreateAccountBanner sessionId={session?.id} />}
-
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
@@ -339,7 +361,7 @@ export default function StudentView() {
           </div>
           <button
             onClick={() => {
-              localStorage.removeItem('student_session')
+              sessionStorage.removeItem('student_session')
               setStep('join')
               setSession(null)
               setStudent(null)

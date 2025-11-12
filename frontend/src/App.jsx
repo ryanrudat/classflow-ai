@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
-import { useStudentAuthStore } from './stores/studentAuthStore'
 import { ToastProvider } from './components/Toast'
 
 // Pages
@@ -13,15 +12,12 @@ import SlideEditorCanvas from './pages/SlideEditorCanvas'
 import Presentation from './pages/Presentation'
 import ProjectorView from './pages/ProjectorView'
 import StudentMonitoringDashboard from './pages/StudentMonitoringDashboard'
-import StudentAuth from './pages/StudentAuth'
-import StudentDashboard from './pages/StudentDashboard'
 import ReverseTutoring from './pages/ReverseTutoring'
 import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
 import LibraryBrowser from './pages/LibraryBrowser'
 
 function App() {
   const { user } = useAuthStore()
-  const { student } = useStudentAuthStore()
 
   return (
     <ToastProvider>
@@ -32,14 +28,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Student routes */}
-            <Route path="/student/auth" element={<StudentAuth />} />
-            <Route
-              path="/student/dashboard"
-              element={student ? <StudentDashboard /> : <Navigate to="/student/auth" />}
-            />
-
-            {/* Public student join routes */}
+            {/* Student join routes - No login required, only join code */}
             <Route path="/join" element={<StudentView />} />
             <Route path="/join/:joinCode" element={<StudentView />} />
 

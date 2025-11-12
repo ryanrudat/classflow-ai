@@ -5,6 +5,9 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
+// Hard limit to prevent excessive API usage
+const MAX_MESSAGES = 20 // ~10 exchanges (each exchange = student message + AI response)
+
 /**
  * Reverse Tutoring - Student teaches the AI
  *
@@ -14,6 +17,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  * - Multilingual support
  * - Scaffolding and hints
  * - Accessible and engaging UI
+ * - Hard limit on conversation length to control API costs
  */
 export default function ReverseTutoring() {
   const { sessionId } = useParams()
@@ -362,6 +366,12 @@ export default function ReverseTutoring() {
       return
     }
 
+    // Check if conversation has reached the limit
+    if (messageCount >= MAX_MESSAGES) {
+      toast.error('Conversation Complete', 'You\'ve reached the maximum number of messages for this conversation. Great job teaching!')
+      return
+    }
+
     const message = messageText.trim()
 
     // Add student message to UI immediately
@@ -397,11 +407,6 @@ export default function ReverseTutoring() {
       // Update metrics
       setUnderstanding(response.data.analysis.understandingLevel)
       setMessageCount(response.data.messageCount)
-
-      // Show encouragement if doing well
-      if (response.data.analysis.understandingLevel >= 80) {
-        toast.success('Great explanation!', 'You really understand this topic!')
-      }
 
     } catch (error) {
       console.error('Send message error:', error)
@@ -597,26 +602,6 @@ export default function ReverseTutoring() {
               </svg>
             </button>
           </div>
-
-          {/* Progress */}
-          {understanding > 0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm mb-2">
-                <span className="text-gray-600">Understanding Level</span>
-                <span className="font-semibold text-purple-600">{understanding}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className={`h-full transition-all duration-500 ${
-                    understanding >= 80 ? 'bg-green-500' :
-                    understanding >= 60 ? 'bg-blue-500' :
-                    understanding >= 40 ? 'bg-yellow-500' : 'bg-orange-500'
-                  }`}
-                  style={{ width: `${understanding}%` }}
-                />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -629,7 +614,6 @@ export default function ReverseTutoring() {
           {isSending && 'Sending your message to Alex...'}
           {isRecording && 'Recording your voice...'}
           {isTranscribing && 'Transcribing your speech...'}
-          {understanding > 0 && messages.length > 0 && `Your understanding level is ${understanding}%`}
         </div>
 
         <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
@@ -705,12 +689,30 @@ export default function ReverseTutoring() {
 
           {/* Input Area */}
           <div className="border-t border-gray-200 p-4">
+            {/* Conversation limit warning */}
+            {messageCount >= MAX_MESSAGES && (
+              <div className="mb-4 bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-6 h-6 text-green-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <div className="font-semibold text-green-800 mb-1">Conversation Complete!</div>
+                    <div className="text-green-700 text-sm">You've finished teaching Alex about {selectedTopic?.topic}. Great work! Your teacher can review your conversation.</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Mode Toggle */}
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={() => setInputMode('voice')}
+                disabled={messageCount >= MAX_MESSAGES}
                 className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
-                  inputMode === 'voice'
+                  messageCount >= MAX_MESSAGES
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : inputMode === 'voice'
                     ? 'bg-purple-700 text-white'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
@@ -725,8 +727,11 @@ export default function ReverseTutoring() {
               </button>
               <button
                 onClick={() => setInputMode('text')}
+                disabled={messageCount >= MAX_MESSAGES}
                 className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 flex items-center gap-2 ${
-                  inputMode === 'text'
+                  messageCount >= MAX_MESSAGES
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : inputMode === 'text'
                     ? 'bg-purple-700 text-white'
                     : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                 }`}
@@ -741,7 +746,12 @@ export default function ReverseTutoring() {
               </button>
               <button
                 onClick={requestHelp}
-                className="min-h-[44px] px-6 py-2 rounded-lg font-medium bg-yellow-100 text-yellow-900 hover:bg-yellow-200 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 flex items-center gap-2"
+                disabled={messageCount >= MAX_MESSAGES}
+                className={`min-h-[44px] px-6 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 flex items-center gap-2 ${
+                  messageCount >= MAX_MESSAGES
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    : 'bg-yellow-100 text-yellow-900 hover:bg-yellow-200'
+                }`}
                 aria-label="Request help and hints"
                 type="button"
               >
@@ -753,7 +763,7 @@ export default function ReverseTutoring() {
             </div>
 
             {/* Voice Input */}
-            {inputMode === 'voice' && (
+            {inputMode === 'voice' && messageCount < MAX_MESSAGES && (
               <div className="space-y-3">
                 {/* Transcribed Text (editable) */}
                 {currentTranscript && (
@@ -860,7 +870,7 @@ export default function ReverseTutoring() {
             )}
 
             {/* Text Input */}
-            {inputMode === 'text' && (
+            {inputMode === 'text' && messageCount < MAX_MESSAGES && (
               <div>
                 <label htmlFor="text-input" className="sr-only">Type your explanation</label>
                 <textarea
@@ -918,10 +928,11 @@ export default function ReverseTutoring() {
           aria-labelledby="scaffolding-title"
         >
           <div
-            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6"
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            {/* Fixed Header */}
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-gray-200 flex-shrink-0">
               <h2 id="scaffolding-title" className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -941,9 +952,11 @@ export default function ReverseTutoring() {
               </button>
             </div>
 
-            {/* Sentence Starters */}
-            {scaffolding.sentenceStarters && (
-              <div className="mb-6">
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto p-6 pt-4 flex-1">
+              {/* Sentence Starters */}
+              {scaffolding.sentenceStarters && (
+                <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Try starting with one of these:</h3>
                 <div className="space-y-2">
                   {scaffolding.sentenceStarters.map((starter, index) => (
@@ -990,6 +1003,7 @@ export default function ReverseTutoring() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       )}

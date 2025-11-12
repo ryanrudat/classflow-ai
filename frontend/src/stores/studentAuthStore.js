@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import { studentAuthAPI } from '../services/api'
 
 export const useStudentAuthStore = create(
@@ -59,6 +59,9 @@ export const useStudentAuthStore = create(
     }),
     {
       name: 'student-auth-storage',
+      // Use sessionStorage instead of localStorage
+      // This ensures students are logged out when they close the tab
+      storage: createJSONStorage(() => sessionStorage),
     }
   )
 )

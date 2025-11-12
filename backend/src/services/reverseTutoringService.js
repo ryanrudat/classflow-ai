@@ -2,6 +2,9 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import db from '../database/db.js'
 
+// Hard limit to prevent excessive API usage
+const MAX_MESSAGES = 20 // ~10 exchanges (must match frontend constant)
+
 // Initialize Claude (always required)
 const claude = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
@@ -243,6 +246,12 @@ export async function continueConversation(conversationId, studentMessage, metad
     }
 
     const conversation = conversationResult.rows[0]
+
+    // HARD LIMIT: Check if conversation has reached maximum messages
+    if (conversation.message_count >= MAX_MESSAGES) {
+      throw new Error(`Conversation has reached the maximum limit of ${MAX_MESSAGES} messages. This helps control API costs.`)
+    }
+
     // Handle both string and object (PostgreSQL jsonb returns objects directly)
     const history = typeof conversation.conversation_history === 'string'
       ? JSON.parse(conversation.conversation_history)
@@ -302,7 +311,7 @@ ${language !== 'en' ? `Note: The student may mix English with their native langu
 
 ${helpNeeded ? `The student asked for help. Provide a gentle hint or sentence starter, but don't give away the answer.` : ''}
 
-CONVERSATION LENGTH: ${messages.length} messages so far.
+CONVERSATION LENGTH: ${messages.length} messages so far (HARD LIMIT: ${MAX_MESSAGES} messages maximum).
 ${messages.length >= 8 ? `
 ⚠️ IMPORTANT: The conversation is getting long. Start looking for a natural conclusion.
 - If the student has demonstrated solid understanding of the key concepts, express that you NOW UNDERSTAND and THANK them
@@ -317,6 +326,13 @@ ${messages.length >= 12 ? `
 - Conclude with: "I really get it now! You're a great teacher. Thank you so much for explaining [topic] to me!"
 - DO NOT ask another question - let the conversation end naturally
 ` : ''}
+${messages.length >= 16 ? `
+🚨 URGENT: Approaching maximum message limit (${MAX_MESSAGES} messages)!
+- You MUST conclude this conversation NOW
+- Express gratitude and understanding immediately
+- Do NOT ask any more questions under any circumstances
+- This is a hard system limit to prevent excessive API costs
+` : ''}
 
 CRITICAL RULES:
 - Never lecture or explain concepts yourself
@@ -327,6 +343,7 @@ CRITICAL RULES:
 - Stay 100% focused on ${conversation.topic}
 - After 8-10 exchanges, start wrapping up if understanding is demonstrated
 - After 12+ exchanges, CONCLUDE the conversation gracefully
+- HARD SYSTEM LIMIT: Conversation will be automatically terminated at ${MAX_MESSAGES} messages
 
 Continue the conversation based on what the student just said.`
 
