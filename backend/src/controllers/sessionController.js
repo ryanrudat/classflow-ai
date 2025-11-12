@@ -87,6 +87,80 @@ export async function createSession(req, res) {
 }
 
 /**
+ * Update session details (title and/or subject)
+ * PUT /api/sessions/:id
+ * Body: { title?, subject? }
+ * Protected: Teacher only
+ */
+export async function updateSession(req, res) {
+  try {
+    const { id } = req.params
+    const { title, subject } = req.body
+    const teacherId = req.user.userId
+
+    // Check session exists and belongs to teacher
+    const checkResult = await db.query(
+      'SELECT * FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [id, teacherId]
+    )
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    // Validate subject if provided
+    if (subject) {
+      const validSubjects = ['English', 'History', 'Social Studies', 'Government', 'Biology']
+      if (!validSubjects.includes(subject)) {
+        return res.status(400).json({
+          message: `Subject must be one of: ${validSubjects.join(', ')}`
+        })
+      }
+    }
+
+    // Build update query dynamically
+    const updates = []
+    const values = []
+    let paramCount = 1
+
+    if (title !== undefined) {
+      if (!title || title.trim().length === 0) {
+        return res.status(400).json({ message: 'Title cannot be empty' })
+      }
+      updates.push(`title = $${paramCount}`)
+      values.push(title.trim())
+      paramCount++
+    }
+
+    if (subject !== undefined) {
+      updates.push(`subject = $${paramCount}`)
+      values.push(subject)
+      paramCount++
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No fields to update' })
+    }
+
+    // Add session ID and execute update
+    values.push(id)
+    const result = await db.query(
+      `UPDATE sessions SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+      values
+    )
+
+    res.json({
+      session: result.rows[0],
+      message: 'Session updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Update session error:', error)
+    res.status(500).json({ message: 'Failed to update session' })
+  }
+}
+
+/**
  * Get session details
  * GET /api/sessions/:id
  * Protected: Teacher only

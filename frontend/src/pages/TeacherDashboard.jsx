@@ -53,6 +53,12 @@ export default function TeacherDashboard() {
   const [reactivateInstances, setReactivateInstances] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
 
+  // Session editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [isEditingSubject, setIsEditingSubject] = useState(false)
+  const [editedTitle, setEditedTitle] = useState('')
+  const [editedSubject, setEditedSubject] = useState('')
+
   // Load sessions on mount
   useEffect(() => {
     loadSessions()
@@ -164,6 +170,44 @@ export default function TeacherDashboard() {
     } catch (err) {
       notifyError('Failed to start new period. Please try again.')
     }
+  }
+
+  async function updateSessionDetails(field, value) {
+    if (!activeSession) return
+
+    try {
+      const updateData = { [field]: value }
+      const response = await api.put(`/api/sessions/${activeSession.id}`, updateData)
+
+      // Update local state
+      const updatedSession = response.data.session
+      setActiveSession(updatedSession)
+      setSessions(sessions.map(s => s.id === updatedSession.id ? updatedSession : s))
+
+      notifySuccess('Session updated successfully')
+    } catch (err) {
+      notifyError(err.response?.data?.message || 'Failed to update session')
+    } finally {
+      setIsEditingTitle(false)
+      setIsEditingSubject(false)
+    }
+  }
+
+  function startEditingTitle() {
+    setEditedTitle(activeSession.title)
+    setIsEditingTitle(true)
+  }
+
+  function startEditingSubject() {
+    setEditedSubject(activeSession.subject || '')
+    setIsEditingSubject(true)
+  }
+
+  function cancelEdit() {
+    setIsEditingTitle(false)
+    setIsEditingSubject(false)
+    setEditedTitle('')
+    setEditedSubject('')
   }
 
   async function deleteSession(sessionId) {
@@ -851,10 +895,109 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       <div className="card bg-primary-50 border-primary-200 sticky top-0 z-10 shadow-md">
         <div className="flex justify-between items-center">
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{session.title}</h2>
-                <p className="text-sm text-gray-600">{session.subject}</p>
+            <div className="flex items-center gap-3 group">
+              <div className="flex-1">
+                {/* Editable Title */}
+                <div className="flex items-center gap-2 mb-1">
+                  {isEditingTitle ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') updateSessionDetails('title', editedTitle)
+                          if (e.key === 'Escape') cancelEdit()
+                        }}
+                        className="text-xl font-bold text-gray-900 border-2 border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => updateSessionDetails('title', editedTitle)}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        title="Save"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Cancel"
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <h2 className="text-xl font-bold text-gray-900">{session.title}</h2>
+                      <button
+                        onClick={startEditingTitle}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Edit title"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Editable Subject */}
+                <div className="flex items-center gap-2">
+                  {isEditingSubject ? (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={editedSubject}
+                        onChange={(e) => setEditedSubject(e.target.value)}
+                        className="text-sm text-gray-600 border-2 border-blue-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      >
+                        <option value="">Select subject...</option>
+                        <option value="English">English</option>
+                        <option value="History">History</option>
+                        <option value="Social Studies">Social Studies</option>
+                        <option value="Government">Government</option>
+                        <option value="Biology">Biology</option>
+                      </select>
+                      <button
+                        onClick={() => updateSessionDetails('subject', editedSubject)}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        title="Save"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        title="Cancel"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-600">{session.subject || 'No subject'}</p>
+                      <button
+                        onClick={startEditingSubject}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Edit subject"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />

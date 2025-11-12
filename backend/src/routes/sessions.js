@@ -1,6 +1,7 @@
 import express from 'express'
 import {
   createSession,
+  updateSession,
   getSession,
   getSessionStudents,
   endSession,
@@ -23,6 +24,7 @@ const router = express.Router()
 
 // Protected routes (teacher only)
 router.post('/', authenticateToken, createSession)
+router.put('/:id', authenticateToken, updateSession)
 router.get('/', authenticateToken, getTeacherSessions)
 router.get('/:id', authenticateToken, getSession)
 router.get('/:id/students', authenticateToken, getSessionStudents)
