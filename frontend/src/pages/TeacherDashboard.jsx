@@ -554,16 +554,16 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     setStudentResponses([])
     setPrompt('')
     setError('')
-  }, [session?.id])
+  }, [activeSession?.id])
 
   // Load ALL session activities when session changes (for Activities tab)
   useEffect(() => {
-    if (!session?.id) return
+    if (!activeSession?.id) return
 
     async function loadActivities() {
       try {
         setLoadingActivities(true)
-        const data = await sessionsAPI.getActivities(session.id)
+        const data = await sessionsAPI.getActivities(activeSession.id)
         console.log('📋 Frontend received activities:', {
           count: data.activities?.length || 0,
           types: data.activities?.map(a => a.type) || [],
@@ -578,15 +578,15 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     }
 
     loadActivities()
-  }, [session?.id])
+  }, [activeSession?.id])
 
   // Load PUSHED activities only (for Overview tab)
   useEffect(() => {
-    if (!session?.id) return
+    if (!activeSession?.id) return
 
     async function loadPushedActivities() {
       try {
-        const data = await sessionsAPI.getActivities(session.id, true)
+        const data = await sessionsAPI.getActivities(activeSession.id, true)
         setPushedActivities(data.activities || [])
       } catch (err) {
         console.error('Failed to load pushed activities:', err)
@@ -594,16 +594,16 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     }
 
     loadPushedActivities()
-  }, [session?.id])
+  }, [activeSession?.id])
 
   // Load slide decks for this session
   useEffect(() => {
-    if (!session?.id) return
+    if (!activeSession?.id) return
 
     async function loadSlides() {
       try {
         setLoadingSlides(true)
-        const data = await slidesAPI.getSessionDecks(session.id)
+        const data = await slidesAPI.getSessionDecks(activeSession.id)
         setSlideDecks(data.decks || [])
       } catch (err) {
         console.error('Failed to load slides:', err)
@@ -613,16 +613,16 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     }
 
     loadSlides()
-  }, [session?.id])
+  }, [activeSession?.id])
 
   // Load session analytics (filtered by selected instance)
   useEffect(() => {
-    if (!session?.id || !selectedInstance?.id) return
+    if (!activeSession?.id || !selectedInstance?.id) return
 
     async function loadAnalytics() {
       try {
         setLoadingAnalytics(true)
-        const data = await analyticsAPI.getSessionAnalytics(session.id, selectedInstance.id)
+        const data = await analyticsAPI.getSessionAnalytics(activeSession.id, selectedInstance.id)
         setAnalytics(data)
       } catch (err) {
         console.error('Failed to load analytics:', err)
@@ -632,15 +632,15 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     }
 
     loadAnalytics()
-  }, [session?.id, selectedInstance?.id])
+  }, [activeSession?.id, selectedInstance?.id])
 
   // Load session instances (reload when status changes, e.g., after reactivation)
   useEffect(() => {
-    if (!session?.id) return
+    if (!activeSession?.id) return
 
     async function loadInstances() {
       try {
-        const data = await sessionsAPI.getInstances(session.id)
+        const data = await sessionsAPI.getInstances(activeSession.id)
         setInstances(data.instances || [])
 
         // Select the current instance by default
@@ -656,7 +656,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     }
 
     loadInstances()
-  }, [session?.id, session?.status])
+  }, [activeSession?.id, activeSession?.status])
 
   // Function to load students for a specific instance
   async function loadInstanceStudents(instanceId) {
@@ -664,7 +664,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setLoadingInstance(true)
 
       // Load students from database - they persist even if WebSocket disconnects
-      const data = await sessionsAPI.getInstanceDetails(session.id, instanceId)
+      const data = await sessionsAPI.getInstanceDetails(activeSession.id, instanceId)
       setStudents(data.students.map(s => ({
         id: s.id,
         name: s.student_name,
@@ -682,9 +682,9 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
   // Join session as teacher and listen for events
   useEffect(() => {
-    if (!session) return
+    if (!activeSession) return
 
-    joinSession(session.id, 'teacher')
+    joinSession(activeSession.id, 'teacher')
 
     // Listen for students who are already online (sent when teacher joins)
     const handleStudentsOnline = ({ students: onlineStudents }) => {
@@ -782,10 +782,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setError('')
 
       const data = await aiAPI.generate({
-        sessionId: session.id,
+        sessionId: activeSession.id,
         prompt: prompt.trim(),
         type,
-        subject: session.subject,
+        subject: activeSession.subject,
         difficulty,
         length: type === 'reading' ? 500 : undefined,
         count: type === 'questions' || type === 'quiz' ? 5 : undefined
@@ -795,7 +795,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setPrompt('')
 
       // Reload activities to include the newly generated one
-      const activitiesData = await sessionsAPI.getActivities(session.id)
+      const activitiesData = await sessionsAPI.getActivities(activeSession.id)
       setSessionActivities(activitiesData.activities || [])
 
     } catch (err) {
@@ -811,10 +811,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     try {
       await activitiesAPI.push(generatedContent.id, 'all')
       // Also push via WebSocket for real-time delivery
-      pushActivity(session.id, generatedContent, 'all')
+      pushActivity(activeSession.id, generatedContent, 'all')
 
       // Reload pushed activities to show in Overview tab
-      const pushedData = await sessionsAPI.getActivities(session.id, true)
+      const pushedData = await sessionsAPI.getActivities(activeSession.id, true)
       setPushedActivities(pushedData.activities || [])
 
       notifyActivityPushed()
@@ -840,10 +840,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         : `${basePrompt}Generate a 5-question quiz about this content.`
 
       const data = await aiAPI.generate({
-        sessionId: session.id,
+        sessionId: activeSession.id,
         prompt: contextPrompt,
         type: contentType,
-        subject: session.subject,
+        subject: activeSession.subject,
         difficulty: difficulty,
         count: 5
       })
@@ -851,7 +851,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setGeneratedContent(data.activity)
 
       // Reload activities to include the newly generated one
-      const activitiesData = await sessionsAPI.getActivities(session.id)
+      const activitiesData = await sessionsAPI.getActivities(activeSession.id)
       setSessionActivities(activitiesData.activities || [])
 
     } catch (err) {
@@ -871,7 +871,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setError('')
 
       const result = await slidesAPI.generate(
-        session.id,
+        activeSession.id,
         slideData.topic,
         slideData.gradeLevel,
         slideData.difficulty,
@@ -933,7 +933,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                     </div>
                   ) : (
                     <>
-                      <h2 className="text-xl font-bold text-gray-900">{session.title}</h2>
+                      <h2 className="text-xl font-bold text-gray-900">{activeSession.title}</h2>
                       <button
                         onClick={startEditingTitle}
                         className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -985,7 +985,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-gray-600">{session.subject || 'No subject'}</p>
+                      <p className="text-sm text-gray-600">{activeSession.subject || 'No subject'}</p>
                       <button
                         onClick={startEditingSubject}
                         className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1009,13 +1009,13 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                 {students.filter(s => s.connected !== false).length} Online
               </div>
               <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded font-mono text-sm font-bold">
-                {session.join_code}
+                {activeSession.join_code}
               </div>
             </div>
           </div>
           <div className="flex gap-2">
             <button
-              onClick={() => navigate(`/reverse-tutoring/dashboard/${session.id}`)}
+              onClick={() => navigate(`/reverse-tutoring/dashboard/${activeSession.id}`)}
               className="px-4 py-2 bg-purple-500 text-white text-sm font-medium rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2 group relative"
               title="Create topics and monitor student conversations"
             >
@@ -1033,7 +1033,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                 </div>
               </div>
             </button>
-            {session.status === 'ended' ? (
+            {activeSession.status === 'ended' ? (
               <button
                 onClick={onReactivate}
                 className="px-4 py-2 text-green-600 hover:text-green-700 text-sm font-medium border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
@@ -1159,7 +1159,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
               analytics={analytics}
               loadingAnalytics={loadingAnalytics}
               selectedInstance={selectedInstance}
-              session={session}
+              session={activeSession}
               instances={instances}
             />
           )}
@@ -1172,19 +1172,19 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
           onClose={() => setShowSlideGenerator(false)}
           onGenerate={handleGenerateSlides}
           loading={generatingSlides}
-          subject={session.subject}
+          subject={activeSession.subject}
         />
       )}
 
       {/* Interactive Video Editor */}
-      {showVideoEditor && session && (
+      {showVideoEditor && activeSession && (
         <InteractiveVideoEditor
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onClose={() => setShowVideoEditor(false)}
           onSaved={(activity) => {
             // Reload activities to show the new video activity
             if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+              loadSessionActivities(activeSession.id, selectedInstance.id)
             }
             setShowVideoEditor(false)
           }}
@@ -1192,14 +1192,14 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       )}
 
       {/* Sentence Ordering Editor */}
-      {showSentenceOrderingEditor && session && (
+      {showSentenceOrderingEditor && activeSession && (
         <SentenceOrderingEditor
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onClose={() => setShowSentenceOrderingEditor(false)}
           onSaved={(activity) => {
             // Reload activities to show the new sentence ordering activity
             if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+              loadSessionActivities(activeSession.id, selectedInstance.id)
             }
             setShowSentenceOrderingEditor(false)
           }}
@@ -1207,14 +1207,14 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       )}
 
       {/* Matching Editor */}
-      {showMatchingEditor && session && (
+      {showMatchingEditor && activeSession && (
         <MatchingEditor
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onClose={() => setShowMatchingEditor(false)}
           onSaved={(activity) => {
             // Reload activities to show the new matching activity
             if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+              loadSessionActivities(activeSession.id, selectedInstance.id)
             }
             setShowMatchingEditor(false)
           }}
@@ -1222,14 +1222,14 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       )}
 
       {/* Poll Editor */}
-      {showPollEditor && session && (
+      {showPollEditor && activeSession && (
         <PollEditor
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onClose={() => setShowPollEditor(false)}
           onSaved={(activity) => {
             // Reload activities to show the new poll
             if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+              loadSessionActivities(activeSession.id, selectedInstance.id)
             }
             setShowPollEditor(false)
           }}
@@ -1283,7 +1283,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
   // Clear all confusion
   const handleClearConfusion = () => {
     setConfusedStudents([])
-    clearAllConfusion(session.id)
+    clearAllConfusion(activeSession.id)
   }
 
   // Shared handler for removing students from live monitoring
@@ -1298,7 +1298,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
 
   // Load completions for authenticated students
   useEffect(() => {
-    if (!students || students.length === 0 || !session?.id) return
+    if (!students || students.length === 0 || !activeSession?.id) return
 
     async function loadCompletions() {
       setLoadingCompletions(true)
@@ -1308,7 +1308,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         // Only load for students with account_id (authenticated students)
         if (student.account_id) {
           try {
-            const data = await completionAPI.getStudentCompletions(student.account_id, session.id)
+            const data = await completionAPI.getStudentCompletions(student.account_id, activeSession.id)
             completionsMap[student.id] = data.completions || []
           } catch (error) {
             console.error(`Failed to load completions for student ${student.id}:`, error)
@@ -1322,7 +1322,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
     }
 
     loadCompletions()
-  }, [students, session?.id])
+  }, [students, activeSession?.id])
 
   // Handle unlock activity
   const handleUnlock = async (reason) => {
@@ -1337,7 +1337,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       )
 
       // Reload completions for this student
-      const data = await completionAPI.getStudentCompletions(unlockModal.studentAccountId, session.id)
+      const data = await completionAPI.getStudentCompletions(unlockModal.studentAccountId, activeSession.id)
       setStudentCompletions(prev => ({
         ...prev,
         [unlockModal.studentId]: data.completions || []
@@ -1356,7 +1356,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
   return (
     <div className="space-y-6">
       {/* Join Code Card with QR Code */}
-      <SessionJoinCard session={session} />
+      <SessionJoinCard session={activeSession} />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
@@ -1374,7 +1374,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           <div className="text-sm text-gray-600">Connection Status</div>
         </div>
         <div className="bg-white p-4 rounded-lg border-2 border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{session.subject}</div>
+          <div className="text-2xl font-bold text-gray-900">{activeSession.subject}</div>
           <div className="text-sm text-gray-600">Subject</div>
         </div>
       </div>
@@ -1548,7 +1548,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
           <StudentListSkeleton count={3} />
         ) : students.length === 0 ? (
           <NoStudentsEmpty
-            joinCode={session.join_code}
+            joinCode={activeSession.join_code}
             isCurrent={selectedInstance?.is_current}
           />
         ) : (
@@ -1601,7 +1601,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
                             severity: 'warning',
                             onConfirm: () => {
                               setConfirmDialog(null)
-                              removeStudent(session.id, student.id)
+                              removeStudent(activeSession.id, student.id)
                               setStudents(prev => prev.filter(s => s.id !== student.id))
                             },
                             onCancel: () => setConfirmDialog(null)
@@ -1771,7 +1771,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
             Live Progress Monitoring
           </h3>
           <LiveMonitoring
-            sessionId={session.id}
+            sessionId={activeSession.id}
             activityId={activeMonitoringActivity.id}
             instanceId={selectedInstance?.id}
             allowedStudentIds={students.map(s => s.id)}
@@ -1786,7 +1786,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
       {/* Leaderboard */}
       {selectedInstance && (
         <Leaderboard
-          sessionId={session.id}
+          sessionId={activeSession.id}
           instanceId={selectedInstance.id}
           viewMode="teacher"
           maxEntries={10}
@@ -1915,7 +1915,7 @@ function ActivitiesTab({
     setGeneratedContent(newActivity)
     // Reload session activities
     try {
-      const activitiesData = await sessionsAPI.getActivities(session.id)
+      const activitiesData = await sessionsAPI.getActivities(activeSession.id)
       setSessionActivities(activitiesData.activities || [])
     } catch (err) {
       console.error('Failed to reload activities:', err)
@@ -1968,7 +1968,7 @@ function ActivitiesTab({
   const handleActivityEdited = async (updatedActivity) => {
     // Reload activities to get updated content
     try {
-      const activitiesData = await sessionsAPI.getActivities(session.id)
+      const activitiesData = await sessionsAPI.getActivities(activeSession.id)
       setSessionActivities(activitiesData.activities || [])
 
       // If this was the selected activity, update it
@@ -1993,12 +1993,12 @@ function ActivitiesTab({
 
   // Load lesson flows
   const loadLessonFlows = async () => {
-    if (!session?.id) return
+    if (!activeSession?.id) return
 
     try {
       setLoadingFlows(true)
       const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/sessions/${session.id}/lesson-flows`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/sessions/${activeSession.id}/lesson-flows`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
@@ -2491,12 +2491,12 @@ function ActivitiesTab({
       {/* Document Upload Section */}
       <div className="border-t pt-6">
         <DocumentUpload
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onActivityGenerated={async (activity) => {
             setGeneratedContent(activity)
             // Reload session activities from server to get the saved activity
             try {
-              const activitiesData = await sessionsAPI.getActivities(session.id)
+              const activitiesData = await sessionsAPI.getActivities(activeSession.id)
               setSessionActivities(activitiesData.activities || [])
             } catch (err) {
               console.error('Failed to reload activities:', err)
@@ -2825,9 +2825,9 @@ function ActivitiesTab({
       )}
 
       {/* Lesson Flow Builder Modal */}
-      {showLessonFlowBuilder && session && (
+      {showLessonFlowBuilder && activeSession && (
         <LessonFlowBuilder
-          sessionId={session.id}
+          sessionId={activeSession.id}
           onClose={() => setShowLessonFlowBuilder(false)}
           onSaved={(flow) => {
             // Reload lesson flows to show the new one
