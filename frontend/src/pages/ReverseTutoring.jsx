@@ -588,18 +588,21 @@ export default function ReverseTutoring() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-4">
       {/* Header */}
-      <div className="max-w-4xl mx-auto mb-6">
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Teach Alex about {selectedTopic?.topic}</h1>
-              <p className="text-gray-600 mt-1">
+      <div className="max-w-6xl mx-auto mb-6">
+        <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 break-words">
+                Teach Alex about {selectedTopic?.topic}
+              </h1>
+              <p className="text-sm md:text-base text-gray-600 mt-1">
                 Alex is a {selectedTopic?.gradeLevel} student who needs your help understanding this concept
               </p>
             </div>
             <button
               onClick={() => setView('topics')}
-              className="text-gray-500 hover:text-gray-700"
+              className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2"
+              aria-label="Close and return to topics"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -610,7 +613,7 @@ export default function ReverseTutoring() {
       </div>
 
       {/* Chat Container */}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Screen Reader Live Region */}
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
           {sessionStatus === 'paused' && gracePeriodEndsAt && `Session paused. ${timeRemaining} remaining to finish your thought.`}
@@ -620,9 +623,9 @@ export default function ReverseTutoring() {
           {isTranscribing && 'Transcribing your speech...'}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: 'calc(100vh - 280px)' }}>
+        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ minHeight: '500px', maxHeight: 'calc(100vh - 280px)' }}>
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4" role="log" aria-label="Conversation messages">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4" role="log" aria-label="Conversation messages">
             {messages.map((msg, index) => (
               <div
                 key={index}
@@ -650,12 +653,12 @@ export default function ReverseTutoring() {
                   </div>
 
                   {/* Message Bubble - iOS Style with tail */}
-                  <div className={`relative rounded-2xl p-4 shadow-sm ${
+                  <div className={`relative rounded-2xl p-4 shadow-sm break-words ${
                     msg.role === 'ai'
                       ? 'bg-purple-50 text-gray-900 border border-purple-100 rounded-bl-md'
                       : 'bg-blue-700 text-white rounded-br-md'
                   }`}>
-                    <p className="text-base leading-relaxed">{msg.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed break-words">{msg.content}</p>
                     {msg.timestamp && (
                       <time className="text-xs opacity-70 mt-2 block">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -907,8 +910,8 @@ export default function ReverseTutoring() {
 
         {/* Key Vocabulary */}
         {selectedTopic?.keyVocabulary && selectedTopic.keyVocabulary.length > 0 && (
-          <div className="mt-4 bg-white rounded-xl shadow-lg p-4">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Key Vocabulary to Use:</h3>
+          <div className="mt-4 bg-white rounded-xl shadow-lg p-4 md:p-6">
+            <h3 className="text-sm md:text-base font-semibold text-gray-700 mb-3">Key Vocabulary to Use:</h3>
             <div className="flex flex-wrap gap-2">
               {selectedTopic.keyVocabulary.map((word, index) => (
                 <span
