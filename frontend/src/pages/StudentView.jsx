@@ -361,10 +361,20 @@ export default function StudentView() {
           </div>
           <button
             onClick={() => {
+              // Clear session storage
               sessionStorage.removeItem('student_session')
+
+              // Clear all session-specific state
               setStep('join')
               setSession(null)
               setStudent(null)
+              setCurrentActivity(null)
+              setScreenLocked(false)
+              setActiveFlowId(null)
+              setFlowActivity(null)
+              setPresentationActive(false)
+              setCurrentDeck(null)
+              setIsConfused(false)
             }}
             className="text-sm text-red-600 hover:text-red-700 font-medium"
           >
