@@ -29,6 +29,8 @@ export default function ReverseTutoringDashboard() {
     keyVocabulary: '',
     languageComplexity: 'standard', // 'simple', 'standard', 'advanced'
     responseLength: 'medium', // 'short', 'medium', 'long'
+    maxStudentResponses: 10, // 3-15
+    enforceTopicFocus: true, // Remove after 3 off-topic warnings
     assignedStudentIds: []
   })
   const [sessionStudents, setSessionStudents] = useState([])
@@ -115,6 +117,8 @@ export default function ReverseTutoringDashboard() {
         keyVocabulary,
         languageComplexity: topicForm.languageComplexity,
         responseLength: topicForm.responseLength,
+        maxStudentResponses: topicForm.maxStudentResponses,
+        enforceTopicFocus: topicForm.enforceTopicFocus,
         assignedStudentIds: topicForm.assignedStudentIds
       }
 
@@ -146,6 +150,8 @@ export default function ReverseTutoringDashboard() {
         keyVocabulary: '',
         languageComplexity: 'standard',
         responseLength: 'medium',
+        maxStudentResponses: 10,
+        enforceTopicFocus: true,
         assignedStudentIds: []
       })
       loadTopics()
@@ -196,6 +202,8 @@ export default function ReverseTutoringDashboard() {
       keyVocabulary: topic.keyVocabulary.join(', '),
       languageComplexity: topic.languageComplexity || 'standard',
       responseLength: topic.responseLength || 'medium',
+      maxStudentResponses: topic.maxStudentResponses || 10,
+      enforceTopicFocus: topic.enforceTopicFocus !== false, // Default true if not set
       assignedStudentIds: topic.assignedStudentIds
     })
     setShowTopicForm(true)
@@ -560,6 +568,71 @@ export default function ReverseTutoringDashboard() {
                                 <li><strong>Simple</strong>: Great for ELL students or struggling readers</li>
                                 <li><strong>Standard</strong>: Appropriate for most grade-level students</li>
                                 <li><strong>Advanced</strong>: For gifted students or advanced topics</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Conversation Controls */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          Conversation Controls
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Max Student Responses */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Maximum Student Responses
+                            </label>
+                            <select
+                              value={topicForm.maxStudentResponses}
+                              onChange={(e) => setTopicForm({ ...topicForm, maxStudentResponses: parseInt(e.target.value) })}
+                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            >
+                              {[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(num => (
+                                <option key={num} value={num}>{num} responses</option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Limit conversation length. Good for timed activities or stations.
+                            </p>
+                          </div>
+
+                          {/* Enforce Topic Focus */}
+                          <div>
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={topicForm.enforceTopicFocus}
+                                onChange={(e) => setTopicForm({ ...topicForm, enforceTopicFocus: e.target.checked })}
+                                className="mt-1 h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-700">Enforce Topic Focus</span>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Remove students after 3 off-topic warnings. They can rejoin and try again.
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <div className="text-xs text-red-800">
+                              <p className="font-medium mb-1">These controls help maintain classroom focus:</p>
+                              <ul className="list-disc list-inside space-y-0.5 ml-1">
+                                <li>Response limit prevents excessive time on one activity</li>
+                                <li>Topic enforcement discourages off-task behavior</li>
+                                <li>Students receive clear warnings before removal</li>
                               </ul>
                             </div>
                           </div>
