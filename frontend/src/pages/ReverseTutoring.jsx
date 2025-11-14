@@ -88,10 +88,11 @@ export default function ReverseTutoring() {
     loadAvailableTopics()
   }, [])
 
-  // Join/leave session for real-time presence tracking
+  // Join session IMMEDIATELY for real-time presence tracking (not just in conversation view)
+  // This ensures teachers see students as "online" even while browsing topics
   useEffect(() => {
-    if (view === 'conversation' && socket && sessionId && studentId && studentName) {
-      // Join the session when entering conversation view
+    if (socket && sessionId && studentId && studentName) {
+      // Join the session as soon as component mounts
       socket.emit('join-session', {
         sessionId,
         role: 'student',
@@ -101,13 +102,13 @@ export default function ReverseTutoring() {
       })
       console.log('📡 Joined reverse tutoring session for presence tracking')
 
-      // Leave when exiting or unmounting
+      // Leave when component unmounts (returning to dashboard or closing tab)
       return () => {
         socket.emit('leave-session', { sessionId })
         console.log('📡 Left reverse tutoring session')
       }
     }
-  }, [view, socket, sessionId, studentId, studentName])
+  }, [socket, sessionId, studentId, studentName])
 
   // Grace period countdown timer
   useEffect(() => {
