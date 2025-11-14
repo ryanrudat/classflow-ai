@@ -320,14 +320,15 @@ export default function ReverseTutoringDashboard() {
   })
 
   /**
-   * Check if a student is currently active (last updated within 2 minutes)
+   * Check if a student is currently active (last updated within 5 minutes)
+   * 5 minutes allows time for students to think, record voice, and transcribe
    */
   const isStudentActive = (lastUpdated) => {
     if (!lastUpdated) return false
     const lastUpdateTime = new Date(lastUpdated).getTime()
     const now = new Date().getTime()
-    const twoMinutesAgo = now - (2 * 60 * 1000)
-    return lastUpdateTime > twoMinutesAgo
+    const fiveMinutesAgo = now - (5 * 60 * 1000)
+    return lastUpdateTime > fiveMinutesAgo
   }
 
   /**
@@ -922,11 +923,15 @@ export default function ReverseTutoringDashboard() {
                           <h3 className="text-lg font-semibold text-gray-900">
                             {conv.studentName}
                           </h3>
-                          {isStudentActive(conv.lastUpdated) && (
+                          {isStudentActive(conv.lastUpdated) ? (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded-full">
                               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs font-medium text-green-700">Online</span>
+                              <span className="text-xs font-medium text-green-700">Active now</span>
                             </div>
+                          ) : conv.lastUpdated && (
+                            <span className="text-xs text-gray-500">
+                              Last active: {new Date(conv.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                           )}
                         </div>
                         {getStatusBadge(conv.status, conv.understandingLevel)}
