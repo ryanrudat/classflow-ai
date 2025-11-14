@@ -671,12 +671,23 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
       // Load students from database - they persist even if WebSocket disconnects
       const data = await sessionsAPI.getInstanceDetails(session.id, instanceId)
-      setStudents(data.students.map(s => ({
-        id: s.id,
-        name: s.student_name,
-        connected: false, // Will be updated to true when they join via WebSocket
-        account_id: s.account_id // Include account_id for authenticated students
-      })) || [])
+
+      // IMPORTANT: Merge with existing students instead of replacing
+      // This preserves students connected via socket (e.g., Reverse Tutoring) who aren't in this instance
+      setStudents(prev => {
+        const dbStudents = data.students.map(s => ({
+          id: s.id,
+          name: s.student_name,
+          connected: false, // Will be updated to true when they join via WebSocket
+          account_id: s.account_id
+        }))
+
+        // Keep any students that are currently connected but not in the database for this instance
+        const connectedOnly = prev.filter(p => p.connected && !dbStudents.find(db => db.id === p.id))
+
+        // Merge database students with connected-only students
+        return [...dbStudents, ...connectedOnly]
+      })
 
       console.log(`📚 Loaded ${data.students.length} students from database for instance ${instanceId}`)
     } catch (err) {
