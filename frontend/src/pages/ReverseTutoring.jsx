@@ -632,7 +632,7 @@ export default function ReverseTutoring() {
                 className={`flex animate-slide-up ${msg.role === 'student' ? 'justify-end' : 'justify-start'}`}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className={`flex items-start gap-3 max-w-[80%] ${
+                <div className={`flex items-start gap-3 ${msg.role === 'ai' ? 'max-w-[95%]' : 'max-w-[80%]'} ${
                   msg.role === 'student' ? 'flex-row-reverse' : ''
                 }`}>
                   {/* Avatar */}
@@ -726,8 +726,8 @@ export default function ReverseTutoring() {
               </div>
             )}
 
-            {/* Need Help Button - centered above input */}
-            <div className="flex items-center justify-center mb-4">
+            {/* Need Help Button - centered above input with more spacing */}
+            <div className="flex items-center justify-center mb-6 mt-8">
               <button
                 onClick={requestHelp}
                 disabled={messageCount >= MAX_MESSAGES}
@@ -748,7 +748,7 @@ export default function ReverseTutoring() {
 
             {/* Voice Input - Always primary */}
             {!showTextFallback && messageCount < MAX_MESSAGES && (
-              <div className="space-y-3">
+              <div className="space-y-3 mt-4">
                 {/* Transcribed Text (editable) */}
                 {currentTranscript && (
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -848,29 +848,6 @@ export default function ReverseTutoring() {
                   <div className="flex flex-col items-center py-8">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
                     <p className="text-sm text-gray-600 mt-3">Transcribing your speech...</p>
-                  </div>
-                )}
-
-                {/* Fallback to typing option - Only available after using voice */}
-                {!currentTranscript && !isTranscribing && !isRecording && (
-                  <div className="text-center mt-4">
-                    <button
-                      onClick={() => hasUsedVoice && setShowTextFallback(true)}
-                      disabled={!hasUsedVoice}
-                      className={`text-sm rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                        hasUsedVoice
-                          ? 'text-gray-600 hover:text-purple-600 underline cursor-pointer'
-                          : 'text-gray-400 cursor-not-allowed'
-                      }`}
-                      title={hasUsedVoice ? 'Switch to typing' : 'You must speak first before you can type'}
-                    >
-                      Can't use voice? Type instead
-                    </button>
-                    {!hasUsedVoice && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        You must record your voice at least once before typing
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
