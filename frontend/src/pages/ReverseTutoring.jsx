@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useToast } from '../components/Toast'
+import { useSocket } from '../hooks/useSocket'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -24,6 +25,7 @@ export default function ReverseTutoring() {
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
+  const socket = useSocket()
 
   // Get student info from location state
   const studentId = location.state?.studentId
@@ -85,6 +87,27 @@ export default function ReverseTutoring() {
 
     loadAvailableTopics()
   }, [])
+
+  // Join/leave session for real-time presence tracking
+  useEffect(() => {
+    if (view === 'conversation' && socket && sessionId && studentId && studentName) {
+      // Join the session when entering conversation view
+      socket.emit('join-session', {
+        sessionId,
+        role: 'student',
+        studentId,
+        studentName,
+        context: 'reverse-tutoring' // Add context to distinguish from regular session
+      })
+      console.log('📡 Joined reverse tutoring session for presence tracking')
+
+      // Leave when exiting or unmounting
+      return () => {
+        socket.emit('leave-session', { sessionId })
+        console.log('📡 Left reverse tutoring session')
+      }
+    }
+  }, [view, socket, sessionId, studentId, studentName])
 
   // Grace period countdown timer
   useEffect(() => {

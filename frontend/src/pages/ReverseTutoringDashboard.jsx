@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 import { useAuthStore } from '../stores/authStore'
+import { useSocket } from '../hooks/useSocket'
 import ConfirmDialog from '../components/ConfirmDialog'
 import axios from 'axios'
 
@@ -17,6 +18,7 @@ export default function ReverseTutoringDashboard() {
   const navigate = useNavigate()
   const toast = useToast()
   const token = useAuthStore(state => state.token)
+  const socket = useSocket()
 
   // Topic management state
   const [topics, setTopics] = useState([])
@@ -45,6 +47,9 @@ export default function ReverseTutoringDashboard() {
   const [filter, setFilter] = useState('all') // 'all', 'mastery', 'progressing', 'struggling', 'needs_help'
   const [activeTab, setActiveTab] = useState('topics') // 'topics' or 'conversations'
 
+  // Real-time presence tracking (students currently on Reverse Tutoring page)
+  const [onlineStudents, setOnlineStudents] = useState(new Set())
+
   useEffect(() => {
     loadTopics()
     loadSessionStudents()
@@ -53,6 +58,57 @@ export default function ReverseTutoringDashboard() {
     const interval = setInterval(loadDashboard, 10000)
     return () => clearInterval(interval)
   }, [sessionId])
+
+  // Socket presence tracking
+  useEffect(() => {
+    if (!socket || !sessionId) return
+
+    // Join as teacher to receive presence updates
+    socket.emit('join-session', {
+      sessionId,
+      role: 'teacher'
+    })
+
+    // Listen for students joining reverse tutoring
+    const handleUserJoined = (data) => {
+      if (data.role === 'student' && data.studentId) {
+        console.log('📡 Student joined reverse tutoring:', data.studentName)
+        setOnlineStudents(prev => new Set(prev).add(data.studentId))
+      }
+    }
+
+    // Listen for students leaving
+    const handleUserLeft = (data) => {
+      if (data.role === 'student' && data.studentId) {
+        console.log('📡 Student left reverse tutoring:', data.studentName)
+        setOnlineStudents(prev => {
+          const updated = new Set(prev)
+          updated.delete(data.studentId)
+          return updated
+        })
+      }
+    }
+
+    // Get initial list of online students
+    const handleStudentsOnline = (data) => {
+      const studentIds = data.students
+        .filter(s => s.role === 'student')
+        .map(s => s.studentId)
+      console.log('📡 Initial online students:', studentIds.length)
+      setOnlineStudents(new Set(studentIds))
+    }
+
+    socket.on('user-joined', handleUserJoined)
+    socket.on('user-left', handleUserLeft)
+    socket.on('students-online', handleStudentsOnline)
+
+    return () => {
+      socket.off('user-joined', handleUserJoined)
+      socket.off('user-left', handleUserLeft)
+      socket.off('students-online', handleStudentsOnline)
+      socket.emit('leave-session', { sessionId })
+    }
+  }, [socket, sessionId])
 
   /**
    * Load topics for this session
@@ -320,10 +376,18 @@ export default function ReverseTutoringDashboard() {
   })
 
   /**
-   * Check if a student is currently active (last updated within 5 minutes)
-   * 5 minutes allows time for students to think, record voice, and transcribe
+   * Check if a student is currently active
+   * Active means EITHER:
+   * 1. Currently on the Reverse Tutoring page (real-time socket presence)
+   * 2. OR sent a message within last 5 minutes (database activity)
    */
-  const isStudentActive = (lastUpdated) => {
+  const isStudentActive = (lastUpdated, studentId) => {
+    // Real-time: Check if student is currently connected via socket
+    if (studentId && onlineStudents.has(studentId)) {
+      return true
+    }
+
+    // Database: Check if they sent a message recently
     if (!lastUpdated) return false
     const lastUpdateTime = new Date(lastUpdated).getTime()
     const now = new Date().getTime()
@@ -337,7 +401,7 @@ export default function ReverseTutoringDashboard() {
   const stats = {
     total: conversations.length,
     uniqueStudents: new Set(conversations.map(c => c.studentId)).size,
-    activeNow: conversations.filter(c => isStudentActive(c.lastUpdated)).length,
+    activeNow: conversations.filter(c => isStudentActive(c.lastUpdated, c.studentId)).length,
     mastery: conversations.filter(c => c.status === 'mastery').length,
     progressing: conversations.filter(c => c.status === 'progressing').length,
     struggling: conversations.filter(c => c.status === 'struggling').length,
@@ -923,7 +987,7 @@ export default function ReverseTutoringDashboard() {
                           <h3 className="text-lg font-semibold text-gray-900">
                             {conv.studentName}
                           </h3>
-                          {isStudentActive(conv.lastUpdated) ? (
+                          {isStudentActive(conv.lastUpdated, conv.studentId) ? (
                             <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 border border-green-200 rounded-full">
                               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                               <span className="text-xs font-medium text-green-700">Active now</span>
