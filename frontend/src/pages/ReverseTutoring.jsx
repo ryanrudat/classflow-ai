@@ -647,7 +647,7 @@ export default function ReverseTutoring() {
           {isTranscribing && 'Transcribing your speech...'}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ minHeight: '500px', maxHeight: 'calc(100vh - 280px)' }}>
+        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ minHeight: '650px', maxHeight: 'calc(100vh - 240px)' }}>
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4" role="log" aria-label="Conversation messages">
             {messages.map((msg, index) => (
@@ -751,7 +751,7 @@ export default function ReverseTutoring() {
             )}
 
             {/* Need Help Button - centered above input with more spacing */}
-            <div className="flex items-center justify-center mb-6 mt-8">
+            <div className="flex items-center justify-center mb-8 mt-12">
               <button
                 onClick={requestHelp}
                 disabled={messageCount >= MAX_MESSAGES}
@@ -772,7 +772,7 @@ export default function ReverseTutoring() {
 
             {/* Voice Input - Always primary */}
             {!showTextFallback && messageCount < MAX_MESSAGES && (
-              <div className="space-y-3 mt-4">
+              <div className="space-y-3 mt-6">
                 {/* Transcribed Text (editable) */}
                 {currentTranscript && (
                   <div className="bg-gray-50 rounded-lg p-4">
