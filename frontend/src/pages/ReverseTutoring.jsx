@@ -182,8 +182,15 @@ export default function ReverseTutoring() {
   const selectTopic = async (topic) => {
     console.log('🎯 Topic selected:', topic)
     setSelectedTopic(topic)
-    await startConversation(topic)
-    setView('conversation')
+    setLoadingTopics(true) // Prevent multiple clicks
+
+    const success = await startConversation(topic)
+
+    if (success) {
+      setView('conversation')
+    }
+
+    setLoadingTopics(false)
   }
 
   /**
@@ -211,6 +218,7 @@ export default function ReverseTutoring() {
       setMessageCount(1)
 
       toast.success('Ready to start!', `Teach Alex about ${topic.topic}`)
+      return true
 
     } catch (error) {
       console.error('Start conversation error:', error)
@@ -219,12 +227,15 @@ export default function ReverseTutoring() {
         const existingConversationId = error.response?.data?.conversationId
         if (existingConversationId) {
           toast.info('Resuming', 'Continuing your previous conversation')
-          await loadExistingConversation(existingConversationId, topic)
+          const loaded = await loadExistingConversation(existingConversationId, topic)
+          return loaded
         } else {
           toast.error('Error', 'Could not resume conversation')
+          return false
         }
       } else {
         toast.error('Error', error.response?.data?.message || 'Failed to start conversation')
+        return false
       }
     }
   }
@@ -252,9 +263,12 @@ export default function ReverseTutoring() {
       setMessageCount(response.data.messageCount || history.length)
       setUnderstanding(response.data.understandingLevel || 0)
 
+      return true
+
     } catch (error) {
       console.error('Load conversation error:', error)
       toast.error('Error', 'Failed to load existing conversation')
+      return false
     }
   }
 
@@ -570,10 +584,20 @@ export default function ReverseTutoring() {
                       console.log('🔘 Button clicked for topic:', topic.topic)
                       selectTopic(topic)
                     }}
-                    className="mt-4 w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-2"
+                    disabled={loadingTopics}
+                    className="mt-4 w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span>Click to start teaching</span>
-                    <span>→</span>
+                    {loadingTopics ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Starting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Click to start teaching</span>
+                        <span>→</span>
+                      </>
+                    )}
                   </button>
                 </div>
               ))}
