@@ -127,13 +127,13 @@ Respond ONLY with valid JSON in this exact format:
 export async function createMatchingActivity(req, res) {
   const { sessionId } = req.params
   const { title, instructions, difficulty_level, mode, items, matches, categories } = req.body
-  const userId = req.user.id
+  const teacherId = req.user.userId
 
   try {
     // Verify session belongs to user
     const session = await db.query(
-      'SELECT * FROM sessions WHERE id = $1 AND user_id = $2',
-      [sessionId, userId]
+      'SELECT * FROM sessions WHERE id = $1 AND teacher_id = $2',
+      [sessionId, teacherId]
     )
 
     if (session.rows.length === 0) {
