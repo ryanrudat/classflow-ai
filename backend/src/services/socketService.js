@@ -3,6 +3,33 @@ export function setupSocketIO(io) {
   io.on('connection', (socket) => {
     console.log('✅ Client connected:', socket.id)
 
+    // Leave session room
+    socket.on('leave-session', async ({ sessionId }) => {
+      const roomName = `session-${sessionId}`
+      socket.leave(roomName)
+
+      console.log(`👋 Socket ${socket.id} left room ${roomName}`)
+
+      // Notify others in the session that user left
+      socket.to(roomName).emit('user-left', {
+        socketId: socket.id,
+        role: socket.role,
+        studentId: socket.studentId,
+        studentName: socket.studentName,
+        timestamp: new Date().toISOString()
+      })
+
+      // Clear session-specific data from socket
+      // (Keep the socket alive, just clear session metadata)
+      const previousSessionId = socket.sessionId
+      socket.sessionId = null
+      socket.studentId = null
+      socket.studentName = null
+      socket.role = null
+
+      console.log(`🧹 Cleared session metadata for socket ${socket.id} (was in session ${previousSessionId})`)
+    })
+
     // Join session room
     socket.on('join-session', async ({ sessionId, role, studentId, studentName }) => {
       const roomName = `session-${sessionId}`

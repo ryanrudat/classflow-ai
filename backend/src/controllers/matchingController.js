@@ -1,4 +1,124 @@
+import axios from 'axios'
 import db from '../database/db.js'
+
+/**
+ * Generate matching activity using AI
+ * POST /api/ai/generate-matching
+ */
+export async function generateMatching(req, res) {
+  try {
+    const { topic, mode = 'pairs', difficultyLevel = 'medium' } = req.body
+    const teacherId = req.user.userId
+
+    if (!topic) {
+      return res.status(400).json({ message: 'Topic is required' })
+    }
+
+    // Build AI prompt based on mode
+    let aiPrompt
+    if (mode === 'pairs') {
+      aiPrompt = `You are an expert educator creating a matching pairs activity. Generate a matching exercise about "${topic}".
+
+Difficulty: ${difficultyLevel}
+
+Requirements:
+1. Create 5-8 matching pairs
+2. Left column items should be terms, concepts, or items
+3. Right column should be definitions, descriptions, or matching items
+4. Each pair should have ONE clear correct match
+5. Appropriate for ${difficultyLevel} difficulty level
+6. Educational and engaging
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "title": "A descriptive title for the activity",
+  "instructions": "Brief instructions for students (e.g., 'Match each term with its correct definition')",
+  "items": [
+    {"id": "item1", "text": "First left-side item"},
+    {"id": "item2", "text": "Second left-side item"}
+  ],
+  "matches": [
+    {"id": "match1", "text": "First right-side match", "correctItemId": "item1"},
+    {"id": "match2", "text": "Second right-side match", "correctItemId": "item2"}
+  ]
+}`
+    } else {
+      aiPrompt = `You are an expert educator creating a categorization activity. Generate a categorization exercise about "${topic}".
+
+Difficulty: ${difficultyLevel}
+
+Requirements:
+1. Create 3-4 clear categories
+2. Create 6-12 items that belong in these categories
+3. Each item should have ONE clear correct category
+4. Categories should have descriptive names
+5. Appropriate for ${difficultyLevel} difficulty level
+6. Educational and engaging
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "title": "A descriptive title for the activity",
+  "instructions": "Brief instructions for students (e.g., 'Drag each item into its correct category')",
+  "categories": [
+    {"id": "cat1", "name": "Category 1 Name", "description": "Brief description", "color": "bg-blue-100"},
+    {"id": "cat2", "name": "Category 2 Name", "description": "Brief description", "color": "bg-green-100"},
+    {"id": "cat3", "name": "Category 3 Name", "description": "Brief description", "color": "bg-yellow-100"}
+  ],
+  "items": [
+    {"id": "item1", "text": "First item to categorize", "correctCategoryId": "cat1"},
+    {"id": "item2", "text": "Second item to categorize", "correctCategoryId": "cat2"}
+  ]
+}`
+    }
+
+    // Call Claude AI
+    const aiResponse = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 2048,
+        messages: [{
+          role: 'user',
+          content: aiPrompt
+        }]
+      },
+      {
+        headers: {
+          'x-api-key': process.env.CLAUDE_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        }
+      }
+    )
+
+    const aiContent = aiResponse.data.content[0].text
+
+    // Extract JSON from response
+    let matchingData
+    try {
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/)
+      matchingData = JSON.parse(jsonMatch ? jsonMatch[0] : aiContent)
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', aiContent)
+      throw new Error('AI generated invalid response format')
+    }
+
+    res.json(matchingData)
+
+  } catch (error) {
+    console.error('Matching generation error:', error.response?.data || error.message)
+
+    if (error.response?.status === 401) {
+      return res.status(500).json({
+        message: 'Claude API key not configured or invalid'
+      })
+    }
+
+    res.status(500).json({
+      message: `Generation failed: ${error.message}`
+    })
+  }
+}
 
 /**
  * Create a matching activity

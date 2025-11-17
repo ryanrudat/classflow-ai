@@ -43,7 +43,7 @@ export default function StudentView() {
   const [code, setCode] = useState(joinCode || '')
 
   // WebSocket connection
-  const { joinSession, submitResponse, on, off, emit, toggleConfusion, isConnected } = useSocket()
+  const { leaveSession, joinSession, submitResponse, on, off, emit, toggleConfusion, isConnected } = useSocket()
 
   async function handleJoin(e) {
     e.preventDefault()
@@ -123,8 +123,15 @@ export default function StudentView() {
   useEffect(() => {
     if (!session || !student) return
 
-    // Join the session room
+    // Join the session room (this will be called when session/student changes)
     joinSession(session.id, 'student', student.id, student.student_name)
+
+    // Cleanup: Leave session when component unmounts or session changes
+    return () => {
+      if (session?.id) {
+        leaveSession(session.id)
+      }
+    }
 
     // Listen for activity pushed by teacher
     const handleActivityReceived = ({ activity, targetStudentId }) => {
@@ -234,7 +241,7 @@ export default function StudentView() {
       off('lesson-flow-started', handleLessonFlowStarted)
       off('lesson-flow-stopped', handleLessonFlowStopped)
     }
-  }, [session, student, joinSession, on, off])
+  }, [session, student, leaveSession, joinSession, on, off])
 
   // Handle confusion toggle
   const handleConfusionToggle = (newConfusedState) => {
@@ -361,6 +368,11 @@ export default function StudentView() {
           </div>
           <button
             onClick={() => {
+              // Leave the WebSocket session room
+              if (session?.id) {
+                leaveSession(session.id)
+              }
+
               // Clear session storage
               sessionStorage.removeItem('student_session')
 

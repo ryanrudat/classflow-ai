@@ -69,6 +69,17 @@ export function useSocket() {
     }
   }, [])
 
+  const leaveSession = useCallback((sessionId) => {
+    if (socketRef.current) {
+      console.log('👋 Emitting leave-session:', { sessionId })
+      console.log('   Socket connected?', socketRef.current.connected)
+      console.log('   Socket ID:', socketRef.current.id)
+      socketRef.current.emit('leave-session', { sessionId })
+    } else {
+      console.error('❌ Cannot leave session - socket not initialized')
+    }
+  }, [])
+
   const joinSession = useCallback((sessionId, role, studentId = null, studentName = null) => {
     if (socketRef.current) {
       console.log('🔌 Emitting join-session:', { sessionId, role, studentId, studentName })
@@ -151,6 +162,7 @@ export function useSocket() {
   return {
     socket: socketRef.current,
     isConnected,
+    leaveSession,
     joinSession,
     pushActivity,
     submitResponse,
