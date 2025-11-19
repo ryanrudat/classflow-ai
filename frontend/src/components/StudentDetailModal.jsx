@@ -128,7 +128,7 @@ export default function StudentDetailModal({ studentId, studentProgress, onClose
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            className="text-white hover:text-primary-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-600 rounded"
+            className="text-white hover:text-primary-100 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary-600 rounded w-11 h-11 flex items-center justify-center hover:bg-white hover:bg-opacity-10"
             aria-label="Close student details"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

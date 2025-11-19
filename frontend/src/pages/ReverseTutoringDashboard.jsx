@@ -1025,70 +1025,259 @@ export default function ReverseTutoringDashboard() {
 
                         {/* Latest Analysis */}
                         {conv.latestAnalysis && (
-                          <div className="mt-3 bg-gray-50 rounded-lg p-3 space-y-2">
-                            {conv.latestAnalysis.conceptsDemonstrated && conv.latestAnalysis.conceptsDemonstrated.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-700 flex items-center gap-1">
-                                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                  Concepts demonstrated:
-                                </span>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {conv.latestAnalysis.conceptsDemonstrated.map((concept, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
-                                      {concept}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                          <div className="mt-3 bg-gray-50 rounded-lg p-3 space-y-3">
+                            {/* Multi-Dimensional Rubric Display */}
+                            {conv.latestAnalysis.contentUnderstanding && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Performance Rubric</div>
 
-                            {conv.latestAnalysis.misconceptions && conv.latestAnalysis.misconceptions.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-700 flex items-center gap-1">
-                                  <svg className="w-4 h-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                  </svg>
-                                  Misconceptions:
-                                </span>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {conv.latestAnalysis.misconceptions.map((misc, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
-                                      {misc}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {conv.latestAnalysis.vocabularyUsed && conv.latestAnalysis.vocabularyUsed.length > 0 && (
-                              <div>
-                                <span className="font-medium text-gray-700 flex items-center gap-1">
-                                  <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                  </svg>
-                                  Vocabulary used:
-                                </span>
-                                <div className="flex flex-wrap gap-2 mt-1">
-                                  {conv.latestAnalysis.vocabularyUsed.map((word, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
-                                      {word}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {conv.latestAnalysis.teacherSuggestion && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2 flex items-start gap-2">
-                                <svg className="w-4 h-4 text-yellow-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                                </svg>
+                                {/* Content Understanding */}
                                 <div>
-                                  <span className="font-medium text-yellow-800">Suggestion: </span>
-                                  <span className="text-yellow-700">{conv.latestAnalysis.teacherSuggestion}</span>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-700">Content Understanding</span>
+                                    <span className={`font-bold ${
+                                      conv.latestAnalysis.contentUnderstanding.level >= 4 ? 'text-green-600' :
+                                      conv.latestAnalysis.contentUnderstanding.level >= 3 ? 'text-blue-600' :
+                                      conv.latestAnalysis.contentUnderstanding.level >= 2 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                      Level {conv.latestAnalysis.contentUnderstanding.level}/4
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map(level => (
+                                      <div
+                                        key={level}
+                                        className={`h-2 flex-1 rounded ${
+                                          level <= conv.latestAnalysis.contentUnderstanding.level
+                                            ? conv.latestAnalysis.contentUnderstanding.level >= 4 ? 'bg-green-500' :
+                                              conv.latestAnalysis.contentUnderstanding.level >= 3 ? 'bg-blue-500' :
+                                              conv.latestAnalysis.contentUnderstanding.level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                                            : 'bg-gray-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  {conv.latestAnalysis.contentUnderstanding.evidence && (
+                                    <p className="text-xs text-gray-600 mt-1">{conv.latestAnalysis.contentUnderstanding.evidence}</p>
+                                  )}
                                 </div>
+
+                                {/* Communication Effectiveness */}
+                                <div>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-700">Communication</span>
+                                    <span className={`font-bold ${
+                                      conv.latestAnalysis.communicationEffectiveness.level >= 4 ? 'text-green-600' :
+                                      conv.latestAnalysis.communicationEffectiveness.level >= 3 ? 'text-blue-600' :
+                                      conv.latestAnalysis.communicationEffectiveness.level >= 2 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                      Level {conv.latestAnalysis.communicationEffectiveness.level}/4
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map(level => (
+                                      <div
+                                        key={level}
+                                        className={`h-2 flex-1 rounded ${
+                                          level <= conv.latestAnalysis.communicationEffectiveness.level
+                                            ? conv.latestAnalysis.communicationEffectiveness.level >= 4 ? 'bg-green-500' :
+                                              conv.latestAnalysis.communicationEffectiveness.level >= 3 ? 'bg-blue-500' :
+                                              conv.latestAnalysis.communicationEffectiveness.level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                                            : 'bg-gray-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Vocabulary Usage */}
+                                <div>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-700">Academic Vocabulary</span>
+                                    <span className={`font-bold ${
+                                      conv.latestAnalysis.vocabularyUsage.level >= 4 ? 'text-green-600' :
+                                      conv.latestAnalysis.vocabularyUsage.level >= 3 ? 'text-blue-600' :
+                                      conv.latestAnalysis.vocabularyUsage.level >= 2 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                      Level {conv.latestAnalysis.vocabularyUsage.level}/4
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map(level => (
+                                      <div
+                                        key={level}
+                                        className={`h-2 flex-1 rounded ${
+                                          level <= conv.latestAnalysis.vocabularyUsage.level
+                                            ? conv.latestAnalysis.vocabularyUsage.level >= 4 ? 'bg-green-500' :
+                                              conv.latestAnalysis.vocabularyUsage.level >= 3 ? 'bg-blue-500' :
+                                              conv.latestAnalysis.vocabularyUsage.level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                                            : 'bg-gray-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  {conv.latestAnalysis.vocabularyUsage.termsUsed && conv.latestAnalysis.vocabularyUsage.termsUsed.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {conv.latestAnalysis.vocabularyUsage.termsUsed.map((word, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                                          {word}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Engagement Level */}
+                                <div>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <span className="font-medium text-gray-700">Engagement</span>
+                                    <span className={`font-bold ${
+                                      conv.latestAnalysis.engagementLevel.level >= 4 ? 'text-green-600' :
+                                      conv.latestAnalysis.engagementLevel.level >= 3 ? 'text-blue-600' :
+                                      conv.latestAnalysis.engagementLevel.level >= 2 ? 'text-yellow-600' : 'text-red-600'
+                                    }`}>
+                                      Level {conv.latestAnalysis.engagementLevel.level}/4
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map(level => (
+                                      <div
+                                        key={level}
+                                        className={`h-2 flex-1 rounded ${
+                                          level <= conv.latestAnalysis.engagementLevel.level
+                                            ? conv.latestAnalysis.engagementLevel.level >= 4 ? 'bg-green-500' :
+                                              conv.latestAnalysis.engagementLevel.level >= 3 ? 'bg-blue-500' :
+                                              conv.latestAnalysis.engagementLevel.level >= 2 ? 'bg-yellow-500' : 'bg-red-500'
+                                            : 'bg-gray-200'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Teacher Action */}
+                                {conv.latestAnalysis.teacherAction && (
+                                  <div className={`border rounded p-2 mt-2 flex items-start gap-2 ${
+                                    conv.latestAnalysis.teacherAction.priority === 'urgent' ? 'bg-red-50 border-red-200' :
+                                    conv.latestAnalysis.teacherAction.priority === 'high' ? 'bg-orange-50 border-orange-200' :
+                                    conv.latestAnalysis.teacherAction.priority === 'medium' ? 'bg-yellow-50 border-yellow-200' :
+                                    conv.latestAnalysis.teacherAction.priority === 'monitor' ? 'bg-purple-50 border-purple-200' :
+                                    'bg-green-50 border-green-200'
+                                  }`}>
+                                    <svg className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                                      conv.latestAnalysis.teacherAction.priority === 'urgent' ? 'text-red-700' :
+                                      conv.latestAnalysis.teacherAction.priority === 'high' ? 'text-orange-700' :
+                                      conv.latestAnalysis.teacherAction.priority === 'medium' ? 'text-yellow-700' :
+                                      conv.latestAnalysis.teacherAction.priority === 'monitor' ? 'text-purple-700' :
+                                      'text-green-700'
+                                    }`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <div className="text-xs">
+                                      <span className={`font-bold uppercase ${
+                                        conv.latestAnalysis.teacherAction.priority === 'urgent' ? 'text-red-800' :
+                                        conv.latestAnalysis.teacherAction.priority === 'high' ? 'text-orange-800' :
+                                        conv.latestAnalysis.teacherAction.priority === 'medium' ? 'text-yellow-800' :
+                                        conv.latestAnalysis.teacherAction.priority === 'monitor' ? 'text-purple-800' :
+                                        'text-green-800'
+                                      }`}>
+                                        {conv.latestAnalysis.teacherAction.priority}
+                                      </span>
+                                      <span className="text-gray-600"> - {conv.latestAnalysis.teacherAction.type.replace('_', ' ')}</span>
+                                      <p className="mt-1 text-gray-700">{conv.latestAnalysis.teacherAction.suggestion}</p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Misconceptions */}
+                                {conv.latestAnalysis.contentUnderstanding.misconceptions && conv.latestAnalysis.contentUnderstanding.misconceptions.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-gray-700 flex items-center gap-1 text-xs">
+                                      <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                      </svg>
+                                      Misconceptions:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {conv.latestAnalysis.contentUnderstanding.misconceptions.map((misc, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">
+                                          {misc}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Legacy Format Support */}
+                            {!conv.latestAnalysis.contentUnderstanding && conv.latestAnalysis.conceptsDemonstrated && (
+                              <div className="space-y-2">
+                                {conv.latestAnalysis.conceptsDemonstrated && conv.latestAnalysis.conceptsDemonstrated.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-gray-700 flex items-center gap-1 text-xs">
+                                      <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      Concepts demonstrated:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {conv.latestAnalysis.conceptsDemonstrated.map((concept, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                                          {concept}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {conv.latestAnalysis.misconceptions && conv.latestAnalysis.misconceptions.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-gray-700 flex items-center gap-1 text-xs">
+                                      <svg className="w-4 h-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                      </svg>
+                                      Misconceptions:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {conv.latestAnalysis.misconceptions.map((misc, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">
+                                          {misc}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {conv.latestAnalysis.vocabularyUsed && conv.latestAnalysis.vocabularyUsed.length > 0 && (
+                                  <div>
+                                    <span className="font-medium text-gray-700 flex items-center gap-1 text-xs">
+                                      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                      </svg>
+                                      Vocabulary used:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {conv.latestAnalysis.vocabularyUsed.map((word, idx) => (
+                                        <span key={idx} className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                                          {word}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {conv.latestAnalysis.teacherSuggestion && (
+                                  <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2 flex items-start gap-2">
+                                    <svg className="w-4 h-4 text-yellow-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                    </svg>
+                                    <div className="text-xs">
+                                      <span className="font-medium text-yellow-800">Suggestion: </span>
+                                      <span className="text-yellow-700">{conv.latestAnalysis.teacherSuggestion}</span>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

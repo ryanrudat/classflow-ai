@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { useToast } from './Toast'
+import { Spinner } from './LoadingStates'
 
 /**
  * EditLibraryItemModal Component
@@ -19,6 +20,18 @@ export default function EditLibraryItemModal({ item, allTags, onClose, onSave })
   const [selectedTags, setSelectedTags] = useState(item.tags || [])
   const [newTag, setNewTag] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose, loading])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -71,7 +84,8 @@ export default function EditLibraryItemModal({ item, allTags, onClose, onSave })
             <h2 className="text-xl font-bold text-gray-900">Edit Activity</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 hover:text-gray-600 transition-colors w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100"
+              aria-label="Close"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

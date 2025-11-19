@@ -40,7 +40,7 @@ export async function generateHelp({
     const startTime = Date.now()
 
     const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1024,
       messages: [{
         role: 'user',
@@ -123,7 +123,7 @@ Simpler: "What does the author compare loneliness to in the poem, and why do you
 
   try {
     const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 800,
       messages: [{
         role: 'user',

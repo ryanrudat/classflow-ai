@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/authStore'
 import { ToastProvider } from './components/Toast'
+import Navigation from './components/Navigation'
 
 // Pages
 import Login from './pages/Login'
@@ -23,6 +24,7 @@ function App() {
     <ToastProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-gray-50">
+          <Navigation />
           <Routes>
             {/* Teacher routes */}
             <Route path="/login" element={<Login />} />

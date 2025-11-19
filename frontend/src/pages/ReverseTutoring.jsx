@@ -50,6 +50,7 @@ export default function ReverseTutoring() {
   const [scaffolding, setScaffolding] = useState(null)
   const [understanding, setUnderstanding] = useState(0)
   const [messageCount, setMessageCount] = useState(0)
+  const [offTopicWarning, setOffTopicWarning] = useState(null) // { action: 'warning'|'final_warning'|'removed', count, topic }
 
   // ELL Support - AI will automatically adjust based on student responses
   const [languageProficiency] = useState('intermediate')
@@ -68,14 +69,21 @@ export default function ReverseTutoring() {
   const scaffoldingCloseButtonRef = useRef(null)
   const textInputRef = useRef(null)
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom - only when new messages arrive
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Use smooth scroll for better UX
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }
 
+  // Only scroll when messages change (debounced to prevent bouncing)
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    // Small delay to allow DOM to update
+    const timer = setTimeout(() => {
+      scrollToBottom()
+    }, 100)
+
+    return () => clearTimeout(timer)
+  }, [messages.length]) // Only trigger on message count change, not content updates
 
   // Load topics on mount
   useEffect(() => {
@@ -246,7 +254,15 @@ export default function ReverseTutoring() {
 
     } catch (error) {
       console.error('Start conversation error:', error)
-      if (error.response?.status === 409) {
+      if (error.response?.status === 403 && error.response?.data?.blocked) {
+        // Student is blocked from this conversation
+        toast.error(
+          'Access Denied',
+          error.response.data.message || 'You have been removed from this conversation. Please ask your teacher for permission to rejoin.',
+          { duration: 8000 }
+        )
+        return false
+      } else if (error.response?.status === 409) {
         // Conversation already exists - load it
         const existingConversationId = error.response?.data?.conversationId
         if (existingConversationId) {
@@ -450,9 +466,43 @@ export default function ReverseTutoring() {
       setUnderstanding(response.data.analysis.understandingLevel)
       setMessageCount(response.data.messageCount)
 
+      // Handle off-topic warnings
+      console.log('📊 Response data:', response.data)
+      console.log('⚠️ Off-topic warning:', response.data.offTopicWarning)
+
+      if (response.data.offTopicWarning) {
+        console.log('🚨 Setting off-topic warning:', response.data.offTopicWarning)
+        setOffTopicWarning(response.data.offTopicWarning)
+
+        // If removed, show modal (will be handled in the UI render)
+        if (response.data.offTopicWarning.action === 'removed') {
+          console.log('🚫 Student removed - showing modal')
+        }
+      } else {
+        // Clear warning if response was on-topic
+        console.log('✅ No warning - clearing state')
+        setOffTopicWarning(null)
+      }
+
     } catch (error) {
       console.error('Send message error:', error)
-      toast.error('Error', 'Failed to send message. Please try again.')
+
+      // Check if student is blocked
+      if (error.response?.status === 403 && error.response?.data?.blocked) {
+        toast.error(
+          'Blocked',
+          error.response.data.message || 'You have been removed from this conversation. Please ask your teacher for permission to rejoin.',
+          { duration: 0 } // Don't auto-dismiss
+        )
+        // Navigate back to topics after a delay
+        setTimeout(() => {
+          setView('topics')
+          setMessages([])
+          setConversationId(null)
+        }, 3000)
+      } else {
+        toast.error('Error', 'Failed to send message. Please try again.')
+      }
 
       // Remove the student message if it failed
       setMessages(prev => prev.slice(0, -1))
@@ -671,9 +721,49 @@ export default function ReverseTutoring() {
           {isTranscribing && 'Transcribing your speech...'}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ minHeight: '650px', maxHeight: 'calc(100vh - 240px)' }}>
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4" role="log" aria-label="Conversation messages">
+        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: '650px', maxHeight: 'calc(100vh - 240px)' }}>
+          {/* Off-Topic Warning Banner */}
+          {(() => {
+            console.log('🎨 Rendering warning banner check. offTopicWarning:', offTopicWarning)
+            return null
+          })()}
+          {offTopicWarning && offTopicWarning.action !== 'removed' && (
+            <div className={`mx-4 mt-4 p-4 rounded-lg border-l-4 ${
+              offTopicWarning.action === 'final_warning'
+                ? 'bg-red-50 border-red-500'
+                : 'bg-yellow-50 border-yellow-500'
+            }`} role="alert">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">
+                  {offTopicWarning.action === 'final_warning' ? '⚠️' : '⚡'}
+                </span>
+                <div className="flex-1">
+                  <h4 className={`font-bold mb-1 ${
+                    offTopicWarning.action === 'final_warning'
+                      ? 'text-red-900'
+                      : 'text-yellow-900'
+                  }`}>
+                    {offTopicWarning.action === 'final_warning'
+                      ? '⚠️ FINAL WARNING - Stay On Topic!'
+                      : 'Please Stay on Topic'}
+                  </h4>
+                  <p className={`text-sm ${
+                    offTopicWarning.action === 'final_warning'
+                      ? 'text-red-800'
+                      : 'text-yellow-800'
+                  }`}>
+                    {offTopicWarning.action === 'final_warning'
+                      ? `This is your last warning. You must discuss "${offTopicWarning.topic}" or you will be removed from this conversation. One more off-topic message and you'll need to rejoin.`
+                      : `Please focus on teaching about "${offTopicWarning.topic}". Off-topic messages may result in removal from the conversation. (Warning ${offTopicWarning.count}/3)`
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Messages - Fixed height with scroll */}
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0" role="log" aria-label="Conversation messages">
             {messages.map((msg, index) => (
               <div
                 key={index}
@@ -1184,6 +1274,43 @@ export default function ReverseTutoring() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Off-Topic Removal Modal */}
+      {offTopicWarning && offTopicWarning.action === 'removed' && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+              <span className="text-4xl">🚫</span>
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Removed for Off-Topic Discussion
+            </h2>
+
+            <p className="text-gray-700 mb-6">
+              You have been removed from this conversation because you repeatedly discussed topics unrelated to "{offTopicWarning.topic}".
+            </p>
+
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 text-left">
+              <p className="text-sm text-yellow-900">
+                <strong>💡 Tip:</strong> When you rejoin, please stay focused on teaching about "{offTopicWarning.topic}". Off-topic discussions help neither you nor your AI student learn!
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setOffTopicWarning(null)
+                setView('topics')
+                setMessages([])
+                setConversationId(null)
+              }}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Return to Topics
+            </button>
           </div>
         </div>
       )}

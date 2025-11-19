@@ -11,6 +11,7 @@ import {
   getSessionTopics,
   updateTopic,
   deleteTopic,
+  unblockStudent,
   upload
 } from '../controllers/reverseTutoringController.js'
 import { authenticateToken } from '../middleware/auth.js'
@@ -95,5 +96,12 @@ router.put('/topics/:topicId', authenticateToken, updateTopic)
  * DELETE /api/reverse-tutoring/topics/:topicId
  */
 router.delete('/topics/:topicId', authenticateToken, deleteTopic)
+
+/**
+ * Unblock a student from a conversation
+ * POST /api/reverse-tutoring/:conversationId/unblock
+ * Protected: Teacher only
+ */
+router.post('/:conversationId/unblock', authenticateToken, unblockStudent)
 
 export default router

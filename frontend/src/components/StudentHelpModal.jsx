@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * Help Modal Component
@@ -6,6 +6,18 @@ import { useState } from 'react'
  */
 export default function StudentHelpModal({ help, onTryAgain, onRequestSimpler, onDismiss, loading = false }) {
   const [showingDetails, setShowingDetails] = useState(false)
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !loading) {
+        onDismiss()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onDismiss, loading])
 
   if (!help) return null
 
@@ -29,7 +41,7 @@ export default function StudentHelpModal({ help, onTryAgain, onRequestSimpler, o
             </div>
             <button
               onClick={onDismiss}
-              className="text-white hover:text-blue-100 transition-colors"
+              className="text-white hover:text-blue-100 transition-colors w-11 h-11 flex items-center justify-center rounded-lg hover:bg-white hover:bg-opacity-10"
               aria-label="Close"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

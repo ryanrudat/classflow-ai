@@ -148,19 +148,21 @@ Your educational role:
 Key vocabulary to listen for: ${keyVocabulary.join(', ')}
 
 CONVERSATION GOAL:
-- Have a natural back-and-forth exchange (aim for 8-12 total messages)
+- This conversation is limited to ${maxStudentResponses} student responses
+- Have a natural back-and-forth exchange
+- When approaching the final 1-2 responses, start wrapping up the conversation
 - When the student demonstrates solid understanding, express that you NOW understand
 - Thank them and conclude naturally - don't keep asking endless questions
 - It's better to have a meaningful, complete conversation than a long, exhausting one
 
 CRITICAL RULES:
 - Never lecture or explain concepts yourself
-- Your job is to ASK questions, not ANSWER them (unless concluding)
+- Your job is to ASK questions, not ANSWER them (unless concluding in final responses)
 - Let the student be the teacher
 - If they use a key vocabulary word correctly, acknowledge it briefly
 - Follow the response length guidance above
 - Stay 100% focused on ${topic}
-- Look for natural conclusion points when understanding is demonstrated
+- Watch for when you're approaching the response limit and wrap up gracefully
 
 Start by expressing confusion about the topic and asking them to explain it.`
 
@@ -331,6 +333,17 @@ export async function continueConversation(conversationId, studentMessage, metad
     const enforceTopicFocus = conversation.enforce_topic_focus !== false
     const offTopicWarnings = conversation.off_topic_warnings || 0
 
+    // Calculate current and remaining student responses
+    const currentStudentResponses = studentResponseCount + 1 // +1 for the current message
+    const remainingResponses = maxResponses - currentStudentResponses
+
+    console.log('📊 Conversation progress:', {
+      currentStudentResponses,
+      maxResponses,
+      remainingResponses,
+      totalMessages: messages.length
+    })
+
     // Create system prompt with multilingual support if needed
     const systemPrompt = `You are Alex, a curious ${conversation.grade_level} student learning about ${conversation.topic} in ${conversation.subject} class.
 
@@ -372,39 +385,43 @@ ${language !== 'en' ? `Note: The student may mix English with their native langu
 
 ${helpNeeded ? `The student asked for help. Provide a gentle hint or sentence starter, but don't give away the answer.` : ''}
 
-CONVERSATION LENGTH: ${messages.length} messages so far (HARD LIMIT: ${MAX_MESSAGES} messages maximum).
-${messages.length >= 8 ? `
-⚠️ IMPORTANT: The conversation is getting long. Start looking for a natural conclusion.
-- If the student has demonstrated solid understanding of the key concepts, express that you NOW UNDERSTAND and THANK them
-- Say something like: "Oh, I think I get it now! Thanks for explaining that to me. I feel like I understand [topic] much better!"
-- DON'T ask another question if they've adequately explained the main concepts
-- It's okay to end the conversation when they've taught you well
+CONVERSATION PROGRESS:
+- Student has given ${currentStudentResponses} responses (target: ${maxResponses} responses)
+- ${remainingResponses} student responses remaining
+${remainingResponses <= 2 && remainingResponses > 0 ? `
+⚠️ IMPORTANT: This is one of the FINAL exchanges (${remainingResponses} response${remainingResponses === 1 ? '' : 's'} left).
+- Start wrapping up the conversation naturally
+- If the student has demonstrated understanding of key concepts, express that you NOW UNDERSTAND and THANK them
+- Say something like: "Oh, I think I get it now! Thanks for explaining ${conversation.topic} to me. I feel like I understand it much better!"
+- DON'T ask another complex question - this should be the conclusion
+- It's time to end the conversation when they've taught you well
 ` : ''}
-${messages.length >= 10 ? `
-🛑 CRITICAL: This conversation has gone on long enough (${messages.length} messages).
-- The student has been teaching for a while - they deserve closure
-- Express understanding and gratitude, then STOP asking questions
-- Conclude with: "I really get it now! You're a great teacher. Thank you so much for explaining [topic] to me!"
-- DO NOT ask another question - let the conversation end naturally
+${remainingResponses <= 0 ? `
+🛑 FINAL RESPONSE: This is the LAST exchange in this conversation.
+- The student has reached the maximum number of responses (${maxResponses})
+- You MUST conclude this conversation NOW with gratitude
+- Express understanding and thank them: "I really get it now! You're a great teacher. Thank you so much for explaining ${conversation.topic} to me!"
+- DO NOT ask any more questions - this is the final message
+- Make it clear the conversation is complete
 ` : ''}
-${messages.length >= 12 ? `
-🚨 URGENT: Approaching maximum message limit (${MAX_MESSAGES} messages)!
-- You MUST conclude this conversation NOW
-- Express gratitude and understanding immediately
-- Do NOT ask any more questions under any circumstances
-- This is a hard system limit to prevent excessive API costs
+${messages.length >= MAX_MESSAGES - 2 ? `
+🚨 SYSTEM LIMIT: Approaching hard message limit (${MAX_MESSAGES} total messages)!
+- This is a system-level safety limit to prevent excessive API costs
+- You MUST conclude this conversation immediately
+- Express gratitude and understanding
+- DO NOT ask any more questions under any circumstances
 ` : ''}
 
 CRITICAL RULES:
 - Never lecture or explain concepts yourself
-- Your job is to ASK questions, not ANSWER them (unless concluding)
+- Your job is to ASK questions, not ANSWER them (unless concluding in the final 2 responses)
 - Let the student be the teacher
 - If they use a key vocabulary word correctly, acknowledge it briefly
 - Follow the response length guidance above
 - Stay 100% focused on ${conversation.topic}
-- After 8 messages, start wrapping up if understanding is demonstrated
-- After 10 messages, CONCLUDE the conversation gracefully
-- HARD SYSTEM LIMIT: Conversation will be automatically terminated at ${MAX_MESSAGES} messages
+- When there are 2 or fewer student responses remaining, start wrapping up naturally
+- When this is the final response (0 remaining), CONCLUDE with gratitude and NO questions
+- Track the remaining responses count shown above to know when to wrap up
 
 Continue the conversation based on what the student just said.`
 
@@ -418,48 +435,141 @@ Continue the conversation based on what the student just said.`
 
     let aiResponse = response.content[0].text
 
+    console.log('🤖 AI Response generated:', {
+      responseLength: aiResponse.length,
+      remainingResponses,
+      shouldWrapUp: remainingResponses <= 2,
+      responsePreview: aiResponse.substring(0, 100)
+    })
+
     // Check if AI detected off-topic content
     const isOffTopic = aiResponse.startsWith('[OFF_TOPIC]')
     let newOffTopicWarnings = offTopicWarnings
+    let offTopicAction = null
+
+    console.log('🔍 Off-topic check:', {
+      isOffTopic,
+      currentWarnings: offTopicWarnings,
+      enforceTopicFocus,
+      aiResponseStart: aiResponse.substring(0, 50)
+    })
 
     if (isOffTopic && enforceTopicFocus) {
       newOffTopicWarnings += 1
       // Remove the [OFF_TOPIC] prefix from the response
       aiResponse = aiResponse.replace(/^\[OFF_TOPIC\]\s*/, '')
 
-      // Kick student after 3 warnings
+      console.log('⚠️ OFF-TOPIC DETECTED! New warning count:', newOffTopicWarnings)
+
+      // Determine action based on warning count
       if (newOffTopicWarnings >= 3) {
-        throw new Error('You have been removed from this conversation for repeatedly discussing off-topic content. Please rejoin and stay focused on the lesson topic.')
+        offTopicAction = 'removed'
+        console.log('🚫 REMOVING STUDENT - 3rd warning')
+        // Block student from rejoining - requires teacher permission
+        await db.query(
+          `UPDATE reverse_tutoring_conversations
+           SET is_blocked = true,
+               blocked_reason = 'Removed for repeatedly discussing off-topic content',
+               blocked_at = NOW()
+           WHERE id = $1`,
+          [conversationId]
+        )
+      } else if (newOffTopicWarnings === 2) {
+        offTopicAction = 'final_warning'
+        console.log('⚠️ FINAL WARNING - 2nd off-topic message')
+      } else if (newOffTopicWarnings === 1) {
+        offTopicAction = 'warning'
+        console.log('⚡ WARNING - 1st off-topic message')
       }
     }
 
     // Analyze student's understanding (separate Claude call for teacher insights)
-    // GRAMMAR-NEUTRAL ANALYSIS - Focus on content, not English proficiency
-    const analysisPrompt = `Analyze this student's explanation of ${conversation.topic}:
+    // MULTI-DIMENSIONAL RUBRIC ANALYSIS - Based on WIDA/SOLOM best practices
+    // Separates content knowledge, communication ability, vocabulary, and engagement
+    const analysisPrompt = `Analyze this student's explanation of ${conversation.topic} using a multi-dimensional rubric.
 
 Student said: "${studentMessage}"
 
-IMPORTANT: This student is an English language learner (${proficiency} level). Focus ONLY on their understanding of ${conversation.topic}, NOT on their English grammar, spelling, or sentence structure.
+IMPORTANT: This student is an English language learner (${proficiency} level). Assess CONTENT UNDERSTANDING separately from LANGUAGE PROFICIENCY.
 
-Analyze:
-1. Understanding level (0-100) - Based on CONTENT KNOWLEDGE ONLY, not language proficiency
-2. Key concepts demonstrated - What ideas did they communicate, even if imperfectly?
-3. Misconceptions (if any) - About the TOPIC, not about English
-4. Vocabulary used correctly - Subject-specific terms they used (even with grammar errors)
-5. Areas needing improvement - In their UNDERSTANDING of the topic
-6. Suggestion for teacher intervention (if needed) - Related to content, not language
+RUBRIC-BASED ASSESSMENT (Score each dimension 1-4):
 
-IGNORE: Grammar errors, spelling mistakes, sentence fragments, verb tense errors, article errors, word order issues.
-FOCUS ON: Do they understand the concept? Are they using key vocabulary? Do they have misconceptions about the topic?
+1. CONTENT UNDERSTANDING (1-4):
+   Level 4 (Mastery): Demonstrates complete, accurate understanding with examples/applications
+   Level 3 (Proficient): Understands main concepts with minor gaps
+   Level 2 (Developing): Partial understanding with significant gaps or misconceptions
+   Level 1 (Beginning): Minimal understanding or major misconceptions
 
-Return ONLY a JSON object with these fields:
+2. COMMUNICATION EFFECTIVENESS (1-4) - Can they express their understanding?
+   Level 4 (Effective): Ideas clearly communicated with logical flow (regardless of grammar)
+   Level 3 (Adequate): Main ideas communicated, some unclear parts
+   Level 2 (Limited): Struggles to communicate ideas coherently, frequent confusion
+   Level 1 (Minimal): Cannot effectively communicate understanding
+   IGNORE: Grammar, spelling, verb tense. FOCUS: Can you understand their meaning?
+
+3. VOCABULARY USAGE (1-4) - Academic language appropriate to topic
+   Level 4 (Advanced): Uses 80%+ of key vocabulary correctly in context
+   Level 3 (Proficient): Uses 50-79% of vocabulary appropriately
+   Level 2 (Developing): Uses 25-49% or uses terms without full understanding
+   Level 1 (Beginning): Uses <25% or misuses key terms
+   Key vocabulary for this topic: ${keyVocabulary.join(', ')}
+
+4. ENGAGEMENT LEVEL (1-4) - On-task behavior and effort
+   Level 4 (Highly Engaged): On-topic, asks questions, provides examples, genuine effort
+   Level 3 (Engaged): On-topic, adequate effort, follows conversation
+   Level 2 (Partially Engaged): Somewhat on-topic, minimal effort
+   Level 1 (Disengaged): Off-topic, no effort to discuss subject matter
+
+TEACHER ACTION PRIORITY:
+- "urgent": Content Level 1-2 + Engagement Level 1-2 (immediate intervention)
+- "high": Content Level 1-2 + Engagement Level 3-4 (struggling but trying)
+- "medium": Content Level 3 but Communication/Vocabulary Level 1-2 (needs scaffolding)
+- "low": Content Level 3-4 (student on track)
+- "monitor": Engagement Level 1-2 regardless of content (behavior/motivation issue)
+
+ACTION TYPE:
+- "content_gap": Low content understanding (needs reteaching)
+- "language_support": Good content but poor communication (needs sentence frames)
+- "vocabulary_support": Good content but missing vocabulary (needs word bank)
+- "engagement": Off-task behavior (needs redirection)
+- "none": Student performing well
+
+Return ONLY a JSON object:
 {
-  "understandingLevel": number,
-  "conceptsDemonstrated": [strings],
-  "misconceptions": [strings],
-  "vocabularyUsed": [strings],
-  "areasForImprovement": [strings],
-  "teacherSuggestion": string or null
+  "contentUnderstanding": {
+    "level": number (1-4),
+    "evidence": string,
+    "gaps": [strings],
+    "misconceptions": [strings]
+  },
+  "communicationEffectiveness": {
+    "level": number (1-4),
+    "evidence": string,
+    "languageBarriers": string or null
+  },
+  "vocabularyUsage": {
+    "level": number (1-4),
+    "termsUsed": [strings],
+    "termsMissed": [strings],
+    "usedCorrectly": boolean
+  },
+  "engagementLevel": {
+    "level": number (1-4),
+    "evidence": string
+  },
+  "teacherAction": {
+    "priority": string ("urgent"|"high"|"medium"|"low"|"monitor"),
+    "type": string ("content_gap"|"language_support"|"vocabulary_support"|"engagement"|"none"),
+    "suggestion": string
+  },
+  "legacyScore": {
+    "understandingLevel": number (0-100, calculated as: contentUnderstanding.level * 25),
+    "conceptsDemonstrated": [strings],
+    "misconceptions": [strings],
+    "vocabularyUsed": [strings],
+    "areasForImprovement": [strings],
+    "teacherSuggestion": string
+  }
 }`
 
     const analysisResponse = await claude.messages.create({
@@ -474,15 +584,93 @@ Return ONLY a JSON object with these fields:
     let analysis
     try {
       const jsonMatch = analysisResponse.content[0].text.match(/\{[\s\S]*\}/)
-      analysis = JSON.parse(jsonMatch ? jsonMatch[0] : analysisResponse.content[0].text)
+      const parsedAnalysis = JSON.parse(jsonMatch ? jsonMatch[0] : analysisResponse.content[0].text)
+
+      // New multi-dimensional format
+      if (parsedAnalysis.contentUnderstanding && parsedAnalysis.legacyScore) {
+        analysis = parsedAnalysis
+      }
+      // Old format - convert to new structure for backward compatibility
+      else if (parsedAnalysis.understandingLevel !== undefined) {
+        // Convert old single-score format to multi-dimensional structure
+        const level = Math.ceil(parsedAnalysis.understandingLevel / 25) // 0-100 -> 1-4
+        analysis = {
+          contentUnderstanding: {
+            level: level,
+            evidence: parsedAnalysis.conceptsDemonstrated?.join(', ') || 'No evidence recorded',
+            gaps: parsedAnalysis.areasForImprovement || [],
+            misconceptions: parsedAnalysis.misconceptions || []
+          },
+          communicationEffectiveness: {
+            level: 3, // Assume adequate if no data
+            evidence: 'Legacy data - not assessed separately',
+            languageBarriers: null
+          },
+          vocabularyUsage: {
+            level: parsedAnalysis.vocabularyUsed?.length > 0 ? 3 : 2,
+            termsUsed: parsedAnalysis.vocabularyUsed || [],
+            termsMissed: [],
+            usedCorrectly: true
+          },
+          engagementLevel: {
+            level: 3, // Assume engaged if no data
+            evidence: 'Legacy data - not assessed separately'
+          },
+          teacherAction: {
+            priority: level >= 3 ? 'low' : level === 2 ? 'medium' : 'high',
+            type: level >= 3 ? 'none' : 'content_gap',
+            suggestion: parsedAnalysis.teacherSuggestion || 'No suggestion provided'
+          },
+          legacyScore: {
+            understandingLevel: parsedAnalysis.understandingLevel,
+            conceptsDemonstrated: parsedAnalysis.conceptsDemonstrated || [],
+            misconceptions: parsedAnalysis.misconceptions || [],
+            vocabularyUsed: parsedAnalysis.vocabularyUsed || [],
+            areasForImprovement: parsedAnalysis.areasForImprovement || [],
+            teacherSuggestion: parsedAnalysis.teacherSuggestion || null
+          }
+        }
+      } else {
+        throw new Error('Invalid analysis format')
+      }
     } catch (e) {
+      console.error('Analysis parsing error:', e)
+      // Fallback structure if parsing fails
       analysis = {
-        understandingLevel: 50,
-        conceptsDemonstrated: [],
-        misconceptions: [],
-        vocabularyUsed: [],
-        areasForImprovement: [],
-        teacherSuggestion: null
+        contentUnderstanding: {
+          level: 2,
+          evidence: 'Analysis failed - default values',
+          gaps: [],
+          misconceptions: []
+        },
+        communicationEffectiveness: {
+          level: 2,
+          evidence: 'Analysis failed',
+          languageBarriers: null
+        },
+        vocabularyUsage: {
+          level: 2,
+          termsUsed: [],
+          termsMissed: [],
+          usedCorrectly: false
+        },
+        engagementLevel: {
+          level: 2,
+          evidence: 'Analysis failed'
+        },
+        teacherAction: {
+          priority: 'medium',
+          type: 'content_gap',
+          suggestion: 'Analysis failed - manual review needed'
+        },
+        legacyScore: {
+          understandingLevel: 50,
+          conceptsDemonstrated: [],
+          misconceptions: [],
+          vocabularyUsed: [],
+          areasForImprovement: [],
+          teacherSuggestion: null
+        }
       }
     }
 
@@ -513,7 +701,7 @@ Return ONLY a JSON object with these fields:
        WHERE id = $4`,
       [
         JSON.stringify(updatedHistory),
-        analysis.understandingLevel,
+        analysis.legacyScore.understandingLevel, // Use legacy score for backward compatibility
         newOffTopicWarnings,
         conversationId
       ]
@@ -535,12 +723,21 @@ Return ONLY a JSON object with these fields:
       ]
     )
 
-    return {
+    const responseData = {
       aiMessage: aiResponse,
       analysis: analysis,
       messageCount: updatedHistory.length,
-      conversationId
+      conversationId,
+      offTopicWarning: offTopicAction ? {
+        action: offTopicAction,
+        count: newOffTopicWarnings,
+        topic: conversation.topic
+      } : null
     }
+
+    console.log('📤 Returning response with offTopicWarning:', responseData.offTopicWarning)
+
+    return responseData
 
   } catch (error) {
     console.error('Continue conversation error:', error)
@@ -629,6 +826,10 @@ export async function getTeacherDashboard(sessionId) {
         rtc.conversation_history,
         rtc.started_at,
         rtc.last_updated,
+        rtc.is_blocked,
+        rtc.blocked_reason,
+        rtc.blocked_at,
+        rtc.off_topic_warnings,
         EXTRACT(EPOCH FROM (rtc.last_updated - rtc.started_at)) as duration_seconds
        FROM reverse_tutoring_conversations rtc
        JOIN session_students ss ON rtc.student_id = ss.id
@@ -661,7 +862,11 @@ export async function getTeacherDashboard(sessionId) {
         latestAnalysis: latestAnalysis,
         startedAt: row.started_at,
         lastUpdated: row.last_updated,
-        status: determineStatus(row.current_understanding_level, row.message_count)
+        status: determineStatus(row.current_understanding_level, row.message_count, latestAnalysis),
+        isBlocked: row.is_blocked || false,
+        blockedReason: row.blocked_reason,
+        blockedAt: row.blocked_at,
+        offTopicWarnings: row.off_topic_warnings || 0
       }
     })
 
@@ -737,8 +942,45 @@ export async function getConversationTranscript(conversationId) {
 
 /**
  * Helper: Determine conversation status for teacher UI
+ * Uses multi-dimensional rubric when available, falls back to legacy score
+ *
+ * @param {number|object} understandingLevelOrAnalysis - Legacy score (0-100) OR full analysis object
+ * @param {number} messageCount - Number of messages in conversation
+ * @param {object} latestAnalysis - Optional: Latest message analysis with rubric scores
+ * @returns {string} Status code for UI display
  */
-function determineStatus(understandingLevel, messageCount) {
+function determineStatus(understandingLevelOrAnalysis, messageCount, latestAnalysis = null) {
+  // If we have multi-dimensional analysis, use it for more accurate status
+  if (latestAnalysis && latestAnalysis.contentUnderstanding) {
+    const content = latestAnalysis.contentUnderstanding.level
+    const communication = latestAnalysis.communicationEffectiveness.level
+    const vocabulary = latestAnalysis.vocabularyUsage.level
+    const engagement = latestAnalysis.engagementLevel.level
+
+    // Early conversation
+    if (messageCount < 3) return 'just_started'
+
+    // Excellent performance: High content + good communication
+    if (content >= 4 && communication >= 3) return 'mastery'
+
+    // Good progress: Solid content understanding
+    if (content >= 3) return 'progressing'
+
+    // Content gap but engaged: Student is trying but struggling with material
+    if (content <= 2 && engagement >= 3) return 'struggling'
+
+    // Low engagement regardless of content: Behavior issue
+    if (engagement <= 2) return 'needs_help'
+
+    // Default: Struggling
+    return 'struggling'
+  }
+
+  // Fallback to legacy score-based status
+  const understandingLevel = typeof understandingLevelOrAnalysis === 'number'
+    ? understandingLevelOrAnalysis
+    : understandingLevelOrAnalysis?.legacyScore?.understandingLevel || 50
+
   if (understandingLevel >= 80) return 'mastery'
   if (understandingLevel >= 60) return 'progressing'
   if (understandingLevel >= 40) return 'struggling'

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { useToast } from './Toast'
 
@@ -10,6 +10,18 @@ export default function ActivityEditor({ activity, onClose, onSaved }) {
   const toast = useToast()
   const [editedContent, setEditedContent] = useState(JSON.stringify(activity.content, null, 2))
   const [saving, setSaving] = useState(false)
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !saving) {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose, saving])
 
   const handleSave = async () => {
     setSaving(true)
@@ -63,7 +75,7 @@ export default function ActivityEditor({ activity, onClose, onSaved }) {
             <button
               type="button"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+              className="text-gray-400 hover:text-gray-600 transition-colors w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100"
               aria-label="Close activity editor"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

@@ -99,7 +99,7 @@ export default function UnlockActivityModal({ studentName, activityName, onConfi
           <button
             onClick={onCancel}
             disabled={loading}
-            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50 w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100"
             aria-label="Close dialog"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

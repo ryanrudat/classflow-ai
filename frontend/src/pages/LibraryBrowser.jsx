@@ -135,16 +135,42 @@ export default function LibraryBrowser() {
   }
 
   async function handleDelete(item) {
-    try {
-      await api.delete(`/library/${item.id}`)
-      toast.success('Success', 'Activity deleted from library')
-      setDeleteConfirm({ open: false, item: null })
-      loadLibrary()
-      loadStats()
-    } catch (error) {
-      console.error('Delete error:', error)
-      toast.error('Error', 'Failed to delete activity')
-    }
+    setDeleteConfirm({ open: false, item: null })
+
+    // Optimistically remove from UI
+    const previousItems = [...items]
+    setItems(prev => prev.filter(i => i.id !== item.id))
+
+    let deleteTimeout
+    let undoClicked = false
+
+    // Show undo toast
+    toast.success('Deleted', `"${item.title}" deleted from library`, {
+      action: 'Undo',
+      duration: 5000,
+      onAction: () => {
+        undoClicked = true
+        clearTimeout(deleteTimeout)
+        // Restore item in UI
+        setItems(previousItems)
+        toast.info('Restored', 'Activity restored to library')
+      }
+    })
+
+    // Schedule actual deletion after toast duration
+    deleteTimeout = setTimeout(async () => {
+      if (!undoClicked) {
+        try {
+          await api.delete(`/library/${item.id}`)
+          loadStats()
+        } catch (error) {
+          console.error('Delete error:', error)
+          // Restore on error
+          setItems(previousItems)
+          toast.error('Error', 'Failed to delete activity')
+        }
+      }
+    }, 5000)
   }
 
   function clearFilters() {

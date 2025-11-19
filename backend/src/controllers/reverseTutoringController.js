@@ -110,7 +110,7 @@ export async function startConversation(req, res) {
     // Check if conversation already exists for this topic
     console.log('🔍 Checking for existing conversation:', { sessionId, studentId, topic })
     const existingConversation = await db.query(
-      `SELECT id FROM reverse_tutoring_conversations
+      `SELECT id, is_blocked, blocked_reason FROM reverse_tutoring_conversations
        WHERE session_id = $1 AND student_id = $2 AND topic = $3`,
       [sessionId, studentId, topic]
     )
@@ -118,10 +118,23 @@ export async function startConversation(req, res) {
     console.log('📊 Existing conversations found:', existingConversation.rows.length)
 
     if (existingConversation.rows.length > 0) {
-      console.log('⚠️  Conversation already exists:', existingConversation.rows[0].id)
+      const conversation = existingConversation.rows[0]
+
+      // Check if student is blocked
+      if (conversation.is_blocked) {
+        console.log('🚫 Student is blocked from this conversation')
+        return res.status(403).json({
+          message: 'You have been removed from this conversation for off-topic discussion. Please ask your teacher for permission to rejoin.',
+          blocked: true,
+          reason: conversation.blocked_reason || 'Removed for off-topic discussion',
+          conversationId: conversation.id
+        })
+      }
+
+      console.log('⚠️  Conversation already exists:', conversation.id)
       return res.status(409).json({
         message: 'Conversation already exists for this topic',
-        conversationId: existingConversation.rows[0].id
+        conversationId: conversation.id
       })
     }
 
@@ -238,6 +251,20 @@ export async function sendMessage(req, res) {
     if (!studentMessage || studentMessage.trim().length === 0) {
       return res.status(400).json({
         message: 'Student message is required'
+      })
+    }
+
+    // Check if student is blocked from this conversation
+    const blockCheck = await db.query(
+      `SELECT is_blocked, blocked_reason FROM reverse_tutoring_conversations WHERE id = $1`,
+      [conversationId]
+    )
+
+    if (blockCheck.rows.length > 0 && blockCheck.rows[0].is_blocked) {
+      return res.status(403).json({
+        message: 'You have been removed from this conversation. Please ask your teacher for permission to rejoin.',
+        blocked: true,
+        reason: blockCheck.rows[0].blocked_reason || 'Removed for off-topic discussion'
       })
     }
 
@@ -809,6 +836,48 @@ export async function deleteTopic(req, res) {
     console.error('Delete topic error:', error)
     res.status(500).json({
       message: `Failed to delete topic: ${error.message}`
+    })
+  }
+}
+
+/**
+ * Unblock a student from a conversation (Teacher only)
+ * POST /api/reverse-tutoring/:conversationId/unblock
+ * Protected: Requires teacher authentication
+ */
+export async function unblockStudent(req, res) {
+  try {
+    const { conversationId } = req.params
+
+    // Update conversation to unblock
+    const result = await db.query(
+      `UPDATE reverse_tutoring_conversations
+       SET is_blocked = false,
+           blocked_reason = null,
+           blocked_at = null,
+           off_topic_warnings = 0
+       WHERE id = $1
+       RETURNING student_id, topic`,
+      [conversationId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Conversation not found' })
+    }
+
+    const conversation = result.rows[0]
+
+    res.json({
+      message: 'Student unblocked successfully',
+      conversationId,
+      studentId: conversation.student_id,
+      topic: conversation.topic
+    })
+
+  } catch (error) {
+    console.error('Unblock student error:', error)
+    res.status(500).json({
+      message: `Failed to unblock student: ${error.message}`
     })
   }
 }
