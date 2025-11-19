@@ -833,7 +833,7 @@ export default function ReverseTutoring() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-gray-200 p-4">
+          <div className="border-t border-gray-200 p-3 md:p-4">
             {/* Wrap-up warning at message 12 */}
             {messageCount >= 12 && messageCount < MAX_MESSAGES && (
               <div className="mb-4 bg-orange-50 border-2 border-orange-200 rounded-lg p-4 animate-fade-in">
@@ -865,7 +865,7 @@ export default function ReverseTutoring() {
             )}
 
             {/* Need Help Button - centered above input with more spacing */}
-            <div className="flex items-center justify-center mb-8 mt-12">
+            <div className="flex items-center justify-center mb-4 mt-2">
               <button
                 onClick={requestHelp}
                 disabled={messageCount >= MAX_MESSAGES}
@@ -886,7 +886,7 @@ export default function ReverseTutoring() {
 
             {/* Voice Input - Always primary */}
             {!showTextFallback && messageCount < MAX_MESSAGES && (
-              <div className="space-y-3 mt-6">
+              <div className="space-y-3 mt-3">
                 {/* Transcribed Text (editable) */}
                 {currentTranscript && (
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -934,7 +934,7 @@ export default function ReverseTutoring() {
                         onMouseUp={stopRecording}
                         onTouchStart={startRecording}
                         onTouchEnd={stopRecording}
-                        className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-2 ${
+                        className={`relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-offset-2 ${
                           isRecording
                             ? 'bg-red-600 text-white scale-110 shadow-2xl shadow-red-500/50 focus:ring-red-500'
                             : 'bg-purple-700 text-white hover:bg-purple-800 hover:scale-105 shadow-lg focus:ring-purple-500'
@@ -946,14 +946,14 @@ export default function ReverseTutoring() {
                         {isRecording && (
                           <span className="absolute inset-0 rounded-full bg-red-600 animate-ping opacity-75"></span>
                         )}
-                        <svg className="w-8 h-8 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <svg className="w-7 h-7 md:w-8 md:h-8 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
                       </button>
 
                       {/* Waveform Animation when recording */}
                       {isRecording && (
-                        <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 flex gap-1">
+                        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex gap-1">
                           {[...Array(5)].map((_, i) => (
                             <div
                               key={i}
@@ -967,14 +967,14 @@ export default function ReverseTutoring() {
                       )}
                     </div>
 
-                    <p className="text-sm text-gray-700 mt-16 flex items-center gap-2 text-center" aria-live="polite">
+                    <p className="text-sm text-gray-700 mt-10 flex items-center gap-2 text-center" aria-live="polite">
                       {isRecording && (
                         <span className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
                       )}
                       {isRecording ? 'Recording... Release to stop' : 'Press and HOLD to speak (don\'t just click)'}
                     </p>
                     {!isRecording && (
-                      <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
+                      <p className="text-xs text-gray-500 mt-1 text-center max-w-md px-4">
                         Tip: Press and hold the button while you speak, then release when done. Make sure your browser has microphone permission.
                       </p>
                     )}
