@@ -191,8 +191,10 @@ export default function ReverseTutoring() {
       setAvailableTopics(response.data.topics)
       setLoadingTopics(false)
 
-      // Always show topic selection screen - let students choose consciously
-      // (Previously auto-selected if only one topic, but this skipped the selection UI)
+      // If only one topic, auto-select it
+      if (response.data.topics.length === 1) {
+        selectTopic(response.data.topics[0])
+      }
     } catch (error) {
       // Silently fail on 404 - endpoint may not be deployed yet
       if (error.response?.status !== 404) {
