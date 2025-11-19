@@ -721,7 +721,7 @@ export default function ReverseTutoring() {
           {isTranscribing && 'Transcribing your speech...'}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: '650px', maxHeight: 'calc(100vh - 240px)' }}>
+        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: '75vh', minHeight: '600px', maxHeight: 'calc(100vh - 200px)' }}>
           {/* Off-Topic Warning Banner */}
           {(() => {
             console.log('🎨 Rendering warning banner check. offTopicWarning:', offTopicWarning)
@@ -763,7 +763,7 @@ export default function ReverseTutoring() {
           )}
 
           {/* Messages - Fixed height with scroll */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-h-0" role="log" aria-label="Conversation messages">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-5 md:space-y-6 min-h-0" role="log" aria-label="Conversation messages">
             {messages.map((msg, index) => (
               <div
                 key={index}
@@ -774,29 +774,29 @@ export default function ReverseTutoring() {
                   msg.role === 'student' ? 'flex-row-reverse' : ''
                 }`}>
                   {/* Avatar */}
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${
+                  <div className={`flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shadow-sm ${
                     msg.role === 'ai'
                       ? 'bg-purple-100'
                       : 'bg-blue-100'
                   }`}>
                     {msg.role === 'ai' ? (
-                      <svg className="w-5 h-5 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-6 h-6 md:w-7 md:h-7 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="w-6 h-6 md:w-7 md:h-7 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     )}
                   </div>
 
                   {/* Message Bubble - iOS Style with tail */}
-                  <div className={`relative rounded-2xl p-4 shadow-sm break-words ${
+                  <div className={`relative rounded-2xl p-4 md:p-5 shadow-sm break-words ${
                     msg.role === 'ai'
                       ? 'bg-purple-50 text-gray-900 border border-purple-100 rounded-bl-md'
                       : 'bg-blue-700 text-white rounded-br-md'
                   }`}>
-                    <p className="text-sm md:text-base leading-relaxed break-words">{msg.content}</p>
+                    <p className="text-base md:text-lg leading-relaxed break-words">{msg.content}</p>
                     {msg.timestamp && (
                       <time className="text-xs opacity-70 mt-2 block">
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -810,19 +810,19 @@ export default function ReverseTutoring() {
             {isSending && (
               <div className="flex justify-start animate-fade-in">
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center shadow-sm">
-                    <svg className="w-5 h-5 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-purple-100 flex items-center justify-center shadow-sm">
+                    <svg className="w-6 h-6 md:w-7 md:h-7 text-purple-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
                   </div>
-                  <div className="bg-purple-50 rounded-2xl rounded-bl-md p-4 border border-purple-100 shadow-sm">
+                  <div className="bg-purple-50 rounded-2xl rounded-bl-md p-4 md:p-5 border border-purple-100 shadow-sm">
                     <div className="flex items-center gap-2">
                       <div className="flex gap-1">
                         <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
                         <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                         <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                       </div>
-                      <span className="text-sm text-gray-600 ml-2">Alex is thinking...</span>
+                      <span className="text-base md:text-lg text-gray-600 ml-2">Alex is thinking...</span>
                     </div>
                   </div>
                 </div>
