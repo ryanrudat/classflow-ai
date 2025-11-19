@@ -503,6 +503,10 @@ export async function createTopic(req, res) {
       subject = 'Science',
       gradeLevel = '7th grade',
       keyVocabulary = [],
+      languageComplexity = 'standard',
+      responseLength = 'medium',
+      maxStudentResponses = 10,
+      enforceTopicFocus = true,
       assignedStudentIds = [] // Empty = available to all
     } = req.body
 
@@ -549,9 +553,10 @@ export async function createTopic(req, res) {
     const result = await db.query(
       `INSERT INTO reverse_tutoring_topics (
         session_id, topic, subject, grade_level, key_vocabulary,
+        language_complexity, response_length, max_student_responses, enforce_topic_focus,
         assigned_student_ids, created_by
       )
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10::jsonb, $11)
       RETURNING *`,
       [
         sessionId,
@@ -559,6 +564,10 @@ export async function createTopic(req, res) {
         subject,
         gradeLevel,
         JSON.stringify(vocabArray),
+        languageComplexity,
+        responseLength,
+        maxStudentResponses,
+        enforceTopicFocus,
         JSON.stringify(studentIdsArray),
         teacherId
       ]
@@ -583,6 +592,10 @@ export async function createTopic(req, res) {
         subject: newTopic.subject,
         gradeLevel: newTopic.grade_level,
         keyVocabulary: parsedKeyVocabulary,
+        languageComplexity: newTopic.language_complexity,
+        responseLength: newTopic.response_length,
+        maxStudentResponses: newTopic.max_student_responses,
+        enforceTopicFocus: newTopic.enforce_topic_focus,
         assignedStudentIds: parsedAssignedStudentIds,
         createdAt: newTopic.created_at
       }
@@ -609,7 +622,8 @@ export async function getSessionTopics(req, res) {
     let query = `
       SELECT
         id, session_id, topic, subject, grade_level,
-        key_vocabulary, assigned_student_ids, is_active, created_at
+        key_vocabulary, assigned_student_ids, is_active, created_at,
+        language_complexity, response_length
       FROM reverse_tutoring_topics
       WHERE session_id = $1 AND is_active = true
       ORDER BY created_at ASC
@@ -655,7 +669,9 @@ export async function getSessionTopics(req, res) {
         keyVocabulary,
         assignedStudentIds,
         isActive: row.is_active,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        languageComplexity: row.language_complexity || 'standard',
+        responseLength: row.response_length || 'medium'
       }
     })
 
@@ -696,6 +712,10 @@ export async function updateTopic(req, res) {
       subject,
       gradeLevel,
       keyVocabulary,
+      languageComplexity,
+      responseLength,
+      maxStudentResponses,
+      enforceTopicFocus,
       assignedStudentIds,
       isActive
     } = req.body
@@ -744,6 +764,22 @@ export async function updateTopic(req, res) {
         : []
       values.push(JSON.stringify(vocabArray))
     }
+    if (languageComplexity !== undefined) {
+      updates.push(`language_complexity = $${paramCount++}`)
+      values.push(languageComplexity)
+    }
+    if (responseLength !== undefined) {
+      updates.push(`response_length = $${paramCount++}`)
+      values.push(responseLength)
+    }
+    if (maxStudentResponses !== undefined) {
+      updates.push(`max_student_responses = $${paramCount++}`)
+      values.push(maxStudentResponses)
+    }
+    if (enforceTopicFocus !== undefined) {
+      updates.push(`enforce_topic_focus = $${paramCount++}`)
+      values.push(enforceTopicFocus)
+    }
     if (assignedStudentIds !== undefined) {
       updates.push(`assigned_student_ids = $${paramCount++}`)
       const studentIdsArray = Array.isArray(assignedStudentIds) ? assignedStudentIds : []
@@ -787,6 +823,10 @@ export async function updateTopic(req, res) {
         subject: updatedTopic.subject,
         gradeLevel: updatedTopic.grade_level,
         keyVocabulary: parsedKeyVocabulary,
+        languageComplexity: updatedTopic.language_complexity,
+        responseLength: updatedTopic.response_length,
+        maxStudentResponses: updatedTopic.max_student_responses,
+        enforceTopicFocus: updatedTopic.enforce_topic_focus,
         assignedStudentIds: parsedAssignedStudentIds,
         isActive: updatedTopic.is_active
       }
