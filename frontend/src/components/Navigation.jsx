@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 /**
  * Navigation Component
  * Persistent top navigation bar for authenticated users
+ * This is the ONLY navigation bar - no page-level headers should duplicate this
  */
 export default function Navigation() {
   const location = useLocation()
