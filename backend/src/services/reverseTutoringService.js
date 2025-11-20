@@ -679,9 +679,21 @@ Return ONLY a JSON object:
       const jsonMatch = analysisResponse.content[0].text.match(/\{[\s\S]*\}/)
       const parsedAnalysis = JSON.parse(jsonMatch ? jsonMatch[0] : analysisResponse.content[0].text)
 
+      console.log(`📝 Generated Analysis for conversation ${conversationId}:`, {
+        hasContentUnderstanding: !!parsedAnalysis.contentUnderstanding,
+        hasLegacyScore: !!parsedAnalysis.legacyScore,
+        isOldFormat: parsedAnalysis.understandingLevel !== undefined
+      })
+
       // New multi-dimensional format
       if (parsedAnalysis.contentUnderstanding && parsedAnalysis.legacyScore) {
         analysis = parsedAnalysis
+        console.log(`✅ Using new multi-dimensional format for conv ${conversationId}:`, {
+          content: analysis.contentUnderstanding.level,
+          communication: analysis.communicationEffectiveness.level,
+          vocabulary: analysis.vocabularyUsage.level,
+          engagement: analysis.engagementLevel.level
+        })
       }
       // Old format - convert to new structure for backward compatibility
       else if (parsedAnalysis.understandingLevel !== undefined) {
@@ -724,10 +736,13 @@ Return ONLY a JSON object:
           }
         }
       } else {
-        throw new Error('Invalid analysis format')
+        throw new Error('Invalid analysis format - missing required fields')
       }
     } catch (e) {
-      console.error('Analysis parsing error:', e)
+      console.error(`❌ ANALYSIS PARSING ERROR for conversation ${conversationId}:`, e)
+      console.error('Raw Claude response:', analysisResponse.content[0].text)
+      console.error('This may cause all students to show identical fallback scores!')
+
       // Fallback structure if parsing fails
       analysis = {
         contentUnderstanding: {
@@ -943,6 +958,17 @@ export async function getTeacherDashboard(sessionId) {
       const latestAnalysis = studentMessages.length > 0
         ? studentMessages[studentMessages.length - 1].analysis
         : null
+
+      // DEBUG: Log analysis uniqueness
+      console.log(`📊 Dashboard Analysis for ${row.student_name} (Conv ${row.conversation_id}):`, {
+        hasAnalysis: !!latestAnalysis,
+        contentLevel: latestAnalysis?.contentUnderstanding?.level,
+        communicationLevel: latestAnalysis?.communicationEffectiveness?.level,
+        vocabularyLevel: latestAnalysis?.vocabularyUsage?.level,
+        engagementLevel: latestAnalysis?.engagementLevel?.level,
+        evidence: latestAnalysis?.contentUnderstanding?.evidence?.substring(0, 50),
+        legacyScore: latestAnalysis?.legacyScore?.understandingLevel
+      })
 
       return {
         conversationId: row.conversation_id,
