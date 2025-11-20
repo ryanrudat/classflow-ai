@@ -38,6 +38,87 @@ function getOpenAIClient() {
  */
 
 /**
+ * Validate AI response against teacher-specified complexity and length settings
+ * @param {string} response - The AI's response text
+ * @param {string} expectedLength - 'short', 'medium', or 'long'
+ * @param {string} expectedComplexity - 'simple', 'standard', or 'advanced'
+ * @returns {object} Validation results with compliance status
+ */
+function validateAIResponse(response, expectedLength, expectedComplexity) {
+  // Count sentences (split by . ! ?)
+  const sentences = response
+    .split(/[.!?]+/)
+    .filter(s => s.trim().length > 0)
+    .map(s => s.trim());
+
+  const sentenceCount = sentences.length;
+
+  // Calculate average sentence length in words
+  const totalWords = sentences.reduce((sum, sentence) => {
+    return sum + sentence.split(/\s+/).filter(w => w.length > 0).length;
+  }, 0);
+  const avgSentenceLength = sentenceCount > 0 ? Math.round(totalWords / sentenceCount) : 0;
+
+  // Calculate average word length (character complexity indicator)
+  const words = response.split(/\s+/).filter(w => w.length > 0);
+  const avgWordLength = words.length > 0
+    ? Math.round(words.reduce((sum, word) => sum + word.length, 0) / words.length)
+    : 0;
+
+  // Define expected criteria
+  const lengthCriteria = {
+    short: { minSentences: 1, maxSentences: 2, label: '1-2 sentences' },
+    medium: { minSentences: 2, maxSentences: 3, label: '2-3 sentences' },
+    long: { minSentences: 3, maxSentences: 4, label: '3-4 sentences' }
+  };
+
+  const complexityCriteria = {
+    simple: { maxAvgSentenceLength: 10, maxAvgWordLength: 5, label: '5-10 words/sentence, simple words' },
+    standard: { maxAvgSentenceLength: 15, maxAvgWordLength: 6, label: '10-15 words/sentence, grade-level words' },
+    advanced: { maxAvgSentenceLength: 999, maxAvgWordLength: 999, label: 'complex sentences and vocabulary' }
+  };
+
+  // Check length compliance
+  const lengthExpected = lengthCriteria[expectedLength];
+  const lengthCompliant = sentenceCount >= lengthExpected.minSentences &&
+                          sentenceCount <= lengthExpected.maxSentences;
+
+  // Check complexity compliance
+  const complexityExpected = complexityCriteria[expectedComplexity];
+  const complexityCompliant = expectedComplexity === 'advanced' ||
+                               (avgSentenceLength <= complexityExpected.maxAvgSentenceLength &&
+                                avgWordLength <= complexityExpected.maxAvgWordLength);
+
+  // Overall compliance
+  const isCompliant = lengthCompliant && complexityCompliant;
+
+  return {
+    isCompliant,
+    sentenceCount,
+    avgSentenceLength,
+    avgWordLength,
+    totalWords,
+    expected: {
+      length: expectedLength,
+      lengthCriteria: lengthExpected.label,
+      complexity: expectedComplexity,
+      complexityCriteria: complexityExpected.label
+    },
+    compliance: {
+      length: lengthCompliant ? '✅' : '❌',
+      complexity: complexityCompliant ? '✅' : '❌'
+    },
+    warnings: [
+      !lengthCompliant ? `Expected ${lengthExpected.label}, got ${sentenceCount} sentences` : null,
+      !complexityCompliant && expectedComplexity === 'simple' ?
+        `Sentences too long for SIMPLE (avg ${avgSentenceLength} words, expected ≤10)` : null,
+      !complexityCompliant && expectedComplexity === 'standard' ?
+        `Sentences too complex for STANDARD (avg ${avgSentenceLength} words, expected ≤15)` : null
+    ].filter(w => w !== null)
+  };
+}
+
+/**
  * Transcribe audio to text using OpenAI Whisper
  * Whisper is much better than browser API for:
  * - Accents (90-95% accuracy vs 70-75%)
@@ -120,11 +201,15 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
     // Create initial AI student persona with strict guardrails
     const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
 
-LANGUAGE COMPLEXITY SETTINGS:
+⚠️ CRITICAL RESPONSE REQUIREMENTS (FOLLOW STRICTLY):
+
+LANGUAGE COMPLEXITY - ${languageComplexity.toUpperCase()}:
 ${complexityGuidance[languageComplexity]}
 
-RESPONSE LENGTH:
+RESPONSE LENGTH - ${responseLength.toUpperCase()}:
 ${lengthGuidance[responseLength]}
+
+YOU MUST follow these complexity and length requirements in EVERY response.
 
 ELL STUDENT SUPPORT:
 The student is an English language learner at ${languageProficiency} proficiency level.
@@ -344,14 +429,25 @@ export async function continueConversation(conversationId, studentMessage, metad
       totalMessages: messages.length
     })
 
+    console.log('🎨 AI Response Settings:', {
+      languageComplexity,
+      responseLength,
+      topic: conversation.topic,
+      gradeLevel: conversation.grade_level
+    })
+
     // Create system prompt with multilingual support if needed
     const systemPrompt = `You are Alex, a curious ${conversation.grade_level} student learning about ${conversation.topic} in ${conversation.subject} class.
 
-LANGUAGE COMPLEXITY SETTINGS:
+⚠️ CRITICAL RESPONSE REQUIREMENTS (FOLLOW STRICTLY):
+
+LANGUAGE COMPLEXITY - ${languageComplexity.toUpperCase()}:
 ${complexityGuidance[languageComplexity]}
 
-RESPONSE LENGTH:
+RESPONSE LENGTH - ${responseLength.toUpperCase()}:
 ${lengthGuidance[responseLength]}
+
+YOU MUST follow these complexity and length requirements in EVERY response.
 
 ELL STUDENT SUPPORT:
 The student is an English language learner at ${proficiency} proficiency level.
@@ -367,8 +463,8 @@ ${enforceTopicFocus ? `OFF-TOPIC DETECTION (TEACHER ENABLED):
 - If the student's message is COMPLETELY unrelated to ${conversation.topic} (e.g., talking about video games, food, sports, their weekend, etc.), prefix your response with [OFF_TOPIC]
 - Example: "[OFF_TOPIC] That sounds fun, but I really need help with ${conversation.topic}. Can you teach me about that?"
 - Only flag as off-topic if it's CLEARLY unrelated - questions about the topic or related concepts are fine
-- Current warnings: ${offTopicWarnings}/3 (student will be removed after 3 warnings)
-${offTopicWarnings === 2 ? '⚠️ THIS IS THE FINAL WARNING - next off-topic message will end the conversation' : ''}` : ''}
+- Be GENEROUS in your interpretation - if there's ANY connection to the topic, don't flag it
+- Current warnings: ${offTopicWarnings} (teacher will be notified to help redirect the conversation)` : ''}
 
 Your educational role:
 - You're genuinely confused and need the student to TEACH you about ${conversation.topic}
@@ -435,12 +531,17 @@ Continue the conversation based on what the student just said.`
 
     let aiResponse = response.content[0].text
 
+    // Validate AI response against teacher settings
+    const validation = validateAIResponse(aiResponse, responseLength, languageComplexity);
+
     console.log('🤖 AI Response generated:', {
       responseLength: aiResponse.length,
       remainingResponses,
       shouldWrapUp: remainingResponses <= 2,
       responsePreview: aiResponse.substring(0, 100)
     })
+
+    console.log('✅ Response Validation:', validation)
 
     // Check if AI detected off-topic content
     const isOffTopic = aiResponse.startsWith('[OFF_TOPIC]')
@@ -461,22 +562,14 @@ Continue the conversation based on what the student just said.`
 
       console.log('⚠️ OFF-TOPIC DETECTED! New warning count:', newOffTopicWarnings)
 
-      // Determine action based on warning count
+      // Determine action based on warning count (NO AUTOMATIC BLOCKING - teacher decides)
       if (newOffTopicWarnings >= 3) {
-        offTopicAction = 'removed'
-        console.log('🚫 REMOVING STUDENT - 3rd warning')
-        // Block student from rejoining - requires teacher permission
-        await db.query(
-          `UPDATE reverse_tutoring_conversations
-           SET is_blocked = true,
-               blocked_reason = 'Removed for repeatedly discussing off-topic content',
-               blocked_at = NOW()
-           WHERE id = $1`,
-          [conversationId]
-        )
+        offTopicAction = 'multiple_warnings'
+        console.log('⚠️ MULTIPLE OFF-TOPIC WARNINGS:', newOffTopicWarnings, '- Alerting teacher (no auto-block)')
+        // Teacher will see warning count and can manually block if needed
       } else if (newOffTopicWarnings === 2) {
-        offTopicAction = 'final_warning'
-        console.log('⚠️ FINAL WARNING - 2nd off-topic message')
+        offTopicAction = 'warning'
+        console.log('⚠️ WARNING - 2nd off-topic message')
       } else if (newOffTopicWarnings === 1) {
         offTopicAction = 'warning'
         console.log('⚡ WARNING - 1st off-topic message')

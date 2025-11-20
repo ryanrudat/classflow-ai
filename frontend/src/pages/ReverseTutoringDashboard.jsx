@@ -306,6 +306,24 @@ export default function ReverseTutoringDashboard() {
   }
 
   /**
+   * Unblock a student from a conversation
+   */
+  const unblockStudent = async (conversationId, studentName) => {
+    try {
+      await axios.post(
+        `${API_URL}/api/reverse-tutoring/${conversationId}/unblock`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      toast.success('Student Unblocked', `${studentName} can now rejoin the conversation`)
+      loadDashboard() // Refresh dashboard
+    } catch (error) {
+      console.error('Unblock student error:', error)
+      toast.error('Error', error.response?.data?.message || 'Failed to unblock student')
+    }
+  }
+
+  /**
    * Load full transcript for a conversation
    */
   const loadTranscript = async (conversationId) => {
@@ -1021,7 +1039,46 @@ export default function ReverseTutoringDashboard() {
                             </svg>
                             {conv.durationMinutes} min
                           </span>
+                          {/* Off-Topic Warnings */}
+                          {conv.offTopicWarnings > 0 && (
+                            <span className={`flex items-center gap-1 px-2 py-1 rounded ${
+                              conv.offTopicWarnings >= 3 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              {conv.offTopicWarnings} off-topic warning{conv.offTopicWarnings > 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
+
+                        {/* Blocked Status */}
+                        {conv.isBlocked && (
+                          <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                <div>
+                                  <div className="font-semibold text-red-900">Student Blocked</div>
+                                  <div className="text-sm text-red-700">{conv.blockedReason}</div>
+                                  {conv.blockedAt && (
+                                    <div className="text-xs text-red-600 mt-1">
+                                      Blocked at: {new Date(conv.blockedAt).toLocaleString()}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => unblockStudent(conv.conversationId, conv.studentName)}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium text-sm"
+                              >
+                                Unblock
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Latest Analysis */}
                         {conv.latestAnalysis && (
