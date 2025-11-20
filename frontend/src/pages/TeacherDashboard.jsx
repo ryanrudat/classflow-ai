@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import api, { sessionsAPI, aiAPI, activitiesAPI, analyticsAPI, slidesAPI, studentHelpAPI, completionAPI } from '../services/api'
@@ -501,6 +501,12 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
   const { joinSession, pushActivity, on, off, isConnected, removeStudent, emit } = useSocket()
 
+  // Memoize online count to prevent rapid recalculations during state updates
+  // This provides a stable count even when many events fire simultaneously
+  const onlineCount = useMemo(() => {
+    return students.filter(s => s.connected !== false).length
+  }, [students])
+
   // Tab configuration
   // Icon components for tabs
   const getTabIcon = (tabId) => {
@@ -520,7 +526,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview', badge: students.filter(s => s.connected !== false).length },
+    { id: 'overview', label: 'Overview', badge: onlineCount },
     { id: 'present', label: 'Present' },
     { id: 'activities', label: 'Activities', badge: sessionActivities.length > 0 ? sessionActivities.length : null },
     { id: 'analytics', label: 'Analytics' }
@@ -676,41 +682,79 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
     joinSession(session.id, 'teacher')
 
+    // Use a Map for O(1) lookups instead of array.findIndex - much faster with 30+ students
+    // This prevents race conditions and improves performance
+    const studentsMapRef = useRef(new Map())
+
     // Listen for students who are already online (sent when teacher joins)
     const handleStudentsOnline = ({ students: onlineStudents }) => {
       console.log('📢 Received online students:', onlineStudents)
+
+      // Batch update using a single setState call to prevent race conditions
       setStudents(prev => {
-        const updated = [...prev]
+        // Build a map from previous state for fast lookups
+        const studentsMap = new Map(prev.map(s => [s.id, s]))
+
+        // Update all online students in one pass
         onlineStudents.forEach(({ studentId, studentName }) => {
-          const existingIndex = updated.findIndex(s => s.id === studentId)
-          if (existingIndex !== -1) {
+          if (studentsMap.has(studentId)) {
             // Mark existing student as connected
-            updated[existingIndex] = { ...updated[existingIndex], connected: true }
+            const existing = studentsMap.get(studentId)
+            studentsMap.set(studentId, { ...existing, connected: true, lastSeen: Date.now() })
           } else {
             // Add new student
-            updated.push({ id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}`, connected: true })
+            studentsMap.set(studentId, {
+              id: studentId,
+              name: studentName || `Student ${studentId.slice(0, 6)}`,
+              connected: true,
+              lastSeen: Date.now()
+            })
           }
         })
-        return updated
+
+        // Store in ref for quick access
+        studentsMapRef.current = studentsMap
+        return Array.from(studentsMap.values())
       })
     }
 
-    // Listen for student joins
-    const handleUserJoined = ({ role, studentId, studentName }) => {
-      if (role === 'student') {
+    // Listen for student joins - debounced to prevent rapid flickering
+    const handleUserJoined = ({ role, studentId, studentName, timestamp }) => {
+      if (role !== 'student') return
+
+      // Use requestAnimationFrame to batch updates within the same render cycle
+      requestAnimationFrame(() => {
         setStudents(prev => {
-          // Check if student already exists (reconnecting)
-          const existingIndex = prev.findIndex(s => s.id === studentId)
-          if (existingIndex !== -1) {
-            // Student reconnecting - mark as connected
-            const updated = [...prev]
-            updated[existingIndex] = { ...updated[existingIndex], connected: true }
-            return updated
+          // Use Map for O(1) lookup
+          const studentsMap = new Map(prev.map(s => [s.id, s]))
+          const now = Date.now()
+
+          if (studentsMap.has(studentId)) {
+            // Student reconnecting - only update if this is a newer event
+            const existing = studentsMap.get(studentId)
+            const eventTime = timestamp ? new Date(timestamp).getTime() : now
+
+            if (!existing.lastSeen || eventTime >= existing.lastSeen) {
+              studentsMap.set(studentId, {
+                ...existing,
+                connected: true,
+                lastSeen: eventTime
+              })
+            }
+          } else {
+            // New student joining
+            studentsMap.set(studentId, {
+              id: studentId,
+              name: studentName || `Student ${studentId.slice(0, 6)}`,
+              connected: true,
+              lastSeen: now
+            })
           }
-          // New student joining
-          return [...prev, { id: studentId, name: studentName || `Student ${studentId.slice(0, 6)}`, connected: true }]
+
+          studentsMapRef.current = studentsMap
+          return Array.from(studentsMap.values())
         })
-      }
+      })
     }
 
     // Listen for student responses
@@ -718,14 +762,35 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
       setStudentResponses(prev => [...prev, { activityId, studentId, response }])
     }
 
-    // Listen for student leaving
-    const handleUserLeft = ({ role, studentId }) => {
-      if (role === 'student') {
-        // Mark student as disconnected instead of removing them
-        setStudents(prev => prev.map(s =>
-          s.id === studentId ? { ...s, connected: false } : s
-        ))
-      }
+    // Listen for student leaving - debounced to prevent rapid flickering
+    const handleUserLeft = ({ role, studentId, timestamp }) => {
+      if (role !== 'student') return
+
+      // Use requestAnimationFrame to batch updates
+      requestAnimationFrame(() => {
+        setStudents(prev => {
+          const studentsMap = new Map(prev.map(s => [s.id, s]))
+          const now = Date.now()
+
+          if (studentsMap.has(studentId)) {
+            const existing = studentsMap.get(studentId)
+            const eventTime = timestamp ? new Date(timestamp).getTime() : now
+
+            // Only mark as disconnected if this is a newer event
+            // This prevents out-of-order events from causing flickering
+            if (!existing.lastSeen || eventTime >= existing.lastSeen) {
+              studentsMap.set(studentId, {
+                ...existing,
+                connected: false,
+                lastSeen: eventTime
+              })
+            }
+          }
+
+          studentsMapRef.current = studentsMap
+          return Array.from(studentsMap.values())
+        })
+      })
     }
 
     // Listen for student being removed by teacher
@@ -1035,7 +1100,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
                 </span>
               </div>
               <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                {students.filter(s => s.connected !== false).length} Online
+                {onlineCount} Online
               </div>
               <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded font-mono text-sm font-bold">
                 {session.join_code}
@@ -1583,7 +1648,7 @@ function OverviewTab({ session, isConnected, students, instances, selectedInstan
         ) : (
           <div>
             <div className="text-sm text-gray-600 mb-3">
-              {students.filter(s => s.connected !== false).length} / {students.length} online
+              {onlineCount} / {students.length} online
             </div>
             <div className="space-y-4">
               {students.map(student => {
