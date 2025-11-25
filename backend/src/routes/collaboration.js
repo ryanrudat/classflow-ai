@@ -124,7 +124,7 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         SET status = 'matched', matched_at = NOW()
         WHERE session_id = $1
           AND topic_id = $2
-          AND student_id = ANY($3::text[])
+          AND student_id = ANY($3::uuid[])
       `, [sessionId, topicId, participantIds])
 
       // Notify the FIRST student (partner) via socket
