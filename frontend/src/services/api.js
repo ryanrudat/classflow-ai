@@ -527,10 +527,11 @@ export const collaborationAPI = {
   },
 
   // Leave waiting room
-  leaveWaitingRoom: async (sessionId, studentId) => {
+  leaveWaitingRoom: async (sessionId, studentId, topicId) => {
     const response = await api.post('/collaboration/waiting-room/leave', {
       sessionId,
-      studentId
+      studentId,
+      topicId
     })
     return response.data
   },

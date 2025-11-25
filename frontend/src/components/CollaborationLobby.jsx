@@ -34,10 +34,8 @@ export default function CollaborationLobby({
   ]
   const [currentTip, setCurrentTip] = useState(0)
 
+  // Rotate tips every 5 seconds
   useEffect(() => {
-    joinWaitingRoom()
-
-    // Rotate tips every 5 seconds
     const tipInterval = setInterval(() => {
       setCurrentTip(prev => (prev + 1) % waitingTips.length)
     }, 5000)
@@ -46,15 +44,16 @@ export default function CollaborationLobby({
       clearInterval(tipInterval)
       if (timerRef.current) clearInterval(timerRef.current)
       if (countdownRef.current) clearInterval(countdownRef.current)
-      leaveWaitingRoom()
     }
   }, [])
 
-  // Socket event listeners for partner matching
+  // Socket event listeners and joining waiting room
+  // IMPORTANT: Wait for socket to be ready before joining waiting room
+  // This prevents race condition where partner-found event is missed
   useEffect(() => {
     if (!socket) return
 
-    // Join the student's personal room for direct messages
+    // Join the student's personal room for direct messages FIRST
     socket.emit('join-student-room', { studentId })
 
     // Listen for partner found event
@@ -83,8 +82,12 @@ export default function CollaborationLobby({
 
     socket.on('partner-found', handlePartnerFound)
 
+    // NOW join the waiting room after socket is ready and listening
+    joinWaitingRoom()
+
     return () => {
       socket.off('partner-found', handlePartnerFound)
+      leaveWaitingRoom()
     }
   }, [socket, studentId, onPartnerFound])
 
@@ -119,7 +122,7 @@ export default function CollaborationLobby({
 
   const leaveWaitingRoom = async () => {
     try {
-      await collaborationAPI.leaveWaitingRoom(sessionId, studentId)
+      await collaborationAPI.leaveWaitingRoom(sessionId, studentId, topic.id)
     } catch (error) {
       console.error('Failed to leave waiting room:', error)
     }

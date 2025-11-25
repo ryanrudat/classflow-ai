@@ -124,8 +124,8 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         SET status = 'matched', matched_at = NOW()
         WHERE session_id = $1
           AND topic_id = $2
-          AND student_id = ANY($3::uuid[])
-      `, [sessionId, topicId, participantIds])
+          AND student_id IN ($3, $4)
+      `, [sessionId, topicId, partner.student_id, studentId])
 
       // Notify the FIRST student (partner) via socket
       io.to(`student-${partner.student_id}`).emit('partner-found', {
@@ -274,14 +274,15 @@ router.post('/sessions', validateActiveSession, async (req, res) => {
       WHERE id = $2
     `, [result.rows[0].id, conversationId])
 
-    // Update waiting room status
+    // Update waiting room status - use dynamic placeholders for variable participant count
+    const placeholders = participantIds.map((_, i) => `$${i + 2}`).join(', ')
     await db.query(`
       UPDATE collaboration_waiting_room
       SET status = 'matched', matched_at = NOW()
       WHERE session_id = $1
-        AND student_id = ANY($2::uuid[])
+        AND student_id IN (${placeholders})
         AND status = 'waiting'
-    `, [sessionId, participantIds])
+    `, [sessionId, ...participantIds])
 
     // Notify participants
     const io = getIO()
