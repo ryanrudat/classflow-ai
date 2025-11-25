@@ -23,6 +23,13 @@ export default function CollaborationLobby({
   const [countdown, setCountdown] = useState(3)
   const timerRef = useRef(null)
   const countdownRef = useRef(null)
+  const hasJoinedRef = useRef(false) // Prevent multiple join attempts
+  const onPartnerFoundRef = useRef(onPartnerFound) // Stable reference to callback
+
+  // Keep the ref updated
+  useEffect(() => {
+    onPartnerFoundRef.current = onPartnerFound
+  }, [onPartnerFound])
 
   // Tips to show while waiting
   const waitingTips = [
@@ -53,6 +60,10 @@ export default function CollaborationLobby({
   useEffect(() => {
     if (!socket) return
 
+    // Prevent multiple join attempts
+    if (hasJoinedRef.current) return
+    hasJoinedRef.current = true
+
     // Join the student's personal room for direct messages FIRST
     socket.emit('join-student-room', { studentId })
 
@@ -70,7 +81,8 @@ export default function CollaborationLobby({
           setCountdown(count)
           if (count <= 0) {
             clearInterval(countdownRef.current)
-            onPartnerFound({
+            // Use ref to get latest callback
+            onPartnerFoundRef.current({
               collabSessionId: data.collabSessionId,
               partner: data.partner,
               isInitiator: data.isInitiator
@@ -88,8 +100,9 @@ export default function CollaborationLobby({
     return () => {
       socket.off('partner-found', handlePartnerFound)
       leaveWaitingRoom()
+      hasJoinedRef.current = false
     }
-  }, [socket, studentId, onPartnerFound])
+  }, [socket, studentId]) // Removed onPartnerFound - using ref instead
 
   const joinWaitingRoom = async () => {
     try {
@@ -101,7 +114,7 @@ export default function CollaborationLobby({
         setPartnerInfo(result.partner)
         setStatus('matched')
         setTimeout(() => {
-          onPartnerFound({
+          onPartnerFoundRef.current({
             collabSessionId: result.collabSessionId,
             partner: result.partner,
             isInitiator: false
