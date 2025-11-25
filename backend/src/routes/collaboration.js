@@ -155,8 +155,13 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
       availablePartners: []
     })
   } catch (error) {
-    console.error('Error joining waiting room:', error)
-    res.status(500).json({ message: 'Failed to join waiting room' })
+    console.error('Error joining waiting room:', error.message)
+    console.error('Error stack:', error.stack)
+    console.error('Request body:', req.body)
+    res.status(500).json({
+      message: 'Failed to join waiting room',
+      error: error.message
+    })
   }
 })
 
