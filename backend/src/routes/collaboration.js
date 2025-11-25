@@ -83,13 +83,14 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
       }
 
       // Create a new conversation for the collaborative session
+      // Note: reverse_tutoring_conversations doesn't have student_name column
       const convResult = await db.query(`
         INSERT INTO reverse_tutoring_conversations
-          (session_id, topic_id, student_id, student_name, topic, is_collaborative, started_at)
-        SELECT $1, $2, $3, $4, topic, true, NOW()
+          (session_id, topic_id, student_id, topic, is_collaborative, started_at)
+        SELECT $1, $2, $3, topic, true, NOW()
         FROM reverse_tutoring_topics WHERE id = $2
         RETURNING id
-      `, [sessionId, topicId, studentId, studentName])
+      `, [sessionId, topicId, studentId])
 
       const conversationId = convResult.rows[0].id
 
