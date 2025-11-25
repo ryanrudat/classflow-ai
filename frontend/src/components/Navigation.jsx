@@ -36,8 +36,17 @@ export default function Navigation() {
   }
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200" role="navigation" aria-label="Main navigation">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <>
+      {/* Skip Navigation Link - Accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:text-blue-600 focus:font-medium focus:ring-2 focus:ring-blue-500"
+      >
+        Skip to main content
+      </a>
+
+      <nav className="bg-white shadow-sm border-b border-gray-200" role="navigation" aria-label="Main navigation">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo/Brand */}
           <div className="flex items-center gap-8">
@@ -101,5 +110,6 @@ export default function Navigation() {
         </div>
       </div>
     </nav>
+    </>
   )
 }

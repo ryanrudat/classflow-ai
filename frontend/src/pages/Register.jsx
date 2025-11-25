@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { authAPI } from '../services/api'
+import { FieldError } from '../components/ErrorMessages'
+import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator'
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -11,14 +13,43 @@ export default function Register() {
     school: ''
   })
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
 
+  const validateForm = () => {
+    const errors = {}
+
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required'
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address'
+    }
+
+    if (!formData.password) {
+      errors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters'
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    if (!validateForm()) {
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -33,10 +64,18 @@ export default function Register() {
   }
 
   const handleChange = (e) => {
+    const { name, value } = e.target
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     })
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors({
+        ...fieldErrors,
+        [name]: ''
+      })
+    }
   }
 
   return (
@@ -54,61 +93,75 @@ export default function Register() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
               Full Name
             </label>
             <input
+              id="name"
               type="text"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className="input-field"
-              required
+              className={`input-field ${fieldErrors.name ? 'border-red-500 focus:ring-red-500' : ''}`}
+              autoComplete="name"
               disabled={loading}
+              aria-invalid={fieldErrors.name ? 'true' : 'false'}
             />
+            {fieldErrors.name && <FieldError message={fieldErrors.name} />}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
             <input
+              id="email"
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              className="input-field"
-              required
+              className={`input-field ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
+              autoComplete="email"
               disabled={loading}
+              aria-invalid={fieldErrors.email ? 'true' : 'false'}
             />
+            {fieldErrors.email && <FieldError message={fieldErrors.email} />}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
             <input
+              id="password"
               type="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              className="input-field"
-              required
-              minLength={6}
+              className={`input-field ${fieldErrors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
+              autoComplete="new-password"
               disabled={loading}
+              aria-invalid={fieldErrors.password ? 'true' : 'false'}
             />
+            {fieldErrors.password && <FieldError message={fieldErrors.password} />}
+            <PasswordStrengthIndicator password={formData.password} />
+            <p className="mt-1 text-xs text-gray-500">
+              Minimum 6 characters
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="school" className="block text-sm font-medium text-gray-700 mb-2">
               School (Optional)
             </label>
             <input
+              id="school"
               type="text"
               name="school"
               value={formData.school}
               onChange={handleChange}
               className="input-field"
+              autoComplete="organization"
               disabled={loading}
             />
           </div>
