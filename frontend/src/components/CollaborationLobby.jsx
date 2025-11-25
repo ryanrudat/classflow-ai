@@ -91,7 +91,7 @@ export default function CollaborationLobby({
   const joinWaitingRoom = async () => {
     try {
       setStatus('joining')
-      const result = await collaborationAPI.joinWaitingRoom(sessionId, studentId, topic.id)
+      const result = await collaborationAPI.joinWaitingRoom(sessionId, studentId, studentName, topic.id)
 
       if (result.matched) {
         // Already matched with a partner waiting

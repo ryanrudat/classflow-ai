@@ -516,10 +516,11 @@ export const standardsAPI = {
 // Collaboration API
 export const collaborationAPI = {
   // Join waiting room for Tag-Team matching
-  joinWaitingRoom: async (sessionId, studentId, topicId) => {
+  joinWaitingRoom: async (sessionId, studentId, studentName, topicId) => {
     const response = await api.post('/collaboration/waiting-room/join', {
       sessionId,
       studentId,
+      studentName,
       topicId
     })
     return response.data

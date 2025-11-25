@@ -60,7 +60,7 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
       studentName
     })
 
-    // Check for available partners
+    // Check for available partners and AUTO-MATCH if one is waiting
     const partnersResult = await db.query(`
       SELECT student_id, student_name
       FROM collaboration_waiting_room
@@ -70,14 +70,89 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         AND status = 'waiting'
         AND expires_at > NOW()
       ORDER BY created_at
-      LIMIT 5
+      LIMIT 1
     `, [sessionId, topicId, studentId])
 
+    // If a partner is available, automatically match them!
+    if (partnersResult.rows.length > 0) {
+      const partner = partnersResult.rows[0]
+      const participantIds = [partner.student_id, studentId]
+      const participantNames = {
+        [partner.student_id]: partner.student_name,
+        [studentId]: studentName
+      }
+
+      // Create a new conversation for the collaborative session
+      const convResult = await db.query(`
+        INSERT INTO reverse_tutoring_conversations
+          (session_id, topic_id, student_id, student_name, topic, is_collaborative, started_at)
+        SELECT $1, $2, $3, $4, topic, true, NOW()
+        FROM reverse_tutoring_topics WHERE id = $2
+        RETURNING id
+      `, [sessionId, topicId, studentId, studentName])
+
+      const conversationId = convResult.rows[0].id
+
+      // Create the collaborative session
+      const collabResult = await db.query(`
+        INSERT INTO collaborative_tutoring_sessions
+          (conversation_id, session_id, mode, participant_ids, participant_names,
+           current_turn_student_id, turn_order, status, started_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $4, 'active', NOW())
+        RETURNING id
+      `, [
+        conversationId,
+        sessionId,
+        'tag_team',
+        JSON.stringify(participantIds),
+        JSON.stringify(participantNames),
+        partner.student_id // First person who was waiting gets first turn
+      ])
+
+      const collabSessionId = collabResult.rows[0].id
+
+      // Update the conversation with the collab session ID
+      await db.query(`
+        UPDATE reverse_tutoring_conversations
+        SET collab_session_id = $1
+        WHERE id = $2
+      `, [collabSessionId, conversationId])
+
+      // Update both students' waiting room status to matched
+      await db.query(`
+        UPDATE collaboration_waiting_room
+        SET status = 'matched', matched_at = NOW()
+        WHERE session_id = $1
+          AND topic_id = $2
+          AND student_id = ANY($3::text[])
+      `, [sessionId, topicId, participantIds])
+
+      // Notify the FIRST student (partner) via socket
+      io.to(`student-${partner.student_id}`).emit('partner-found', {
+        collabSessionId,
+        conversationId,
+        partner: { id: studentId, name: studentName },
+        isInitiator: true
+      })
+
+      // Return matched status to the SECOND student (current requester)
+      return res.json({
+        success: true,
+        matched: true,
+        collabSessionId,
+        conversationId,
+        partner: { id: partner.student_id, name: partner.student_name },
+        isInitiator: false
+      })
+    }
+
+    // No partner available - just waiting
     res.json({
       success: true,
+      matched: false,
       waitingRoomId: result.rows[0].id,
       expiresAt: result.rows[0].expires_at,
-      availablePartners: partnersResult.rows
+      availablePartners: []
     })
   } catch (error) {
     console.error('Error joining waiting room:', error)
