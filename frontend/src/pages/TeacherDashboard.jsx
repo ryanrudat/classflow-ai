@@ -501,6 +501,10 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
 
   const { joinSession, pushActivity, on, off, isConnected, removeStudent, emit } = useSocket()
 
+  // Use a Map for O(1) lookups instead of array.findIndex - much faster with 30+ students
+  // This ref must be declared at component level (not inside useEffect) per React Rules of Hooks
+  const studentsMapRef = useRef(new Map())
+
   // Memoize online count to prevent rapid recalculations during state updates
   // This provides a stable count even when many events fire simultaneously
   const onlineCount = useMemo(() => {
@@ -681,10 +685,6 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     if (!session) return
 
     joinSession(session.id, 'teacher')
-
-    // Use a Map for O(1) lookups instead of array.findIndex - much faster with 30+ students
-    // This prevents race conditions and improves performance
-    const studentsMapRef = useRef(new Map())
 
     // Listen for students who are already online (sent when teacher joins)
     const handleStudentsOnline = ({ students: onlineStudents }) => {
