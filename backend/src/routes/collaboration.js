@@ -1,0 +1,656 @@
+import express from 'express'
+import db from '../database/db.js'
+import { authenticateToken } from '../middleware/auth.js'
+import { validateActiveSession } from '../middleware/sessionStatus.js'
+import { getIO } from '../services/ioInstance.js'
+
+const router = express.Router()
+
+// ============================================
+// COLLABORATION WAITING ROOM
+// ============================================
+
+/**
+ * Join waiting room for a topic
+ * POST /api/collaboration/waiting-room/join
+ * Body: { sessionId, topicId, studentId, studentName, preferredMode }
+ */
+router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
+  try {
+    const { sessionId, topicId, studentId, studentName, preferredMode = 'pass_the_mic' } = req.body
+
+    if (!sessionId || !topicId || !studentId) {
+      return res.status(400).json({ message: 'sessionId, topicId, and studentId are required' })
+    }
+
+    // Check if topic allows collaboration
+    const topicResult = await db.query(`
+      SELECT allow_collaboration, collaboration_mode
+      FROM reverse_tutoring_topics
+      WHERE id = $1 AND session_id = $2
+    `, [topicId, sessionId])
+
+    if (topicResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Topic not found' })
+    }
+
+    if (!topicResult.rows[0].allow_collaboration) {
+      return res.status(400).json({ message: 'This topic does not allow collaboration' })
+    }
+
+    // Add to waiting room
+    const result = await db.query(`
+      INSERT INTO collaboration_waiting_room
+        (session_id, topic_id, student_id, student_name, preferred_mode, expires_at)
+      VALUES ($1, $2, $3, $4, $5, NOW() + INTERVAL '10 minutes')
+      ON CONFLICT (session_id, topic_id, student_id)
+      DO UPDATE SET
+        status = 'waiting',
+        preferred_mode = $5,
+        expires_at = NOW() + INTERVAL '10 minutes',
+        created_at = NOW()
+      RETURNING id, status, expires_at
+    `, [sessionId, topicId, studentId, studentName, preferredMode])
+
+    // Notify other students waiting for this topic
+    const io = getIO()
+    io.to(`session-${sessionId}`).emit('collab-student-waiting', {
+      topicId,
+      studentId,
+      studentName
+    })
+
+    // Check for available partners
+    const partnersResult = await db.query(`
+      SELECT student_id, student_name
+      FROM collaboration_waiting_room
+      WHERE session_id = $1
+        AND topic_id = $2
+        AND student_id != $3
+        AND status = 'waiting'
+        AND expires_at > NOW()
+      ORDER BY created_at
+      LIMIT 5
+    `, [sessionId, topicId, studentId])
+
+    res.json({
+      success: true,
+      waitingRoomId: result.rows[0].id,
+      expiresAt: result.rows[0].expires_at,
+      availablePartners: partnersResult.rows
+    })
+  } catch (error) {
+    console.error('Error joining waiting room:', error)
+    res.status(500).json({ message: 'Failed to join waiting room' })
+  }
+})
+
+/**
+ * Get available partners for a topic
+ * GET /api/collaboration/waiting-room/:sessionId/:topicId/available?excludeStudentId=xxx
+ */
+router.get('/waiting-room/:sessionId/:topicId/available', async (req, res) => {
+  try {
+    const { sessionId, topicId } = req.params
+    const { excludeStudentId } = req.query
+
+    let query = `
+      SELECT student_id, student_name, preferred_mode, created_at
+      FROM collaboration_waiting_room
+      WHERE session_id = $1
+        AND topic_id = $2
+        AND status = 'waiting'
+        AND expires_at > NOW()
+    `
+    const params = [sessionId, topicId]
+
+    if (excludeStudentId) {
+      query += ` AND student_id != $${params.length + 1}`
+      params.push(excludeStudentId)
+    }
+
+    query += ` ORDER BY created_at LIMIT 10`
+
+    const result = await db.query(query, params)
+
+    res.json({
+      availablePartners: result.rows,
+      count: result.rows.length
+    })
+  } catch (error) {
+    console.error('Error fetching available partners:', error)
+    res.status(500).json({ message: 'Failed to fetch partners' })
+  }
+})
+
+/**
+ * Leave waiting room
+ * POST /api/collaboration/waiting-room/leave
+ * Body: { sessionId, topicId, studentId }
+ */
+router.post('/waiting-room/leave', async (req, res) => {
+  try {
+    const { sessionId, topicId, studentId } = req.body
+
+    await db.query(`
+      UPDATE collaboration_waiting_room
+      SET status = 'cancelled'
+      WHERE session_id = $1 AND topic_id = $2 AND student_id = $3
+    `, [sessionId, topicId, studentId])
+
+    // Notify others
+    const io = getIO()
+    io.to(`session-${sessionId}`).emit('collab-student-left-waiting', {
+      topicId,
+      studentId
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error leaving waiting room:', error)
+    res.status(500).json({ message: 'Failed to leave waiting room' })
+  }
+})
+
+// ============================================
+// COLLABORATIVE SESSION MANAGEMENT
+// ============================================
+
+/**
+ * Create a collaborative session
+ * POST /api/collaboration/sessions
+ * Body: { conversationId, sessionId, mode, participantIds, participantNames }
+ */
+router.post('/sessions', validateActiveSession, async (req, res) => {
+  try {
+    const { conversationId, sessionId, mode = 'pass_the_mic', participantIds, participantNames } = req.body
+
+    if (!conversationId || !sessionId || !participantIds || participantIds.length < 2) {
+      return res.status(400).json({
+        message: 'conversationId, sessionId, and at least 2 participantIds are required'
+      })
+    }
+
+    // Create collaborative session
+    const result = await db.query(`
+      INSERT INTO collaborative_tutoring_sessions
+        (conversation_id, session_id, mode, participant_ids, participant_names,
+         current_turn_student_id, turn_order, status, started_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $4, 'active', NOW())
+      RETURNING *
+    `, [
+      conversationId,
+      sessionId,
+      mode,
+      JSON.stringify(participantIds),
+      JSON.stringify(participantNames || {}),
+      participantIds[0] // First participant gets first turn
+    ])
+
+    // Update conversation to mark as collaborative
+    await db.query(`
+      UPDATE reverse_tutoring_conversations
+      SET is_collaborative = true, collab_session_id = $1
+      WHERE id = $2
+    `, [result.rows[0].id, conversationId])
+
+    // Update waiting room status
+    await db.query(`
+      UPDATE collaboration_waiting_room
+      SET status = 'matched', matched_at = NOW()
+      WHERE session_id = $1
+        AND student_id = ANY($2::uuid[])
+        AND status = 'waiting'
+    `, [sessionId, participantIds])
+
+    // Notify participants
+    const io = getIO()
+    participantIds.forEach(studentId => {
+      io.to(`student-${studentId}`).emit('collab-session-started', {
+        collabSessionId: result.rows[0].id,
+        conversationId,
+        participants: participantIds,
+        currentTurn: participantIds[0],
+        mode
+      })
+    })
+
+    res.json({
+      success: true,
+      collabSession: result.rows[0]
+    })
+  } catch (error) {
+    console.error('Error creating collaborative session:', error)
+    res.status(500).json({ message: 'Failed to create collaborative session' })
+  }
+})
+
+/**
+ * Get collaborative session status
+ * GET /api/collaboration/sessions/:collabSessionId
+ */
+router.get('/sessions/:collabSessionId', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+
+    const result = await db.query(`
+      SELECT
+        cts.*,
+        rtc.topic,
+        rtc.message_count,
+        rtt.topic as topic_name
+      FROM collaborative_tutoring_sessions cts
+      JOIN reverse_tutoring_conversations rtc ON cts.conversation_id = rtc.id
+      LEFT JOIN reverse_tutoring_topics rtt ON rtc.topic_id = rtt.id
+      WHERE cts.id = $1
+    `, [collabSessionId])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Collaborative session not found' })
+    }
+
+    res.json({ collabSession: result.rows[0] })
+  } catch (error) {
+    console.error('Error fetching collaborative session:', error)
+    res.status(500).json({ message: 'Failed to fetch session' })
+  }
+})
+
+/**
+ * Pass turn to another participant
+ * POST /api/collaboration/sessions/:collabSessionId/tag
+ * Body: { fromStudentId, toStudentId }
+ */
+router.post('/sessions/:collabSessionId/tag', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+    const { fromStudentId, toStudentId } = req.body
+
+    // Verify it's the current student's turn
+    const sessionResult = await db.query(`
+      SELECT current_turn_student_id, participant_ids, turn_count, session_id
+      FROM collaborative_tutoring_sessions
+      WHERE id = $1 AND status = 'active'
+    `, [collabSessionId])
+
+    if (sessionResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found or not active' })
+    }
+
+    const session = sessionResult.rows[0]
+
+    if (session.current_turn_student_id !== fromStudentId) {
+      return res.status(403).json({ message: 'Not your turn' })
+    }
+
+    // Verify toStudentId is a participant
+    const participants = session.participant_ids
+    if (!participants.includes(toStudentId)) {
+      return res.status(400).json({ message: 'Target student is not a participant' })
+    }
+
+    // Update turn
+    await db.query(`
+      UPDATE collaborative_tutoring_sessions
+      SET
+        current_turn_student_id = $1,
+        turn_count = turn_count + 1
+      WHERE id = $2
+    `, [toStudentId, collabSessionId])
+
+    // Notify all participants
+    const io = getIO()
+    io.to(`collab-${collabSessionId}`).emit('collab-turn-changed', {
+      collabSessionId,
+      previousTurn: fromStudentId,
+      currentTurn: toStudentId,
+      turnCount: session.turn_count + 1
+    })
+
+    res.json({
+      success: true,
+      currentTurn: toStudentId
+    })
+  } catch (error) {
+    console.error('Error passing turn:', error)
+    res.status(500).json({ message: 'Failed to pass turn' })
+  }
+})
+
+/**
+ * Update contributions after a message
+ * POST /api/collaboration/sessions/:collabSessionId/contribution
+ * Body: { studentId, wordCount, analysisScore }
+ */
+router.post('/sessions/:collabSessionId/contribution', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+    const { studentId, wordCount, analysisScore } = req.body
+
+    // Get current contributions
+    const result = await db.query(`
+      SELECT contributions FROM collaborative_tutoring_sessions WHERE id = $1
+    `, [collabSessionId])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    const contributions = result.rows[0].contributions || {}
+
+    // Update student's contribution
+    if (!contributions[studentId]) {
+      contributions[studentId] = { messageCount: 0, wordCount: 0, analysisSum: 0 }
+    }
+
+    contributions[studentId].messageCount += 1
+    contributions[studentId].wordCount += (wordCount || 0)
+    contributions[studentId].analysisSum += (analysisScore || 0)
+
+    // Calculate balance
+    const totalMessages = Object.values(contributions).reduce((sum, c) => sum + c.messageCount, 0)
+    const maxMessages = Math.max(...Object.values(contributions).map(c => c.messageCount))
+    const isImbalanced = totalMessages > 4 && (maxMessages / totalMessages) > 0.7
+
+    // Update database
+    await db.query(`
+      UPDATE collaborative_tutoring_sessions
+      SET
+        contributions = $1,
+        is_imbalanced = $2,
+        balance_warnings = CASE WHEN $2 AND NOT is_imbalanced THEN balance_warnings + 1 ELSE balance_warnings END
+      WHERE id = $3
+    `, [JSON.stringify(contributions), isImbalanced, collabSessionId])
+
+    res.json({
+      success: true,
+      contributions,
+      isImbalanced
+    })
+  } catch (error) {
+    console.error('Error updating contributions:', error)
+    res.status(500).json({ message: 'Failed to update contributions' })
+  }
+})
+
+/**
+ * Leave collaborative session
+ * POST /api/collaboration/sessions/:collabSessionId/leave
+ * Body: { studentId }
+ */
+router.post('/sessions/:collabSessionId/leave', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+    const { studentId } = req.body
+
+    const result = await db.query(`
+      SELECT participant_ids, session_id, conversation_id
+      FROM collaborative_tutoring_sessions
+      WHERE id = $1
+    `, [collabSessionId])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Session not found' })
+    }
+
+    const session = result.rows[0]
+    const participants = session.participant_ids.filter(id => id !== studentId)
+
+    if (participants.length < 2) {
+      // Not enough participants, end collaboration
+      await db.query(`
+        UPDATE collaborative_tutoring_sessions
+        SET status = 'abandoned', completed_at = NOW()
+        WHERE id = $1
+      `, [collabSessionId])
+
+      // Convert back to solo
+      await db.query(`
+        UPDATE reverse_tutoring_conversations
+        SET is_collaborative = false
+        WHERE id = $1
+      `, [session.conversation_id])
+    } else {
+      // Remove participant
+      await db.query(`
+        UPDATE collaborative_tutoring_sessions
+        SET participant_ids = $1
+        WHERE id = $2
+      `, [JSON.stringify(participants), collabSessionId])
+    }
+
+    // Notify others
+    const io = getIO()
+    io.to(`collab-${collabSessionId}`).emit('collab-partner-left', {
+      collabSessionId,
+      studentId,
+      remainingParticipants: participants
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error leaving session:', error)
+    res.status(500).json({ message: 'Failed to leave session' })
+  }
+})
+
+// ============================================
+// PARTNER CHAT
+// ============================================
+
+/**
+ * Send message to partner(s)
+ * POST /api/collaboration/chat/:collabSessionId
+ * Body: { senderId, senderName, content }
+ */
+router.post('/chat/:collabSessionId', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+    const { senderId, senderName, content } = req.body
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Message content is required' })
+    }
+
+    // Save message
+    const result = await db.query(`
+      INSERT INTO partner_chat_messages
+        (collab_session_id, sender_id, sender_name, content)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, created_at
+    `, [collabSessionId, senderId, senderName, content.trim()])
+
+    // Broadcast to collaborators
+    const io = getIO()
+    io.to(`collab-${collabSessionId}`).emit('collab-chat-message', {
+      messageId: result.rows[0].id,
+      collabSessionId,
+      senderId,
+      senderName,
+      content: content.trim(),
+      createdAt: result.rows[0].created_at
+    })
+
+    res.json({
+      success: true,
+      messageId: result.rows[0].id
+    })
+  } catch (error) {
+    console.error('Error sending chat message:', error)
+    res.status(500).json({ message: 'Failed to send message' })
+  }
+})
+
+/**
+ * Get chat history
+ * GET /api/collaboration/chat/:collabSessionId
+ */
+router.get('/chat/:collabSessionId', async (req, res) => {
+  try {
+    const { collabSessionId } = req.params
+
+    const result = await db.query(`
+      SELECT id, sender_id, sender_name, content, created_at
+      FROM partner_chat_messages
+      WHERE collab_session_id = $1
+      ORDER BY created_at ASC
+      LIMIT 100
+    `, [collabSessionId])
+
+    res.json({
+      messages: result.rows
+    })
+  } catch (error) {
+    console.error('Error fetching chat history:', error)
+    res.status(500).json({ message: 'Failed to fetch chat history' })
+  }
+})
+
+// ============================================
+// INVITATIONS
+// ============================================
+
+/**
+ * Send invitation to collaborate
+ * POST /api/collaboration/invitations
+ * Body: { collabSessionId, fromStudentId, toStudentId, message }
+ */
+router.post('/invitations', async (req, res) => {
+  try {
+    const { collabSessionId, fromStudentId, toStudentId, message } = req.body
+
+    const result = await db.query(`
+      INSERT INTO collaboration_invitations
+        (collab_session_id, from_student_id, to_student_id, message)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (collab_session_id, to_student_id) DO UPDATE SET
+        status = 'pending',
+        message = $4,
+        created_at = NOW(),
+        expires_at = NOW() + INTERVAL '5 minutes'
+      RETURNING id, expires_at
+    `, [collabSessionId, fromStudentId, toStudentId, message])
+
+    // Notify target student
+    const io = getIO()
+    io.to(`student-${toStudentId}`).emit('collab-invitation', {
+      invitationId: result.rows[0].id,
+      fromStudentId,
+      collabSessionId,
+      message
+    })
+
+    res.json({
+      success: true,
+      invitationId: result.rows[0].id
+    })
+  } catch (error) {
+    console.error('Error sending invitation:', error)
+    res.status(500).json({ message: 'Failed to send invitation' })
+  }
+})
+
+/**
+ * Respond to invitation
+ * POST /api/collaboration/invitations/:invitationId/respond
+ * Body: { accept: boolean }
+ */
+router.post('/invitations/:invitationId/respond', async (req, res) => {
+  try {
+    const { invitationId } = req.params
+    const { accept } = req.body
+
+    const status = accept ? 'accepted' : 'declined'
+
+    const result = await db.query(`
+      UPDATE collaboration_invitations
+      SET status = $1, responded_at = NOW()
+      WHERE id = $2 AND status = 'pending' AND expires_at > NOW()
+      RETURNING collab_session_id, from_student_id, to_student_id
+    `, [status, invitationId])
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Invitation not found or expired' })
+    }
+
+    const invitation = result.rows[0]
+
+    // Notify sender
+    const io = getIO()
+    io.to(`student-${invitation.from_student_id}`).emit('collab-invitation-response', {
+      invitationId,
+      accepted: accept,
+      studentId: invitation.to_student_id
+    })
+
+    res.json({ success: true, status })
+  } catch (error) {
+    console.error('Error responding to invitation:', error)
+    res.status(500).json({ message: 'Failed to respond to invitation' })
+  }
+})
+
+/**
+ * Get pending invitations for a student
+ * GET /api/collaboration/invitations/pending/:studentId
+ */
+router.get('/invitations/pending/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params
+
+    const result = await db.query(`
+      SELECT
+        ci.*,
+        ss.student_name as from_student_name
+      FROM collaboration_invitations ci
+      JOIN session_students ss ON ci.from_student_id = ss.id
+      WHERE ci.to_student_id = $1
+        AND ci.status = 'pending'
+        AND ci.expires_at > NOW()
+      ORDER BY ci.created_at DESC
+    `, [studentId])
+
+    res.json({
+      invitations: result.rows
+    })
+  } catch (error) {
+    console.error('Error fetching invitations:', error)
+    res.status(500).json({ message: 'Failed to fetch invitations' })
+  }
+})
+
+// ============================================
+// TEACHER DASHBOARD ADDITIONS
+// ============================================
+
+/**
+ * Get all collaborative sessions for a class session
+ * GET /api/collaboration/dashboard/:sessionId
+ */
+router.get('/dashboard/:sessionId', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params
+
+    const result = await db.query(`
+      SELECT
+        cts.*,
+        rtc.topic,
+        rtc.message_count,
+        rtc.current_understanding_level
+      FROM collaborative_tutoring_sessions cts
+      JOIN reverse_tutoring_conversations rtc ON cts.conversation_id = rtc.id
+      WHERE cts.session_id = $1
+      ORDER BY cts.created_at DESC
+    `, [sessionId])
+
+    res.json({
+      collabSessions: result.rows,
+      count: result.rows.length
+    })
+  } catch (error) {
+    console.error('Error fetching collaboration dashboard:', error)
+    res.status(500).json({ message: 'Failed to fetch dashboard' })
+  }
+})
+
+export default router

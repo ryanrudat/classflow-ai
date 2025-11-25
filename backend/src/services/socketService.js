@@ -357,6 +357,86 @@ export function setupSocketIO(io) {
       console.log(`✅ All confusion cleared in session ${sessionId}`)
     })
 
+    // ============================================
+    // COLLABORATION / TAG-TEAM EVENTS
+    // ============================================
+
+    // Join collaborative session room
+    socket.on('collab-join-room', ({ collabSessionId, studentId, studentName }) => {
+      const roomName = `collab-${collabSessionId}`
+      socket.join(roomName)
+      socket.collabSessionId = collabSessionId
+
+      console.log(`🤝 Student ${studentName} (${studentId}) joined collab room ${roomName}`)
+
+      // Notify partner(s)
+      socket.to(roomName).emit('collab-partner-connected', {
+        studentId,
+        studentName,
+        timestamp: new Date().toISOString()
+      })
+    })
+
+    // Leave collaborative session room
+    socket.on('collab-leave-room', ({ collabSessionId, studentId, studentName }) => {
+      const roomName = `collab-${collabSessionId}`
+      socket.leave(roomName)
+      socket.collabSessionId = null
+
+      console.log(`👋 Student ${studentName} (${studentId}) left collab room ${roomName}`)
+
+      // Notify partner(s)
+      socket.to(roomName).emit('collab-partner-disconnected', {
+        studentId,
+        studentName,
+        timestamp: new Date().toISOString()
+      })
+    })
+
+    // Typing indicator for partner chat
+    socket.on('collab-typing', ({ collabSessionId, studentId, studentName, isTyping }) => {
+      socket.to(`collab-${collabSessionId}`).emit('collab-partner-typing', {
+        studentId,
+        studentName,
+        isTyping
+      })
+    })
+
+    // Voice recording state (for turn awareness)
+    socket.on('collab-recording', ({ collabSessionId, studentId, studentName, isRecording }) => {
+      socket.to(`collab-${collabSessionId}`).emit('collab-partner-recording', {
+        studentId,
+        studentName,
+        isRecording
+      })
+    })
+
+    // Request turn from partner
+    socket.on('collab-request-turn', ({ collabSessionId, studentId, studentName }) => {
+      socket.to(`collab-${collabSessionId}`).emit('collab-turn-requested', {
+        studentId,
+        studentName,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log(`🙋 ${studentName} requested turn in collab session ${collabSessionId}`)
+    })
+
+    // Approve turn request
+    socket.on('collab-approve-turn', ({ collabSessionId, fromStudentId, toStudentId }) => {
+      io.to(`collab-${collabSessionId}`).emit('collab-turn-approved', {
+        fromStudentId,
+        toStudentId,
+        timestamp: new Date().toISOString()
+      })
+    })
+
+    // Student joined individual room for direct messages
+    socket.on('join-student-room', ({ studentId }) => {
+      socket.join(`student-${studentId}`)
+      console.log(`📱 Student ${studentId} joined personal room`)
+    })
+
     // Handle disconnection
     socket.on('disconnect', async () => {
       if (socket.sessionId && socket.studentId && socket.role === 'student') {

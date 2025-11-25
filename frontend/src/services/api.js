@@ -472,4 +472,113 @@ export const googleClassroomAPI = {
   }
 }
 
+// Subjects & Standards API
+export const subjectsAPI = {
+  // Get all subjects (flat list)
+  getAll: async () => {
+    const response = await api.get('/subjects')
+    return response.data
+  },
+
+  // Get subjects as hierarchical tree
+  getTree: async () => {
+    const response = await api.get('/subjects/tree')
+    return response.data
+  },
+
+  // Get children of a subject
+  getChildren: async (parentId) => {
+    const response = await api.get(`/subjects/${parentId}/children`)
+    return response.data
+  }
+}
+
+export const standardsAPI = {
+  // Get all standards frameworks
+  getFrameworks: async () => {
+    const response = await api.get('/standards/frameworks')
+    return response.data
+  },
+
+  // Get recommended standards for subject/grade
+  getRecommended: async (subjectId, gradeLevel) => {
+    const response = await api.get(`/standards/recommended?subjectId=${subjectId}&gradeLevel=${gradeLevel}`)
+    return response.data
+  },
+
+  // Link standards to a topic
+  linkToTopic: async (topicId, standardIds) => {
+    const response = await api.post(`/standards/topic/${topicId}`, { standardIds })
+    return response.data
+  }
+}
+
+// Collaboration API
+export const collaborationAPI = {
+  // Join waiting room for Tag-Team matching
+  joinWaitingRoom: async (sessionId, studentId, topicId) => {
+    const response = await api.post('/collaboration/waiting-room/join', {
+      sessionId,
+      studentId,
+      topicId
+    })
+    return response.data
+  },
+
+  // Leave waiting room
+  leaveWaitingRoom: async (sessionId, studentId) => {
+    const response = await api.post('/collaboration/waiting-room/leave', {
+      sessionId,
+      studentId
+    })
+    return response.data
+  },
+
+  // Create collaborative session (when match found)
+  createSession: async (topicId, studentIds) => {
+    const response = await api.post('/collaboration/sessions', {
+      topicId,
+      studentIds
+    })
+    return response.data
+  },
+
+  // Get collaborative session details
+  getSession: async (collabSessionId) => {
+    const response = await api.get(`/collaboration/sessions/${collabSessionId}`)
+    return response.data
+  },
+
+  // Tag partner (pass turn)
+  tagPartner: async (collabSessionId, fromStudentId, toStudentId) => {
+    const response = await api.post(`/collaboration/sessions/${collabSessionId}/tag`, {
+      fromStudentId,
+      toStudentId
+    })
+    return response.data
+  },
+
+  // Send partner chat message (text only between partners)
+  sendChatMessage: async (collabSessionId, studentId, studentName, message) => {
+    const response = await api.post(`/collaboration/chat/${collabSessionId}`, {
+      studentId,
+      studentName,
+      message
+    })
+    return response.data
+  },
+
+  // Get chat history
+  getChatHistory: async (collabSessionId) => {
+    const response = await api.get(`/collaboration/chat/${collabSessionId}`)
+    return response.data
+  },
+
+  // Teacher dashboard - get all collaborative sessions
+  getDashboard: async (sessionId) => {
+    const response = await api.get(`/collaboration/dashboard/${sessionId}`)
+    return response.data
+  }
+}
+
 export default api

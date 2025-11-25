@@ -501,13 +501,21 @@ export async function createTopic(req, res) {
       sessionId,
       topic,
       subject = 'Science',
+      subjectId = null, // New: hierarchical subject reference
+      subjectPath = null, // New: denormalized path "Science > Life Science > Biology"
       gradeLevel = '7th grade',
       keyVocabulary = [],
       languageComplexity = 'standard',
       responseLength = 'medium',
       maxStudentResponses = 10,
       enforceTopicFocus = true,
-      assignedStudentIds = [] // Empty = available to all
+      assignedStudentIds = [], // Empty = available to all
+      // Collaboration settings
+      allowCollaboration = false,
+      collaborationMode = 'pass_the_mic',
+      maxCollaborators = 2,
+      // Standards (will be linked separately)
+      standardIds = []
     } = req.body
 
     // Validation
@@ -549,19 +557,37 @@ export async function createTopic(req, res) {
     // Ensure assignedStudentIds is an array
     const studentIdsArray = Array.isArray(assignedStudentIds) ? assignedStudentIds : []
 
+    // Get subject path if subjectId provided
+    let computedSubjectPath = subjectPath
+    if (subjectId && !subjectPath) {
+      try {
+        const pathResult = await db.query(
+          'SELECT get_subject_path($1) as path',
+          [subjectId]
+        )
+        computedSubjectPath = pathResult.rows[0]?.path || subject
+      } catch (err) {
+        console.warn('Could not compute subject path:', err.message)
+        computedSubjectPath = subject
+      }
+    }
+
     // Create topic
     const result = await db.query(
       `INSERT INTO reverse_tutoring_topics (
-        session_id, topic, subject, grade_level, key_vocabulary,
+        session_id, topic, subject, subject_id, subject_path, grade_level, key_vocabulary,
         language_complexity, response_length, max_student_responses, enforce_topic_focus,
-        assigned_student_ids, created_by
+        assigned_student_ids, allow_collaboration, collaboration_mode, max_collaborators,
+        created_by
       )
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10::jsonb, $11)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16)
       RETURNING *`,
       [
         sessionId,
         topic,
         subject,
+        subjectId,
+        computedSubjectPath,
         gradeLevel,
         JSON.stringify(vocabArray),
         languageComplexity,
@@ -569,6 +595,9 @@ export async function createTopic(req, res) {
         maxStudentResponses,
         enforceTopicFocus,
         JSON.stringify(studentIdsArray),
+        allowCollaboration,
+        collaborationMode,
+        maxCollaborators,
         teacherId
       ]
     )
@@ -583,6 +612,18 @@ export async function createTopic(req, res) {
       ? JSON.parse(newTopic.assigned_student_ids)
       : newTopic.assigned_student_ids
 
+    // Link standards if provided
+    if (standardIds && standardIds.length > 0) {
+      for (const standardId of standardIds) {
+        await db.query(
+          `INSERT INTO topic_standards (topic_id, standard_id, is_primary)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (topic_id, standard_id) DO NOTHING`,
+          [newTopic.id, standardId, standardId === standardIds[0]]
+        )
+      }
+    }
+
     res.json({
       message: 'Topic created successfully',
       topic: {
@@ -590,6 +631,8 @@ export async function createTopic(req, res) {
         sessionId: newTopic.session_id,
         topic: newTopic.topic,
         subject: newTopic.subject,
+        subjectId: newTopic.subject_id,
+        subjectPath: newTopic.subject_path,
         gradeLevel: newTopic.grade_level,
         keyVocabulary: parsedKeyVocabulary,
         languageComplexity: newTopic.language_complexity,
@@ -597,6 +640,10 @@ export async function createTopic(req, res) {
         maxStudentResponses: newTopic.max_student_responses,
         enforceTopicFocus: newTopic.enforce_topic_focus,
         assignedStudentIds: parsedAssignedStudentIds,
+        allowCollaboration: newTopic.allow_collaboration,
+        collaborationMode: newTopic.collaboration_mode,
+        maxCollaborators: newTopic.max_collaborators,
+        linkedStandardsCount: standardIds.length,
         createdAt: newTopic.created_at
       }
     })
@@ -621,9 +668,10 @@ export async function getSessionTopics(req, res) {
 
     let query = `
       SELECT
-        id, session_id, topic, subject, grade_level,
+        id, session_id, topic, subject, subject_id, subject_path, grade_level,
         key_vocabulary, assigned_student_ids, is_active, created_at,
-        language_complexity, response_length
+        language_complexity, response_length, max_student_responses, enforce_topic_focus,
+        allow_collaboration, collaboration_mode, max_collaborators
       FROM reverse_tutoring_topics
       WHERE session_id = $1 AND is_active = true
       ORDER BY created_at ASC
@@ -665,13 +713,20 @@ export async function getSessionTopics(req, res) {
         sessionId: row.session_id,
         topic: row.topic,
         subject: row.subject,
+        subjectId: row.subject_id,
+        subjectPath: row.subject_path,
         gradeLevel: row.grade_level,
         keyVocabulary,
         assignedStudentIds,
         isActive: row.is_active,
         createdAt: row.created_at,
         languageComplexity: row.language_complexity || 'standard',
-        responseLength: row.response_length || 'medium'
+        responseLength: row.response_length || 'medium',
+        maxStudentResponses: row.max_student_responses || 10,
+        enforceTopicFocus: row.enforce_topic_focus !== false,
+        allowCollaboration: row.allow_collaboration || false,
+        collaborationMode: row.collaboration_mode || 'pass_the_mic',
+        maxCollaborators: row.max_collaborators || 2
       }
     })
 
@@ -710,6 +765,8 @@ export async function updateTopic(req, res) {
     const {
       topic,
       subject,
+      subjectId,
+      subjectPath,
       gradeLevel,
       keyVocabulary,
       languageComplexity,
@@ -717,7 +774,11 @@ export async function updateTopic(req, res) {
       maxStudentResponses,
       enforceTopicFocus,
       assignedStudentIds,
-      isActive
+      isActive,
+      // Collaboration settings
+      allowCollaboration,
+      collaborationMode,
+      maxCollaborators
     } = req.body
 
     // Verify teacher owns this topic's session
@@ -789,6 +850,28 @@ export async function updateTopic(req, res) {
       updates.push(`is_active = $${paramCount++}`)
       values.push(isActive)
     }
+    // Collaboration settings
+    if (allowCollaboration !== undefined) {
+      updates.push(`allow_collaboration = $${paramCount++}`)
+      values.push(allowCollaboration)
+    }
+    if (collaborationMode !== undefined) {
+      updates.push(`collaboration_mode = $${paramCount++}`)
+      values.push(collaborationMode)
+    }
+    if (maxCollaborators !== undefined) {
+      updates.push(`max_collaborators = $${paramCount++}`)
+      values.push(maxCollaborators)
+    }
+    // Subject hierarchy
+    if (subjectId !== undefined) {
+      updates.push(`subject_id = $${paramCount++}`)
+      values.push(subjectId)
+    }
+    if (subjectPath !== undefined) {
+      updates.push(`subject_path = $${paramCount++}`)
+      values.push(subjectPath)
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No updates provided' })
@@ -821,6 +904,8 @@ export async function updateTopic(req, res) {
         sessionId: updatedTopic.session_id,
         topic: updatedTopic.topic,
         subject: updatedTopic.subject,
+        subjectId: updatedTopic.subject_id,
+        subjectPath: updatedTopic.subject_path,
         gradeLevel: updatedTopic.grade_level,
         keyVocabulary: parsedKeyVocabulary,
         languageComplexity: updatedTopic.language_complexity,
@@ -828,7 +913,10 @@ export async function updateTopic(req, res) {
         maxStudentResponses: updatedTopic.max_student_responses,
         enforceTopicFocus: updatedTopic.enforce_topic_focus,
         assignedStudentIds: parsedAssignedStudentIds,
-        isActive: updatedTopic.is_active
+        isActive: updatedTopic.is_active,
+        allowCollaboration: updatedTopic.allow_collaboration,
+        collaborationMode: updatedTopic.collaboration_mode,
+        maxCollaborators: updatedTopic.max_collaborators
       }
     })
 

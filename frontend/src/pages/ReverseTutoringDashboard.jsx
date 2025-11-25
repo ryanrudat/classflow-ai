@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { useSocket } from '../hooks/useSocket'
 import ConfirmDialog from '../components/ConfirmDialog'
 import axios from 'axios'
+import { subjectsAPI, standardsAPI } from '../services/api'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -33,9 +34,24 @@ export default function ReverseTutoringDashboard() {
     responseLength: 'medium', // 'short', 'medium', 'long'
     maxStudentResponses: 10, // 3-15
     enforceTopicFocus: true, // Remove after 3 off-topic warnings
-    assignedStudentIds: []
+    assignedStudentIds: [],
+    // New fields for subject hierarchy and collaboration
+    subjectId: null,
+    subjectPath: [],
+    allowCollaboration: false,
+    collaborationMode: 'tag_team', // 'tag_team' only for now
+    maxCollaborators: 2,
+    selectedStandardIds: []
   })
   const [sessionStudents, setSessionStudents] = useState([])
+
+  // Subject hierarchy and standards state
+  const [subjectsTree, setSubjectsTree] = useState([])
+  const [selectedMainSubject, setSelectedMainSubject] = useState(null)
+  const [selectedSubSubject, setSelectedSubSubject] = useState(null)
+  const [selectedFocusSubject, setSelectedFocusSubject] = useState(null)
+  const [recommendedStandards, setRecommendedStandards] = useState({ universal: [], subject: [] })
+  const [loadingStandards, setLoadingStandards] = useState(false)
 
   // Conversation monitoring state
   const [conversations, setConversations] = useState([])
@@ -54,10 +70,50 @@ export default function ReverseTutoringDashboard() {
     loadTopics()
     loadSessionStudents()
     loadDashboard()
+    loadSubjectsTree()
     // Poll conversations every 10 seconds for updates
     const interval = setInterval(loadDashboard, 10000)
     return () => clearInterval(interval)
   }, [sessionId])
+
+  // Load recommended standards when subject or grade changes
+  useEffect(() => {
+    const loadStandards = async () => {
+      const subjectId = selectedFocusSubject || selectedSubSubject || selectedMainSubject
+      if (!subjectId || !topicForm.gradeLevel) return
+
+      setLoadingStandards(true)
+      try {
+        // Extract grade number from gradeLevel string (e.g., "7th grade" -> "7")
+        const gradeMatch = topicForm.gradeLevel.match(/(\d+)/)
+        const gradeNum = gradeMatch ? gradeMatch[1] : '7'
+
+        const data = await standardsAPI.getRecommended(subjectId, gradeNum)
+        setRecommendedStandards({
+          universal: data.universalStandards || [],
+          subject: data.subjectStandards || []
+        })
+      } catch (error) {
+        console.error('Failed to load standards:', error)
+      } finally {
+        setLoadingStandards(false)
+      }
+    }
+
+    loadStandards()
+  }, [selectedMainSubject, selectedSubSubject, selectedFocusSubject, topicForm.gradeLevel])
+
+  /**
+   * Load subjects tree for hierarchical selection
+   */
+  const loadSubjectsTree = async () => {
+    try {
+      const data = await subjectsAPI.getTree()
+      setSubjectsTree(data.tree || [])
+    } catch (error) {
+      console.error('Failed to load subjects:', error)
+    }
+  }
 
   // Socket presence tracking
   useEffect(() => {
@@ -165,6 +221,13 @@ export default function ReverseTutoringDashboard() {
         .map(v => v.trim())
         .filter(v => v.length > 0)
 
+      // Build subject path from selections
+      const subjectPath = [
+        selectedMainSubject,
+        selectedSubSubject,
+        selectedFocusSubject
+      ].filter(Boolean)
+
       const payload = {
         sessionId,
         topic: topicForm.topic,
@@ -175,7 +238,14 @@ export default function ReverseTutoringDashboard() {
         responseLength: topicForm.responseLength,
         maxStudentResponses: topicForm.maxStudentResponses,
         enforceTopicFocus: topicForm.enforceTopicFocus,
-        assignedStudentIds: topicForm.assignedStudentIds
+        assignedStudentIds: topicForm.assignedStudentIds,
+        // New fields
+        subjectId: selectedFocusSubject || selectedSubSubject || selectedMainSubject,
+        subjectPath,
+        allowCollaboration: topicForm.allowCollaboration,
+        collaborationMode: topicForm.collaborationMode,
+        maxCollaborators: topicForm.maxCollaborators,
+        standardIds: topicForm.selectedStandardIds
       }
 
       if (editingTopic) {
@@ -208,8 +278,19 @@ export default function ReverseTutoringDashboard() {
         responseLength: 'medium',
         maxStudentResponses: 10,
         enforceTopicFocus: true,
-        assignedStudentIds: []
+        assignedStudentIds: [],
+        subjectId: null,
+        subjectPath: [],
+        allowCollaboration: false,
+        collaborationMode: 'tag_team',
+        maxCollaborators: 2,
+        selectedStandardIds: []
       })
+      // Reset subject selections
+      setSelectedMainSubject(null)
+      setSelectedSubSubject(null)
+      setSelectedFocusSubject(null)
+      setRecommendedStandards({ universal: [], subject: [] })
       loadTopics()
 
     } catch (error) {
@@ -538,18 +619,87 @@ export default function ReverseTutoringDashboard() {
                         />
                       </div>
 
-                      {/* Subject */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Subject
+                      {/* Subject Hierarchy */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Subject Area
                         </label>
-                        <input
-                          type="text"
-                          value={topicForm.subject}
-                          onChange={(e) => setTopicForm({ ...topicForm, subject: e.target.value })}
-                          placeholder="e.g., Science"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        />
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Main Subject */}
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Main Subject</label>
+                            <select
+                              value={selectedMainSubject || ''}
+                              onChange={(e) => {
+                                const subjectId = e.target.value || null
+                                setSelectedMainSubject(subjectId)
+                                setSelectedSubSubject(null)
+                                setSelectedFocusSubject(null)
+                                // Find subject name for backward compatibility
+                                const subject = subjectsTree.find(s => s.id === subjectId)
+                                setTopicForm({
+                                  ...topicForm,
+                                  subject: subject?.name || 'Science',
+                                  selectedStandardIds: []
+                                })
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                            >
+                              <option value="">Select subject...</option>
+                              {subjectsTree.map(subject => (
+                                <option key={subject.id} value={subject.id}>
+                                  {subject.icon} {subject.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Sub-Subject */}
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Area (optional)</label>
+                            <select
+                              value={selectedSubSubject || ''}
+                              onChange={(e) => {
+                                const subjectId = e.target.value || null
+                                setSelectedSubSubject(subjectId)
+                                setSelectedFocusSubject(null)
+                                setTopicForm({ ...topicForm, selectedStandardIds: [] })
+                              }}
+                              disabled={!selectedMainSubject}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                            >
+                              <option value="">All areas</option>
+                              {selectedMainSubject && subjectsTree
+                                .find(s => s.id === selectedMainSubject)?.children?.map(sub => (
+                                  <option key={sub.id} value={sub.id}>{sub.name}</option>
+                                ))}
+                            </select>
+                          </div>
+
+                          {/* Focus Subject */}
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Focus (optional)</label>
+                            <select
+                              value={selectedFocusSubject || ''}
+                              onChange={(e) => {
+                                setSelectedFocusSubject(e.target.value || null)
+                                setTopicForm({ ...topicForm, selectedStandardIds: [] })
+                              }}
+                              disabled={!selectedSubSubject}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                            >
+                              <option value="">All focuses</option>
+                              {selectedSubSubject && subjectsTree
+                                .find(s => s.id === selectedMainSubject)?.children
+                                ?.find(s => s.id === selectedSubSubject)?.children?.map(focus => (
+                                  <option key={focus.id} value={focus.id}>{focus.name}</option>
+                                ))}
+                            </select>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Select a subject to get recommended standards aligned to your topic
+                        </p>
                       </div>
 
                       {/* Grade Level */}
@@ -572,6 +722,94 @@ export default function ReverseTutoringDashboard() {
                           <option>12th grade</option>
                         </select>
                       </div>
+
+                      {/* Standards Alignment */}
+                      {selectedMainSubject && (
+                        <div className="border-t pt-4">
+                          <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                            </svg>
+                            Standards Alignment
+                          </h3>
+
+                          {loadingStandards ? (
+                            <div className="text-sm text-gray-500 animate-pulse">Loading standards...</div>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* Universal Speaking & Listening Standards */}
+                              {recommendedStandards.universal.length > 0 && (
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                                    Speaking & Listening (automatically included)
+                                  </label>
+                                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-h-32 overflow-y-auto">
+                                    {recommendedStandards.universal.slice(0, 3).map(std => (
+                                      <div key={std.id} className="text-xs text-green-800 mb-1 flex items-start gap-2">
+                                        <span className="font-mono font-bold text-green-600">{std.code}</span>
+                                        <span>{std.short_text}</span>
+                                      </div>
+                                    ))}
+                                    {recommendedStandards.universal.length > 3 && (
+                                      <div className="text-xs text-green-600 mt-1">
+                                        + {recommendedStandards.universal.length - 3} more standards
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Subject-Specific Standards */}
+                              {recommendedStandards.subject.length > 0 && (
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">
+                                    Subject Standards (select to align)
+                                  </label>
+                                  <div className="border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+                                    {recommendedStandards.subject.map(std => (
+                                      <label key={std.id} className="flex items-start gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                        <input
+                                          type="checkbox"
+                                          checked={topicForm.selectedStandardIds.includes(std.id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setTopicForm({
+                                                ...topicForm,
+                                                selectedStandardIds: [...topicForm.selectedStandardIds, std.id]
+                                              })
+                                            } else {
+                                              setTopicForm({
+                                                ...topicForm,
+                                                selectedStandardIds: topicForm.selectedStandardIds.filter(id => id !== std.id)
+                                              })
+                                            }
+                                          }}
+                                          className="mt-0.5 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        />
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-blue-600">{std.code}</span>
+                                            <span className="text-xs px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">
+                                              {std.framework_code}
+                                            </span>
+                                          </div>
+                                          <p className="text-xs text-gray-700 mt-0.5">{std.short_text}</p>
+                                        </div>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {recommendedStandards.universal.length === 0 && recommendedStandards.subject.length === 0 && (
+                                <div className="text-sm text-gray-500 italic">
+                                  No standards found for this subject/grade combination
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Key Vocabulary */}
                       <div>
@@ -719,6 +957,85 @@ export default function ReverseTutoringDashboard() {
                               </ul>
                             </div>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Tag-Team Collaboration Settings */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                          </svg>
+                          Tag-Team Mode (Optional)
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Enable Collaboration Toggle */}
+                          <div>
+                            <label className="flex items-start gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={topicForm.allowCollaboration}
+                                onChange={(e) => setTopicForm({ ...topicForm, allowCollaboration: e.target.checked })}
+                                className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                              />
+                              <div>
+                                <span className="text-sm font-medium text-gray-700">Enable Tag-Team Teaching</span>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Allow students to collaborate in pairs, taking turns teaching the AI
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+
+                          {/* Collaboration Options (shown when enabled) */}
+                          {topicForm.allowCollaboration && (
+                            <div className="ml-7 space-y-3 animate-fadeIn">
+                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                <h4 className="text-sm font-semibold text-indigo-900 mb-2">How Tag-Team Works:</h4>
+                                <ul className="text-xs text-indigo-800 space-y-1.5 list-disc list-inside">
+                                  <li><strong>Voice to AI:</strong> Students speak to Alex using voice only</li>
+                                  <li><strong>Text to Partner:</strong> Partners can chat via text sidebar</li>
+                                  <li><strong>Turn-Based:</strong> One student teaches at a time, then tags partner</li>
+                                  <li><strong>Shared Progress:</strong> Both students contribute to understanding score</li>
+                                </ul>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4">
+                                {/* Max Collaborators */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Team Size
+                                  </label>
+                                  <select
+                                    value={topicForm.maxCollaborators}
+                                    onChange={(e) => setTopicForm({ ...topicForm, maxCollaborators: parseInt(e.target.value) })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                  >
+                                    <option value={2}>2 students (pairs)</option>
+                                    <option value={3}>3 students (trios)</option>
+                                  </select>
+                                </div>
+
+                                {/* Matching Mode */}
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Partner Matching
+                                  </label>
+                                  <select
+                                    value="auto"
+                                    disabled
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                  >
+                                    <option value="auto">Auto-match (waiting room)</option>
+                                  </select>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Students are paired when they join
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
 

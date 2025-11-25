@@ -34,6 +34,8 @@ import presentationRoutes from './routes/presentation.js'
 import studentHelpRoutes from './routes/studentHelp.js'
 import studentRoutes from './routes/students.js'
 import reverseTutoringRoutes from './routes/reverseTutoring.js'
+import subjectsStandardsRoutes from './routes/subjectsStandards.js'
+import collaborationRoutes from './routes/collaboration.js'
 import googleClassroomRoutes from './routes/googleClassroom.js'
 import libraryRoutes from './routes/library.js'
 import documentRoutes from './routes/documents.js'
@@ -176,6 +178,9 @@ app.use('/api/presentation', presentationRoutes)
 app.use('/api/student-help', studentHelpRoutes)
 app.use('/api/students', studentRoutes)
 app.use('/api/reverse-tutoring', reverseTutoringRoutes)
+app.use('/api/subjects', subjectsStandardsRoutes)
+app.use('/api/standards', subjectsStandardsRoutes)
+app.use('/api/collaboration', collaborationRoutes)
 app.use('/api/google', googleClassroomRoutes)
 app.use('/api/library', libraryRoutes)
 app.use('/api/documents', documentRoutes)
