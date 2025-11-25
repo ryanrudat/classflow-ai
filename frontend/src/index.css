@@ -19,27 +19,20 @@
 }
 
 @layer components {
-  /* Buttons with minimum 44px touch target for accessibility (WCAG 2.5.5) */
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-4 rounded-lg transition-colors min-h-[44px];
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-4 rounded-lg transition-colors min-h-[44px];
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors;
   }
 
-  /* Input fields with minimum 44px touch target */
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none min-h-[44px];
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none;
   }
 
   .card {
     @apply bg-white rounded-lg shadow-sm p-6;
-  }
-
-  /* Icon button utility for small interactive elements */
-  .btn-icon {
-    @apply min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg transition-colors;
   }
 }
 

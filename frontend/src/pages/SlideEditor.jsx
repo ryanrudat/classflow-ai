@@ -18,7 +18,6 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { slidesAPI, presentationAPI } from '../services/api'
-import Breadcrumbs from '../components/Breadcrumbs'
 import RichTextEditor from '../components/slides/RichTextEditor'
 import ImageUploader from '../components/slides/ImageUploader'
 import ResizableImage from '../components/slides/ResizableImage'
@@ -445,14 +444,6 @@ export default function SlideEditor() {
 
       {/* Main editor */}
       <main className="flex-1 flex flex-col">
-        {/* Breadcrumbs */}
-        <div className="bg-gray-50 px-6 pt-4">
-          <Breadcrumbs items={[
-            { label: 'Slides', path: '/dashboard' },
-            { label: deck?.title || 'Deck' }
-          ]} />
-        </div>
-
         {/* Top toolbar */}
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">

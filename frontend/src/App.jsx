@@ -25,7 +25,6 @@ function App() {
       <BrowserRouter>
         <div className="min-h-screen bg-gray-50">
           <Navigation />
-          <main id="main-content">
           <Routes>
             {/* Teacher routes */}
             <Route path="/login" element={<Login />} />
@@ -80,7 +79,6 @@ function App() {
             {/* Default route */}
             <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
           </Routes>
-          </main>
         </div>
       </BrowserRouter>
     </ToastProvider>

@@ -2,43 +2,19 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { authAPI } from '../services/api'
-import { FieldError } from '../components/ErrorMessages'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
   const setAuth = useAuthStore(state => state.setAuth)
 
-  const validateForm = () => {
-    const errors = {}
-
-    if (!email.trim()) {
-      errors.email = 'Email is required'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      errors.email = 'Please enter a valid email address'
-    }
-
-    if (!password) {
-      errors.password = 'Password is required'
-    }
-
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-
-    if (!validateForm()) {
-      return
-    }
-
     setLoading(true)
 
     try {
@@ -120,43 +96,31 @@ export default function Login() {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email
             </label>
             <input
-              id="email"
               type="email"
               value={email}
-              onChange={(e) => {
-                setEmail(e.target.value)
-                if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: '' })
-              }}
-              className={`input-field ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
-              autoComplete="email"
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field"
+              required
               disabled={loading}
-              aria-invalid={fieldErrors.email ? 'true' : 'false'}
             />
-            {fieldErrors.email && <FieldError message={fieldErrors.email} />}
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
             <input
-              id="password"
               type="password"
               value={password}
-              onChange={(e) => {
-                setPassword(e.target.value)
-                if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: '' })
-              }}
-              className={`input-field ${fieldErrors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
-              autoComplete="current-password"
+              onChange={(e) => setPassword(e.target.value)}
+              className="input-field"
+              required
               disabled={loading}
-              aria-invalid={fieldErrors.password ? 'true' : 'false'}
             />
-            {fieldErrors.password && <FieldError message={fieldErrors.password} />}
           </div>
 
           <button
