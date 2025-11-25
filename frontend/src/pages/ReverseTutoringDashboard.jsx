@@ -109,7 +109,7 @@ export default function ReverseTutoringDashboard() {
   const loadSubjectsTree = async () => {
     try {
       const data = await subjectsAPI.getTree()
-      setSubjectsTree(data.tree || [])
+      setSubjectsTree(data.subjects || [])
     } catch (error) {
       console.error('Failed to load subjects:', error)
     }
