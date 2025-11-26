@@ -82,13 +82,15 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         [studentId]: studentName
       }
 
-      // Create a new conversation for the collaborative session
-      // Note: reverse_tutoring_conversations doesn't have student_name column
+      // Create a new conversation for the collaborative session, or reuse existing one
+      // Use ON CONFLICT to handle case where student already has a conversation for this topic
       const convResult = await db.query(`
         INSERT INTO reverse_tutoring_conversations
           (session_id, topic_id, student_id, topic, is_collaborative, started_at)
         SELECT $1, $2, $3, topic, true, NOW()
         FROM reverse_tutoring_topics WHERE id = $2
+        ON CONFLICT (session_id, student_id, topic)
+        DO UPDATE SET is_collaborative = true
         RETURNING id
       `, [sessionId, topicId, studentId])
 
