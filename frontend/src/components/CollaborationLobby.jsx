@@ -84,6 +84,7 @@ export default function CollaborationLobby({
             // Use ref to get latest callback
             onPartnerFoundRef.current({
               collabSessionId: data.collabSessionId,
+              conversationId: data.conversationId, // Pass the existing conversation ID
               partner: data.partner,
               isInitiator: data.isInitiator
             })
@@ -116,6 +117,7 @@ export default function CollaborationLobby({
         setTimeout(() => {
           onPartnerFoundRef.current({
             collabSessionId: result.collabSessionId,
+            conversationId: result.conversationId, // Pass the existing conversation ID
             partner: result.partner,
             isInitiator: false
           })
