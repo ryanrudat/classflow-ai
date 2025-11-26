@@ -563,9 +563,9 @@ export const collaborationAPI = {
   // Send partner chat message (text only between partners)
   sendChatMessage: async (collabSessionId, studentId, studentName, message) => {
     const response = await api.post(`/collaboration/chat/${collabSessionId}`, {
-      studentId,
-      studentName,
-      message
+      senderId: studentId,
+      senderName: studentName,
+      content: message
     })
     return response.data
   },

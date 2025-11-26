@@ -41,15 +41,16 @@ export default function PartnerChat({
       studentName
     })
 
-    // Listen for new messages
+    // Listen for new messages (backend emits 'collab-chat-message')
     const handleNewMessage = (data) => {
-      if (data.studentId !== studentId) {
+      // Backend sends: senderId, senderName, content, createdAt
+      if (data.senderId !== studentId) {
         setMessages(prev => [...prev, {
-          id: Date.now(),
-          studentId: data.studentId,
-          studentName: data.studentName,
-          message: data.message,
-          timestamp: data.timestamp
+          id: data.messageId || Date.now(),
+          studentId: data.senderId,
+          studentName: data.senderName,
+          message: data.content,
+          timestamp: data.createdAt
         }])
       }
     }
@@ -61,11 +62,11 @@ export default function PartnerChat({
       }
     }
 
-    socket.on('collab-new-message', handleNewMessage)
+    socket.on('collab-chat-message', handleNewMessage)
     socket.on('collab-partner-typing', handlePartnerTyping)
 
     return () => {
-      socket.off('collab-new-message', handleNewMessage)
+      socket.off('collab-chat-message', handleNewMessage)
       socket.off('collab-partner-typing', handlePartnerTyping)
       socket.emit('collab-leave-room', { collabSessionId, studentId, studentName })
     }
@@ -79,7 +80,15 @@ export default function PartnerChat({
   const loadChatHistory = async () => {
     try {
       const data = await collaborationAPI.getChatHistory(collabSessionId)
-      setMessages(data.messages || [])
+      // Map snake_case from database to camelCase for frontend
+      const mappedMessages = (data.messages || []).map(msg => ({
+        id: msg.id,
+        studentId: msg.sender_id,
+        studentName: msg.sender_name,
+        message: msg.content,
+        timestamp: msg.created_at
+      }))
+      setMessages(mappedMessages)
     } catch (error) {
       console.error('Failed to load chat history:', error)
     }
