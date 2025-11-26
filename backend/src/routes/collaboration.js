@@ -12,6 +12,80 @@ const claude = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
 })
 
+// Simple in-memory cache for initial AI messages per topic (prevents redundant API calls)
+const initialMessageCache = new Map()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+// Rate limit tracking
+let lastApiCall = 0
+const MIN_API_INTERVAL = 1500 // 1.5 seconds between calls to stay well under 50/min
+
+// Helper to generate initial AI message with rate limiting and caching
+async function generateInitialAIMessage(topicId, topicSettings, isCollaborative = true) {
+  // Check cache first
+  const cacheKey = `${topicId}-${isCollaborative ? 'collab' : 'solo'}`
+  const cached = initialMessageCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log('Using cached initial AI message for topic:', topicId)
+    return cached.message
+  }
+
+  // Rate limit check - wait if needed
+  const now = Date.now()
+  const timeSinceLastCall = now - lastApiCall
+  if (timeSinceLastCall < MIN_API_INTERVAL) {
+    const waitTime = MIN_API_INTERVAL - timeSinceLastCall
+    await new Promise(resolve => setTimeout(resolve, waitTime))
+  }
+  lastApiCall = Date.now()
+
+  const topic = topicSettings.topic
+  const responseLength = topicSettings.response_length || 'short'
+
+  // Simplified, shorter prompt for initial message
+  const systemPrompt = `You are Alex, a curious student learning about ${topic}.
+
+CRITICAL RULES:
+- Keep responses to 1-2 SHORT sentences only
+- Use simple, friendly language
+- Express confusion and ask for help
+${isCollaborative ? '- This is a team session with 2 students teaching together' : ''}
+
+Example good responses:
+- "Hey! I'm confused about ${topic}. Can you explain it simply?"
+- "I don't get ${topic} at all. Help me understand?"
+${isCollaborative ? '- "Hi team! I need your help with ' + topic + '. Where should we start?"' : ''}`
+
+  try {
+    const response = await claude.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 100, // Reduced from 200
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: `Say hi and ask about ${topic}. Be brief - 1-2 sentences max.`
+      }]
+    })
+
+    const message = response.content[0].text
+
+    // Cache the message
+    initialMessageCache.set(cacheKey, { message, timestamp: Date.now() })
+
+    return message
+  } catch (error) {
+    if (error.status === 429) {
+      console.log('Rate limited, using fallback message')
+      // Return a simple fallback message
+      const fallback = isCollaborative
+        ? `Hey team! I'm trying to learn about ${topic} but I'm confused. Can you help explain it to me?`
+        : `Hey! I'm confused about ${topic}. Can you help me understand it better?`
+      return fallback
+    }
+    throw error
+  }
+}
+
 // ============================================
 // COLLABORATION WAITING ROOM
 // ============================================
@@ -132,95 +206,68 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         WHERE id = $2
       `, [collabSessionId, conversationId])
 
-      // Fetch topic settings to generate initial AI message
+      // Generate initial AI message in the BACKGROUND (non-blocking)
+      // This lets students be matched immediately while AI message generates
       const topicSettingsResult = await db.query(`
-        SELECT topic, subject, grade_level, key_vocabulary,
-               language_complexity, response_length, max_student_responses, enforce_topic_focus
+        SELECT topic, subject, grade_level, key_vocabulary
         FROM reverse_tutoring_topics
         WHERE id = $1
       `, [topicId])
 
       if (topicSettingsResult.rows.length > 0) {
         const topicSettings = topicSettingsResult.rows[0]
-        const topic = topicSettings.topic
         const subject = topicSettings.subject || 'Science'
         const gradeLevel = topicSettings.grade_level || '7th grade'
         const keyVocabulary = topicSettings.key_vocabulary || []
-        const languageComplexity = topicSettings.language_complexity || 'standard'
-        const responseLength = topicSettings.response_length || 'medium'
 
-        // Language complexity guidance
-        const complexityGuidance = {
-          simple: 'Use very simple vocabulary. Use short sentences (5-10 words).',
-          standard: 'Use clear, grade-appropriate vocabulary. Keep sentences moderate length.',
-          advanced: 'Use sophisticated academic vocabulary freely.'
-        }
+        // Generate in background - don't await
+        generateInitialAIMessage(topicId, topicSettings, true)
+          .then(async (aiResponse) => {
+            // Update conversation with initial AI message
+            await db.query(`
+              UPDATE reverse_tutoring_conversations
+              SET conversation_history = $1,
+                  subject = $2,
+                  grade_level = $3,
+                  key_vocabulary = $4,
+                  message_count = 1
+              WHERE id = $5
+            `, [
+              JSON.stringify([{
+                role: 'ai',
+                content: aiResponse,
+                timestamp: new Date().toISOString()
+              }]),
+              subject,
+              gradeLevel,
+              JSON.stringify(Array.isArray(keyVocabulary) ? keyVocabulary : []),
+              conversationId
+            ])
+            console.log('Generated initial AI message for collaborative session:', conversationId)
 
-        // Response length guidance
-        const lengthGuidance = {
-          short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
-          medium: 'Keep your responses concise - 2 to 3 sentences.',
-          long: 'You can give more detailed responses - 3 to 4 sentences.'
-        }
-
-        // Create system prompt for initial AI message
-        const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
-
-LANGUAGE COMPLEXITY - ${languageComplexity.toUpperCase()}:
-${complexityGuidance[languageComplexity] || complexityGuidance.standard}
-
-RESPONSE LENGTH - ${responseLength.toUpperCase()}:
-${lengthGuidance[responseLength] || lengthGuidance.medium}
-
-COLLABORATIVE MODE:
-- This is a TAG-TEAM session where TWO students will take turns teaching you
-- Address both students warmly and express excitement about learning from a team
-- Be encouraging and make both students feel included
-
-Key vocabulary to listen for: ${Array.isArray(keyVocabulary) ? keyVocabulary.join(', ') : keyVocabulary}
-
-Start by expressing confusion about the topic and inviting the team to teach you.`
-
-        try {
-          // Generate initial AI message
-          const initialMessage = await claude.messages.create({
-            model: 'claude-sonnet-4-5-20250929',
-            max_tokens: 200,
-            system: systemPrompt,
-            messages: [{
-              role: 'user',
-              content: `Start the conversation. Express your confusion about ${topic} and ask the student team to teach you about it. Acknowledge that two students will be working together.`
-            }]
+            // Notify clients that conversation has initial message
+            io.to(`collab-${collabSessionId}`).emit('initial-ai-message', {
+              conversationId,
+              message: aiResponse
+            })
           })
-
-          const aiResponse = initialMessage.content[0].text
-
-          // Update conversation with initial AI message and settings
-          await db.query(`
-            UPDATE reverse_tutoring_conversations
-            SET conversation_history = $1,
-                subject = $2,
-                grade_level = $3,
-                key_vocabulary = $4,
-                message_count = 1
-            WHERE id = $5
-          `, [
-            JSON.stringify([{
-              role: 'ai',
-              content: aiResponse,
-              timestamp: new Date().toISOString()
-            }]),
-            subject,
-            gradeLevel,
-            JSON.stringify(Array.isArray(keyVocabulary) ? keyVocabulary : []),
-            conversationId
-          ])
-
-          console.log('Generated initial AI message for collaborative session:', conversationId)
-        } catch (aiError) {
-          console.error('Failed to generate initial AI message:', aiError.message)
-          // Continue without initial message - students can still chat
-        }
+          .catch((aiError) => {
+            console.error('Failed to generate initial AI message:', aiError.message)
+            // Use fallback message
+            const fallbackMessage = `Hey team! I'm trying to learn about ${topicSettings.topic} but I'm confused. Can you help explain it to me?`
+            db.query(`
+              UPDATE reverse_tutoring_conversations
+              SET conversation_history = $1, message_count = 1
+              WHERE id = $2
+            `, [
+              JSON.stringify([{
+                role: 'ai',
+                content: fallbackMessage,
+                timestamp: new Date().toISOString()
+              }]),
+              conversationId
+            ]).catch(err => console.error('Failed to save fallback message:', err))
+          })
       }
 
       // Update both students' waiting room status to matched

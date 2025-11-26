@@ -191,15 +191,19 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
       advanced: 'Use sophisticated academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and advanced language structures.'
     }
 
-    // Response length guidance
+    // Response length guidance - VERY strict enforcement
     const lengthGuidance = {
-      short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
-      medium: 'Keep your responses concise - 2 to 3 sentences.',
-      long: 'You can give more detailed responses - 3 to 4 sentences with examples or follow-up questions.'
+      short: 'STRICT: 1-2 sentences MAXIMUM. No more than 25 words total. Be extremely brief.',
+      medium: 'Keep responses to 2-3 sentences maximum. No more than 40 words.',
+      long: 'You can give 3-4 sentences with examples or follow-up questions.'
     }
 
     // Create initial AI student persona with strict guardrails
     const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
+
+🚨 MOST IMPORTANT RULE - RESPONSE LENGTH:
+${lengthGuidance[responseLength]}
+If you write more than this, you have FAILED. Count your sentences!
 
 ⚠️ CRITICAL RESPONSE REQUIREMENTS (FOLLOW STRICTLY):
 
@@ -253,11 +257,11 @@ Start by expressing confusion about the topic and asking them to explain it.`
 
     const initialMessage = await claude.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 200,
+      max_tokens: 150, // Reduced to enforce shorter responses
       system: systemPrompt,
       messages: [{
         role: 'user',
-        content: `Start the conversation. Express your confusion about ${topic} and ask the student to teach you about it.`
+        content: `Start the conversation. Express your confusion about ${topic} and ask the student to teach you. Keep it to 1-2 SHORT sentences only.`
       }]
     })
 
@@ -404,17 +408,17 @@ export async function continueConversation(conversationId, studentMessage, metad
       advanced: 'Use sophisticated academic vocabulary freely. Use complex sentences when natural. You can use subject-specific terminology and advanced language structures.'
     }
 
-    // Response length guidance
+    // Response length guidance - VERY strict enforcement
     const lengthGuidance = {
-      short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
-      medium: 'Keep your responses concise - 2 to 3 sentences.',
-      long: 'You can give more detailed responses - 3 to 4 sentences with examples or follow-up questions.'
+      short: 'STRICT: 1-2 sentences MAXIMUM. No more than 25 words total. Be extremely brief.',
+      medium: 'Keep responses to 2-3 sentences maximum. No more than 40 words.',
+      long: 'You can give 3-4 sentences with examples or follow-up questions.'
     }
 
     const proficiency = conversation.language_proficiency || 'intermediate'
     const native = conversation.native_language || 'en'
     const languageComplexity = conversation.language_complexity || 'standard'
-    const responseLength = conversation.response_length || 'medium'
+    const responseLength = conversation.response_length || 'short' // Default to short for collaboration
     const enforceTopicFocus = conversation.enforce_topic_focus !== false
     const offTopicWarnings = conversation.off_topic_warnings || 0
 
@@ -438,6 +442,10 @@ export async function continueConversation(conversationId, studentMessage, metad
 
     // Create system prompt with multilingual support if needed
     const systemPrompt = `You are Alex, a curious ${conversation.grade_level} student learning about ${conversation.topic} in ${conversation.subject} class.
+
+🚨 MOST IMPORTANT RULE - RESPONSE LENGTH:
+${lengthGuidance[responseLength]}
+If you write more than this, you have FAILED. Count your sentences!
 
 ⚠️ CRITICAL RESPONSE REQUIREMENTS (FOLLOW STRICTLY):
 
@@ -521,10 +529,10 @@ CRITICAL RULES:
 
 Continue the conversation based on what the student just said.`
 
-    // Get AI response
+    // Get AI response (reduced max_tokens to enforce shorter responses)
     const response = await claude.messages.create({
       model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 300,
+      max_tokens: 150, // Reduced from 300 to enforce 1-2 sentence responses
       system: systemPrompt,
       messages: messages
     })
