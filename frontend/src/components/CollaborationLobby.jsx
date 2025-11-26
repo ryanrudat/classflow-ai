@@ -24,6 +24,7 @@ export default function CollaborationLobby({
   const timerRef = useRef(null)
   const countdownRef = useRef(null)
   const hasJoinedRef = useRef(false) // Prevent multiple join attempts
+  const hasMatchedRef = useRef(false) // Prevent duplicate partner found calls
   const onPartnerFoundRef = useRef(onPartnerFound) // Stable reference to callback
 
   // Keep the ref updated
@@ -69,9 +70,21 @@ export default function CollaborationLobby({
 
     // Listen for partner found event
     const handlePartnerFound = (data) => {
+      // Prevent duplicate calls
+      if (hasMatchedRef.current) {
+        console.log('Already matched, ignoring duplicate partner-found event')
+        return
+      }
+
       if (data.collabSessionId) {
+        hasMatchedRef.current = true
         setPartnerInfo(data.partner)
         setStatus('matched')
+
+        // Clear any existing countdown
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current)
+        }
 
         // Start countdown before entering conversation
         let count = 3
@@ -81,6 +94,7 @@ export default function CollaborationLobby({
           setCountdown(count)
           if (count <= 0) {
             clearInterval(countdownRef.current)
+            countdownRef.current = null
             // Use ref to get latest callback
             onPartnerFoundRef.current({
               collabSessionId: data.collabSessionId,
@@ -111,17 +125,34 @@ export default function CollaborationLobby({
       const result = await collaborationAPI.joinWaitingRoom(sessionId, studentId, studentName, topic.id)
 
       if (result.matched) {
+        // Prevent duplicate calls
+        if (hasMatchedRef.current) {
+          console.log('Already matched, ignoring duplicate API response')
+          return
+        }
+        hasMatchedRef.current = true
+
         // Already matched with a partner waiting
         setPartnerInfo(result.partner)
         setStatus('matched')
-        setTimeout(() => {
-          onPartnerFoundRef.current({
-            collabSessionId: result.collabSessionId,
-            conversationId: result.conversationId, // Pass the existing conversation ID
-            partner: result.partner,
-            isInitiator: false
-          })
-        }, 2000)
+
+        // Use a countdown like the socket handler for consistency
+        let count = 3
+        setCountdown(count)
+        countdownRef.current = setInterval(() => {
+          count--
+          setCountdown(count)
+          if (count <= 0) {
+            clearInterval(countdownRef.current)
+            countdownRef.current = null
+            onPartnerFoundRef.current({
+              collabSessionId: result.collabSessionId,
+              conversationId: result.conversationId, // Pass the existing conversation ID
+              partner: result.partner,
+              isInitiator: false
+            })
+          }
+        }, 1000)
       } else {
         setStatus('waiting')
         // Start waiting timer

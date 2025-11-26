@@ -76,6 +76,7 @@ export default function ReverseTutoring() {
   const messagesEndRef = useRef(null)
   const scaffoldingCloseButtonRef = useRef(null)
   const textInputRef = useRef(null)
+  const hasHandledPartnerFoundRef = useRef(false) // Prevent duplicate partner found handling
 
   // Auto-scroll to bottom - only when new messages arrive
   const scrollToBottom = () => {
@@ -297,6 +298,13 @@ export default function ReverseTutoring() {
    * Handle when partner is found in the lobby
    */
   const handlePartnerFound = async ({ collabSessionId: newCollabId, conversationId: existingConversationId, partner: newPartner, isInitiator }) => {
+    // Prevent duplicate handling
+    if (hasHandledPartnerFoundRef.current) {
+      console.log('⚠️ Already handled partner found, ignoring duplicate call')
+      return
+    }
+    hasHandledPartnerFoundRef.current = true
+
     console.log('🎉 Partner found!', newPartner, 'Initiator:', isInitiator, 'ConversationId:', existingConversationId)
     setCollabSessionId(newCollabId)
     setPartner(newPartner)
@@ -330,6 +338,9 @@ export default function ReverseTutoring() {
         'Tag-Team Started!',
         isInitiator ? "You're up first - teach Alex!" : `${newPartner.name} will start, then you'll tag in!`
       )
+    } else {
+      // Reset the ref so user can try again
+      hasHandledPartnerFoundRef.current = false
     }
   }
 
