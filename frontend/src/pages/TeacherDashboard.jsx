@@ -511,6 +511,21 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
     return students.filter(s => s.connected !== false).length
   }, [students])
 
+  // Memoize sorted students list to prevent UI jumping when socket events update the array
+  // Sort by: 1) Online students first, 2) Alphabetically by name
+  const sortedStudents = useMemo(() => {
+    return [...students].sort((a, b) => {
+      // Online students first
+      const aOnline = a.connected !== false
+      const bOnline = b.connected !== false
+      if (aOnline !== bOnline) {
+        return aOnline ? -1 : 1
+      }
+      // Then alphabetically by name
+      return (a.name || '').localeCompare(b.name || '')
+    })
+  }, [students])
+
   // Tab configuration
   // Icon components for tabs
   const getTabIcon = (tabId) => {
@@ -1652,7 +1667,7 @@ function OverviewTab({ session, isConnected, students, onlineCount, instances, s
               {onlineCount} / {students.length} online
             </div>
             <div className="space-y-4">
-              {students.map(student => {
+              {sortedStudents.map(student => {
                 const hasResponded = studentResponses.some(r => r.studentId === student.id)
                 const isConnected = student.connected !== false
                 const completions = studentCompletions[student.id] || []
