@@ -1,10 +1,16 @@
 import express from 'express'
+import Anthropic from '@anthropic-ai/sdk'
 import db from '../database/db.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { validateActiveSession } from '../middleware/sessionStatus.js'
 import { getIO } from '../services/ioInstance.js'
 
 const router = express.Router()
+
+// Initialize Claude for generating initial AI messages
+const claude = new Anthropic({
+  apiKey: process.env.CLAUDE_API_KEY
+})
 
 // ============================================
 // COLLABORATION WAITING ROOM
@@ -96,12 +102,17 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
 
       const conversationId = convResult.rows[0].id
 
-      // Create the collaborative session
+      // Create the collaborative session (with ON CONFLICT to handle race conditions)
       const collabResult = await db.query(`
         INSERT INTO collaborative_tutoring_sessions
           (conversation_id, session_id, mode, participant_ids, participant_names,
            current_turn_student_id, turn_order, status, started_at)
         VALUES ($1, $2, $3, $4, $5, $6, $4, 'active', NOW())
+        ON CONFLICT (conversation_id) DO UPDATE SET
+          participant_ids = $4,
+          participant_names = $5,
+          status = 'active',
+          started_at = COALESCE(collaborative_tutoring_sessions.started_at, NOW())
         RETURNING id
       `, [
         conversationId,
@@ -120,6 +131,97 @@ router.post('/waiting-room/join', validateActiveSession, async (req, res) => {
         SET collab_session_id = $1
         WHERE id = $2
       `, [collabSessionId, conversationId])
+
+      // Fetch topic settings to generate initial AI message
+      const topicSettingsResult = await db.query(`
+        SELECT topic, subject, grade_level, key_vocabulary,
+               language_complexity, response_length, max_student_responses, enforce_topic_focus
+        FROM reverse_tutoring_topics
+        WHERE id = $1
+      `, [topicId])
+
+      if (topicSettingsResult.rows.length > 0) {
+        const topicSettings = topicSettingsResult.rows[0]
+        const topic = topicSettings.topic
+        const subject = topicSettings.subject || 'Science'
+        const gradeLevel = topicSettings.grade_level || '7th grade'
+        const keyVocabulary = topicSettings.key_vocabulary || []
+        const languageComplexity = topicSettings.language_complexity || 'standard'
+        const responseLength = topicSettings.response_length || 'medium'
+
+        // Language complexity guidance
+        const complexityGuidance = {
+          simple: 'Use very simple vocabulary. Use short sentences (5-10 words).',
+          standard: 'Use clear, grade-appropriate vocabulary. Keep sentences moderate length.',
+          advanced: 'Use sophisticated academic vocabulary freely.'
+        }
+
+        // Response length guidance
+        const lengthGuidance = {
+          short: 'Keep your responses very brief - 1 to 2 sentences maximum.',
+          medium: 'Keep your responses concise - 2 to 3 sentences.',
+          long: 'You can give more detailed responses - 3 to 4 sentences.'
+        }
+
+        // Create system prompt for initial AI message
+        const systemPrompt = `You are Alex, a curious ${gradeLevel} student who is trying to learn about ${topic} in ${subject} class.
+
+LANGUAGE COMPLEXITY - ${languageComplexity.toUpperCase()}:
+${complexityGuidance[languageComplexity] || complexityGuidance.standard}
+
+RESPONSE LENGTH - ${responseLength.toUpperCase()}:
+${lengthGuidance[responseLength] || lengthGuidance.medium}
+
+COLLABORATIVE MODE:
+- This is a TAG-TEAM session where TWO students will take turns teaching you
+- Address both students warmly and express excitement about learning from a team
+- Be encouraging and make both students feel included
+
+Key vocabulary to listen for: ${Array.isArray(keyVocabulary) ? keyVocabulary.join(', ') : keyVocabulary}
+
+Start by expressing confusion about the topic and inviting the team to teach you.`
+
+        try {
+          // Generate initial AI message
+          const initialMessage = await claude.messages.create({
+            model: 'claude-sonnet-4-5-20250929',
+            max_tokens: 200,
+            system: systemPrompt,
+            messages: [{
+              role: 'user',
+              content: `Start the conversation. Express your confusion about ${topic} and ask the student team to teach you about it. Acknowledge that two students will be working together.`
+            }]
+          })
+
+          const aiResponse = initialMessage.content[0].text
+
+          // Update conversation with initial AI message and settings
+          await db.query(`
+            UPDATE reverse_tutoring_conversations
+            SET conversation_history = $1,
+                subject = $2,
+                grade_level = $3,
+                key_vocabulary = $4,
+                message_count = 1
+            WHERE id = $5
+          `, [
+            JSON.stringify([{
+              role: 'ai',
+              content: aiResponse,
+              timestamp: new Date().toISOString()
+            }]),
+            subject,
+            gradeLevel,
+            JSON.stringify(Array.isArray(keyVocabulary) ? keyVocabulary : []),
+            conversationId
+          ])
+
+          console.log('Generated initial AI message for collaborative session:', conversationId)
+        } catch (aiError) {
+          console.error('Failed to generate initial AI message:', aiError.message)
+          // Continue without initial message - students can still chat
+        }
+      }
 
       // Update both students' waiting room status to matched
       await db.query(`
@@ -254,12 +356,18 @@ router.post('/sessions', validateActiveSession, async (req, res) => {
       })
     }
 
-    // Create collaborative session
+    // Create collaborative session (with ON CONFLICT to handle race conditions)
     const result = await db.query(`
       INSERT INTO collaborative_tutoring_sessions
         (conversation_id, session_id, mode, participant_ids, participant_names,
          current_turn_student_id, turn_order, status, started_at)
       VALUES ($1, $2, $3, $4, $5, $6, $4, 'active', NOW())
+      ON CONFLICT (conversation_id) DO UPDATE SET
+        participant_ids = $4,
+        participant_names = $5,
+        mode = $3,
+        status = 'active',
+        started_at = COALESCE(collaborative_tutoring_sessions.started_at, NOW())
       RETURNING *
     `, [
       conversationId,
