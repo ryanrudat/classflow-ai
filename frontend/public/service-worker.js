@@ -1,8 +1,8 @@
 // ClassFlow AI Service Worker
 // Provides offline capability and performance optimization
 
-const CACHE_NAME = 'classflow-v4'
-const API_CACHE_NAME = 'classflow-api-v4'
+const CACHE_NAME = 'classflow-v5'
+const API_CACHE_NAME = 'classflow-api-v5'
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
