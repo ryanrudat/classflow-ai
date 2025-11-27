@@ -11,7 +11,7 @@ import UnlockActivityModal from '../components/UnlockActivityModal'
 import SessionJoinCard from '../components/SessionJoinCard'
 import ConfusionMeter from '../components/ConfusionMeter'
 import SaveToLibraryButton from '../components/SaveToLibraryButton'
-import DocumentUpload from '../components/DocumentUpload'
+import MediaUpload from '../components/MediaUpload'
 import GenerateFromDocumentModal from '../components/GenerateFromDocumentModal'
 import ActivityEditor from '../components/ActivityEditor'
 import QuizEditor from '../components/QuizEditor'
@@ -2599,10 +2599,21 @@ function ActivitiesTab({
         )}
       </div>
 
-      {/* Document Upload Section */}
+      {/* Media Upload Section (Documents & Videos) */}
       <div className="border-t pt-6">
-        <DocumentUpload
+        <MediaUpload
           sessionId={session.id}
+          onMediaUploaded={async (media) => {
+            // Handle uploaded media (video or document saved for later)
+            console.log('Media uploaded:', media)
+            // Reload session activities from server
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
+            }
+          }}
           onActivityGenerated={async (activity) => {
             setGeneratedContent(activity)
             // Reload session activities from server to get the saved activity
