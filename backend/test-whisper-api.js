@@ -1,10 +1,16 @@
 /**
  * Test script to verify OpenAI Whisper API key is working
+ * Tests BOTH methods used in the codebase:
+ * 1. OpenAI SDK (used by reverse tutoring)
+ * 2. Axios with verbose_json (used by video transcription for timestamps)
+ *
  * Run with: node test-whisper-api.js
  */
 
 import 'dotenv/config'
 import OpenAI from 'openai'
+import axios from 'axios'
+import FormData from 'form-data'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -14,7 +20,8 @@ const __dirname = path.dirname(__filename)
 
 async function testWhisperAPI() {
   console.log('\n========================================')
-  console.log('  OpenAI Whisper API Key Test')
+  console.log('  OpenAI Whisper API Test')
+  console.log('  (Video Upload Transcription)')
   console.log('========================================\n')
 
   // Step 1: Check if API key is configured
@@ -36,47 +43,89 @@ async function testWhisperAPI() {
   // Step 2: Initialize OpenAI client
   const openai = new OpenAI({ apiKey })
 
-  // Step 3: Create a minimal test audio file (1 second of silence in WAV format)
-  // WAV header for 1 second of silence at 16kHz, 16-bit mono
-  const testAudioPath = path.join(__dirname, 'test-audio.wav')
+  const testAudioPath = path.join(__dirname, 'test-audio.mp3')
 
   try {
-    // Create a minimal valid WAV file with a spoken word using text-to-speech first,
-    // then transcribe it back. This tests both TTS and Whisper.
-    console.log('Step 1: Testing API connection with text-to-speech...')
+    // Generate test audio using text-to-speech
+    console.log('Step 1: Generating test audio with TTS...')
 
     const ttsResponse = await openai.audio.speech.create({
       model: 'tts-1',
       voice: 'alloy',
-      input: 'Hello, this is a test.',
+      input: 'Welcome to the lesson. Today we will learn about science. This is an important topic.',
     })
 
-    // Save the TTS output
     const buffer = Buffer.from(await ttsResponse.arrayBuffer())
     fs.writeFileSync(testAudioPath, buffer)
-    console.log('✅ Text-to-speech API working - generated test audio\n')
+    console.log('✅ Test audio generated (simulates video audio track)\n')
 
-    // Step 4: Test Whisper transcription
-    console.log('Step 2: Testing Whisper transcription API...')
+    // Test 1: OpenAI SDK method (used by reverse tutoring)
+    console.log('Step 2: Testing Whisper via OpenAI SDK...')
+    console.log('   (This is how reverse tutoring works)')
 
-    const transcription = await openai.audio.transcriptions.create({
+    const sdkTranscription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(testAudioPath),
       model: 'whisper-1',
       response_format: 'json'
     })
 
-    console.log('✅ Whisper API is working!\n')
-    console.log('Transcription result:')
-    console.log(`   "${transcription.text}"\n`)
+    console.log('✅ OpenAI SDK method works!')
+    console.log(`   Text: "${sdkTranscription.text}"\n`)
+
+    // Test 2: Axios method with verbose_json (used by video transcription)
+    console.log('Step 3: Testing Whisper via Axios with timestamps...')
+    console.log('   (This is how video transcription works)')
+
+    const formData = new FormData()
+    formData.append('file', fs.createReadStream(testAudioPath), {
+      filename: 'test-video.mp3',
+      contentType: 'audio/mpeg'
+    })
+    formData.append('model', 'whisper-1')
+    formData.append('response_format', 'verbose_json')  // Get timestamps!
+
+    const axiosResponse = await axios.post(
+      'https://api.openai.com/v1/audio/transcriptions',
+      formData,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          ...formData.getHeaders()
+        },
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity,
+        timeout: 60000
+      }
+    )
+
+    const transcriptData = axiosResponse.data
+
+    console.log('✅ Axios method works with timestamps!')
+    console.log(`   Full text: "${transcriptData.text}"`)
+    console.log(`   Language: ${transcriptData.language}`)
+    console.log(`   Duration: ${transcriptData.duration}s`)
+
+    if (transcriptData.segments && transcriptData.segments.length > 0) {
+      console.log(`   Segments: ${transcriptData.segments.length}`)
+      console.log('\n   Timestamp segments (for AI question placement):')
+      transcriptData.segments.forEach((seg, i) => {
+        console.log(`   [${seg.start.toFixed(1)}s - ${seg.end.toFixed(1)}s] ${seg.text.trim()}`)
+      })
+    }
 
     // Cleanup
     fs.unlinkSync(testAudioPath)
-    console.log('✅ Test audio file cleaned up\n')
+    console.log('\n✅ Test audio cleaned up')
 
+    console.log('\n========================================')
+    console.log('  ALL TESTS PASSED!')
     console.log('========================================')
-    console.log('  All tests PASSED!')
-    console.log('  Your OpenAI API key is working correctly')
-    console.log('  for the video transcription feature.')
+    console.log('  ✅ OpenAI API key is valid')
+    console.log('  ✅ Whisper transcription works')
+    console.log('  ✅ Timestamp generation works')
+    console.log('')
+    console.log('  Video upload transcription is ready!')
+    console.log('  AI can generate timestamped questions.')
     console.log('========================================\n')
 
   } catch (error) {
@@ -87,23 +136,25 @@ async function testWhisperAPI() {
 
     console.log('❌ API Test Failed\n')
 
-    if (error.status === 401) {
+    const status = error.status || error.response?.status
+
+    if (status === 401) {
       console.log('Error: Invalid API key (401 Unauthorized)')
       console.log('Your API key is not valid or has been revoked.')
       console.log('Please check your OpenAI dashboard and generate a new key.')
-    } else if (error.status === 429) {
+    } else if (status === 429) {
       console.log('Error: Rate limit exceeded (429)')
       console.log('Your API key has hit rate limits. Please wait and try again.')
-    } else if (error.status === 402) {
+    } else if (status === 402) {
       console.log('Error: Payment required (402)')
       console.log('Your OpenAI account needs payment method or has exceeded quota.')
-    } else if (error.status === 503 || error.status === 502) {
+    } else if (status === 503 || status === 502) {
       console.log('Error: OpenAI service unavailable')
       console.log('The OpenAI service is temporarily down. Check status.openai.com')
     } else {
       console.log(`Error: ${error.message}`)
-      if (error.status) {
-        console.log(`Status code: ${error.status}`)
+      if (status) {
+        console.log(`Status code: ${status}`)
       }
       if (error.code) {
         console.log(`Error code: ${error.code}`)
@@ -111,7 +162,7 @@ async function testWhisperAPI() {
     }
 
     console.log('\nFull error details:')
-    console.log(error)
+    console.log(error.response?.data || error)
     process.exit(1)
   }
 }
