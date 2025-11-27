@@ -94,11 +94,13 @@ export async function uploadVideo(req, res) {
       })
     }
 
-    // Move file to public directory (directory created at startup)
+    // Copy file to public directory (use copy+delete instead of rename for cross-device support)
     const finalFilename = `video-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
     const finalPath = path.join(publicUploadsDir, finalFilename)
 
-    await fs.rename(file.path, finalPath)
+    // Copy then delete (rename doesn't work across filesystems on Render.com)
+    await fs.copyFile(file.path, finalPath)
+    await fs.unlink(file.path)
 
     // Get file size
     const stats = await fs.stat(finalPath)
