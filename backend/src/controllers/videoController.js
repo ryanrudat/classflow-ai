@@ -266,13 +266,29 @@ export async function transcribeVideo(req, res) {
     }
 
     const filePath = path.join(__dirname, '../../public', video.url)
+    console.log('📹 Transcription requested for:', { videoId, filePath })
 
     // Check if file exists
     try {
       await fs.access(filePath)
+      console.log('✅ Video file found:', filePath)
     } catch (error) {
-      return res.status(404).json({ message: 'Video file not found on server' })
+      console.error('❌ Video file not found:', filePath)
+      return res.status(404).json({
+        message: 'Video file not found on server. On free hosting, files are deleted after each deploy. Please re-upload the video.',
+        details: 'Render.com free tier uses ephemeral storage'
+      })
     }
+
+    // Check OpenAI API key
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('❌ OPENAI_API_KEY not configured')
+      return res.status(500).json({
+        message: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.'
+      })
+    }
+
+    console.log('📝 Starting transcription with OpenAI Whisper...')
 
     // Prepare form data for OpenAI Whisper API
     const formData = new FormData()
@@ -313,7 +329,11 @@ export async function transcribeVideo(req, res) {
     })
 
   } catch (error) {
-    console.error('Transcription error:', error.response?.data || error.message)
+    console.error('❌ Transcription error:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    })
 
     if (error.response?.status === 401) {
       return res.status(500).json({
@@ -321,8 +341,15 @@ export async function transcribeVideo(req, res) {
       })
     }
 
+    if (error.code === 'ENOENT') {
+      return res.status(404).json({
+        message: 'Video file was deleted. Please re-upload the video.',
+        details: 'Files are lost after server restarts on free hosting'
+      })
+    }
+
     res.status(500).json({
-      message: `Transcription failed: ${error.message}`
+      message: `Transcription failed: ${error.response?.data?.error?.message || error.message}`
     })
   }
 }
