@@ -331,13 +331,25 @@ export async function transcribeVideo(req, res) {
   } catch (error) {
     console.error('❌ Transcription error:', {
       message: error.message,
-      response: error.response?.data,
       status: error.response?.status
     })
 
     if (error.response?.status === 401) {
       return res.status(500).json({
         message: 'OpenAI API key not configured or invalid'
+      })
+    }
+
+    if (error.response?.status === 502 || error.response?.status === 503) {
+      return res.status(503).json({
+        message: 'OpenAI service is temporarily unavailable. Please try again in a few minutes.',
+        details: 'Check status.openai.com for updates'
+      })
+    }
+
+    if (error.response?.status === 429) {
+      return res.status(429).json({
+        message: 'OpenAI rate limit exceeded. Please wait a moment and try again.'
       })
     }
 
