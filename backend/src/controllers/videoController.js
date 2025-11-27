@@ -2,6 +2,7 @@ import multer from 'multer'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs/promises'
+import fsSync from 'fs'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import FormData from 'form-data'
@@ -13,16 +14,21 @@ const execAsync = promisify(exec)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Configure multer for video uploads
+// Create upload directories at startup (synchronously)
+const tempUploadDir = path.join(__dirname, '../../temp-uploads')
+const publicUploadsDir = path.join(__dirname, '../../public/uploads/videos')
+
+try {
+  fsSync.mkdirSync(tempUploadDir, { recursive: true })
+  fsSync.mkdirSync(publicUploadsDir, { recursive: true })
+} catch (err) {
+  console.error('Failed to create upload directories:', err.message)
+}
+
+// Configure multer for video uploads (use pre-created directory)
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../temp-uploads')
-    try {
-      await fs.mkdir(uploadDir, { recursive: true })
-      cb(null, uploadDir)
-    } catch (error) {
-      cb(error)
-    }
+  destination: (req, file, cb) => {
+    cb(null, tempUploadDir)
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
@@ -88,11 +94,7 @@ export async function uploadVideo(req, res) {
       })
     }
 
-    // Create public uploads directory for videos
-    const publicUploadsDir = path.join(__dirname, '../../public/uploads/videos')
-    await fs.mkdir(publicUploadsDir, { recursive: true })
-
-    // Move file to public directory
+    // Move file to public directory (directory created at startup)
     const finalFilename = `video-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
     const finalPath = path.join(publicUploadsDir, finalFilename)
 

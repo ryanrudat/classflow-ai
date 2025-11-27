@@ -3,6 +3,7 @@ import multer from 'multer'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs/promises'
+import fsSync from 'fs'
 import db from '../database/db.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { exec } from 'child_process'
@@ -14,16 +15,22 @@ const router = express.Router()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Configure multer for large video uploads
+// Create upload directories at startup (synchronously)
+const tempUploadDir = path.join(__dirname, '../../temp-uploads')
+const publicUploadsDir = path.join(__dirname, '../../public/uploads/videos')
+
+try {
+  fsSync.mkdirSync(tempUploadDir, { recursive: true })
+  fsSync.mkdirSync(publicUploadsDir, { recursive: true })
+  console.log('📁 Upload directories created:', { tempUploadDir, publicUploadsDir })
+} catch (err) {
+  console.error('⚠️ Failed to create upload directories:', err.message)
+}
+
+// Configure multer for large video uploads (use pre-created directory)
 const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../temp-uploads')
-    try {
-      await fs.mkdir(uploadDir, { recursive: true })
-      cb(null, uploadDir)
-    } catch (error) {
-      cb(error)
-    }
+  destination: (req, file, cb) => {
+    cb(null, tempUploadDir)
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
@@ -156,11 +163,7 @@ router.post('/upload/video', videoUpload.single('video'), handleMulterError, asy
     const duration = await getVideoDuration(file.path)
     console.log('📹 Video duration:', duration ? `${duration} seconds` : 'unknown')
 
-    // Create public uploads directory for videos
-    const publicUploadsDir = path.join(__dirname, '../../public/uploads/videos')
-    await fs.mkdir(publicUploadsDir, { recursive: true })
-
-    // Move file to public directory
+    // Move file to public directory (directory created at startup)
     const finalFilename = `video-${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
     const finalPath = path.join(publicUploadsDir, finalFilename)
 
