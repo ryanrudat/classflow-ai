@@ -40,6 +40,7 @@ import googleClassroomRoutes from './routes/googleClassroom.js'
 import libraryRoutes from './routes/library.js'
 import documentRoutes from './routes/documents.js'
 import videoRoutes from './routes/videos.js'
+import mediaRoutes from './routes/media.js'
 import interactiveVideoRoutes from './routes/interactiveVideo.js'
 import matchingRoutes from './routes/matching.js'
 import pollRoutes from './routes/poll.js'
@@ -185,6 +186,7 @@ app.use('/api/google', googleClassroomRoutes)
 app.use('/api/library', libraryRoutes)
 app.use('/api/documents', documentRoutes)
 app.use('/api/videos', videoRoutes)
+app.use('/api/media', mediaRoutes)
 app.use('/api', interactiveVideoRoutes)
 app.use('/api', matchingRoutes)
 app.use('/api', pollRoutes)
