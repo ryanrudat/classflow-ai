@@ -329,25 +329,31 @@ export async function transcribeVideo(req, res) {
     })
 
   } catch (error) {
+    const errorStatus = error.response?.status
+    const errorData = error.response?.data
+    const isHtmlError = typeof errorData === 'string' && errorData.includes('<!DOCTYPE')
+
     console.error('❌ Transcription error:', {
       message: error.message,
-      status: error.response?.status
+      status: errorStatus,
+      isHtmlError
     })
 
-    if (error.response?.status === 401) {
+    if (errorStatus === 401) {
       return res.status(500).json({
         message: 'OpenAI API key not configured or invalid'
       })
     }
 
-    if (error.response?.status === 502 || error.response?.status === 503) {
+    // Handle 502/503 or HTML error pages (Cloudflare errors)
+    if (errorStatus === 502 || errorStatus === 503 || isHtmlError) {
       return res.status(503).json({
         message: 'OpenAI service is temporarily unavailable. Please try again in a few minutes.',
         details: 'Check status.openai.com for updates'
       })
     }
 
-    if (error.response?.status === 429) {
+    if (errorStatus === 429) {
       return res.status(429).json({
         message: 'OpenAI rate limit exceeded. Please wait a moment and try again.'
       })
@@ -360,8 +366,16 @@ export async function transcribeVideo(req, res) {
       })
     }
 
+    // Check if error message contains "Bad gateway" (from HTML response)
+    if (error.message?.includes('Bad gateway') || error.message?.includes('502')) {
+      return res.status(503).json({
+        message: 'OpenAI service is temporarily unavailable. Please try again in a few minutes.',
+        details: 'Check status.openai.com for updates'
+      })
+    }
+
     res.status(500).json({
-      message: `Transcription failed: ${error.response?.data?.error?.message || error.message}`
+      message: `Transcription failed: ${errorData?.error?.message || error.message}`
     })
   }
 }
