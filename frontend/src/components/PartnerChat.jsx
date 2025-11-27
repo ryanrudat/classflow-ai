@@ -22,7 +22,7 @@ export default function PartnerChat({
   const [isTyping, setIsTyping] = useState(false)
   const [partnerTyping, setPartnerTyping] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const messagesEndRef = useRef(null)
+  const messagesContainerRef = useRef(null)
   const typingTimeoutRef = useRef(null)
 
   // Load chat history on mount
@@ -72,9 +72,16 @@ export default function PartnerChat({
     }
   }, [socket, collabSessionId, studentId, studentName])
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (using scrollTop to prevent page jump)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current
+      // Smooth scroll within the container only, not the page
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: 'smooth'
+      })
+    }
   }, [messages])
 
   const loadChatHistory = async () => {
@@ -237,7 +244,7 @@ export default function PartnerChat({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 text-sm py-8">
             <svg className="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -283,7 +290,6 @@ export default function PartnerChat({
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
