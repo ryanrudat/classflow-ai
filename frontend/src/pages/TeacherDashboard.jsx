@@ -2303,71 +2303,81 @@ function ActivitiesTab({
           </button>
         </form>
 
-        {/* OR Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-50 text-gray-500">OR</span>
+        {/* Interactive Activities Section */}
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+            Interactive Activities
+          </h4>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Sentence Ordering */}
+            <button
+              onClick={() => setShowSentenceOrderingEditor(true)}
+              className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg font-medium text-gray-700 hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-2"
+            >
+              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </div>
+              <span className="text-sm">Sentence Ordering</span>
+            </button>
+
+            {/* Matching */}
+            <button
+              onClick={() => setShowMatchingEditor(true)}
+              className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg font-medium text-gray-700 hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center gap-2"
+            >
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <span className="text-sm">Drag & Match</span>
+            </button>
+
+            {/* Live Poll */}
+            <button
+              onClick={() => setShowPollEditor(true)}
+              className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg font-medium text-gray-700 hover:border-green-500 hover:bg-green-50 transition-all flex items-center gap-2"
+            >
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <span className="text-sm">Live Poll</span>
+            </button>
+
+            {/* Interactive Video */}
+            <button
+              onClick={() => setShowVideoEditor(true)}
+              className="px-4 py-3 bg-white border-2 border-gray-200 rounded-lg font-medium text-gray-700 hover:border-purple-500 hover:bg-purple-50 transition-all flex items-center gap-2"
+            >
+              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="text-sm">Video + Questions</span>
+            </button>
           </div>
         </div>
 
-        {/* Interactive Video Button */}
-        <button
-          onClick={() => setShowVideoEditor(true)}
-          className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-          </svg>
-          Upload Interactive Video
-        </button>
-
-        {/* Sentence Ordering Button */}
-        <button
-          onClick={() => setShowSentenceOrderingEditor(true)}
-          className="w-full px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2 mt-3"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          Create Sentence Ordering
-        </button>
-
-        {/* Matching Activity Button */}
-        <button
-          onClick={() => setShowMatchingEditor(true)}
-          className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 mt-3"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v6h6" />
-          </svg>
-          Create Drag & Drop Matching
-        </button>
-
-        {/* Live Poll Button */}
-        <button
-          onClick={() => setShowPollEditor(true)}
-          className="w-full px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 mt-3"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          Create Live Poll
-        </button>
-
-        {/* Lesson Flow Builder Button */}
-        <button
-          onClick={() => setShowLessonFlowBuilder(true)}
-          className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-2 mt-3 shadow-lg"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-          </svg>
-          Create Lesson Flow ✨
-        </button>
+        {/* Lesson Flow - Featured */}
+        <div className="mt-6">
+          <button
+            onClick={() => setShowLessonFlowBuilder(true)}
+            className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-3 shadow-lg"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <div className="text-left">
+              <div className="font-bold">Create Lesson Flow</div>
+              <div className="text-xs text-purple-200">Combine multiple activities into one guided lesson</div>
+            </div>
+          </button>
+        </div>
 
         {/* Existing Lesson Flows */}
         {lessonFlows.length > 0 && (
@@ -2599,8 +2609,11 @@ function ActivitiesTab({
         )}
       </div>
 
-      {/* Media Upload Section (Documents & Videos) */}
+      {/* Upload Content Section */}
       <div className="border-t pt-6">
+        <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-4">
+          Upload Content
+        </h4>
         <MediaUpload
           sessionId={session.id}
           onMediaUploaded={async (media) => {
