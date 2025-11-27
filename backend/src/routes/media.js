@@ -68,17 +68,82 @@ async function getVideoDuration(filePath) {
 }
 
 /**
+ * Ensure uploaded_videos table exists
+ */
+async function ensureVideoTableExists() {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS uploaded_videos (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        original_filename VARCHAR(255) NOT NULL,
+        url VARCHAR(500) NOT NULL,
+        file_size BIGINT NOT NULL,
+        duration_seconds INTEGER,
+        mime_type VARCHAR(100),
+        transcript JSONB,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `)
+  } catch (error) {
+    console.log('Table check/create:', error.message)
+  }
+}
+
+// Ensure table exists on startup
+ensureVideoTableExists()
+
+/**
+ * Multer error handler middleware
+ */
+function handleMulterError(err, req, res, next) {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        message: 'File too large. Maximum size is 500MB.',
+        code: 'FILE_TOO_LARGE'
+      })
+    }
+    return res.status(400).json({
+      message: `Upload error: ${err.message}`,
+      code: err.code
+    })
+  } else if (err) {
+    console.error('Upload middleware error:', err)
+    return res.status(400).json({
+      message: err.message || 'Upload failed'
+    })
+  }
+  next()
+}
+
+/**
  * Upload a video file
  * POST /api/media/upload/video
  */
-router.post('/upload/video', videoUpload.single('video'), async (req, res) => {
+router.post('/upload/video', videoUpload.single('video'), handleMulterError, async (req, res) => {
+  console.log('📹 Video upload request received')
+
   try {
     const file = req.file
-    const teacherId = req.user.userId
+    const teacherId = req.user?.userId
     const { sessionId } = req.body
+
+    console.log('📹 Upload details:', {
+      hasFile: !!file,
+      teacherId,
+      sessionId,
+      fileSize: file ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'N/A'
+    })
 
     if (!file) {
       return res.status(400).json({ message: 'No video file uploaded' })
+    }
+
+    if (!teacherId) {
+      return res.status(401).json({ message: 'User not authenticated' })
     }
 
     console.log('📹 Processing video upload:', {
@@ -154,7 +219,11 @@ router.post('/upload/video', videoUpload.single('video'), async (req, res) => {
     })
 
   } catch (error) {
-    console.error('Video upload error:', error)
+    console.error('❌ Video upload error:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    })
 
     // Clean up temp file if it exists
     if (req.file && req.file.path) {
@@ -165,8 +234,17 @@ router.post('/upload/video', videoUpload.single('video'), async (req, res) => {
       }
     }
 
+    // Check for specific error types
+    if (error.code === '42P01') {
+      return res.status(500).json({
+        message: 'Database table not found. Please run migrations.',
+        error: error.message
+      })
+    }
+
     res.status(500).json({
-      message: `Upload failed: ${error.message}`
+      message: `Upload failed: ${error.message}`,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     })
   }
 })
