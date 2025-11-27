@@ -289,17 +289,25 @@ export async function transcribeVideo(req, res) {
     }
 
     console.log('📝 Starting transcription with OpenAI Whisper...')
+    console.log('📝 Using API key:', process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 7)}...` : 'NOT SET')
 
     // Prepare form data for OpenAI Whisper API
+    // Use createReadStream for better handling of large files
     const formData = new FormData()
-    formData.append('file', await fs.readFile(filePath), {
+    formData.append('file', fsSync.createReadStream(filePath), {
       filename: video.filename,
-      contentType: video.mime_type
+      contentType: video.mime_type || 'video/mp4'
     })
     formData.append('model', 'whisper-1')
     formData.append('response_format', 'verbose_json') // Get timestamps
 
-    // Call OpenAI Whisper API
+    console.log('📝 Sending to OpenAI...', {
+      filename: video.filename,
+      contentType: video.mime_type,
+      fileSize: video.file_size
+    })
+
+    // Call OpenAI Whisper API with extended timeout for large files
     const response = await axios.post(
       'https://api.openai.com/v1/audio/transcriptions',
       formData,
@@ -309,7 +317,8 @@ export async function transcribeVideo(req, res) {
           ...formData.getHeaders()
         },
         maxBodyLength: Infinity,
-        maxContentLength: Infinity
+        maxContentLength: Infinity,
+        timeout: 300000 // 5 minute timeout for large files
       }
     )
 
