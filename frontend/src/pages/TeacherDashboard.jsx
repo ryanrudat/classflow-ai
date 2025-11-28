@@ -2670,18 +2670,82 @@ function ActivitiesTab({
                       return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                     case 'document':
                       return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    case 'video':
+                    case 'interactive_video':
+                      return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                     default:
                       return <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   }
                 }
 
-                // Documents need special handling
+                // Documents and videos need special handling
                 const isDocument = activity.type === 'document'
+                const isVideo = activity.type === 'video' || activity.type === 'interactive_video'
 
-                // Parse document content if needed
-                const documentContent = isDocument && activity.content
+                // Parse content if needed
+                const parsedContent = (isDocument || isVideo) && activity.content
                   ? (typeof activity.content === 'string' ? JSON.parse(activity.content) : activity.content)
                   : null
+
+                // Render video card
+                if (isVideo) {
+                  const formatDuration = (seconds) => {
+                    if (!seconds) return ''
+                    const mins = Math.floor(seconds / 60)
+                    const secs = seconds % 60
+                    return `${mins}:${secs.toString().padStart(2, '0')}`
+                  }
+
+                  return (
+                    <div
+                      key={activity.id}
+                      onClick={() => setGeneratedContent(activity)}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            {getActivityIcon(activity.type)}
+                            <span className="font-medium text-gray-900">
+                              Video
+                            </span>
+                            {parsedContent?.duration && (
+                              <span className="text-xs text-gray-500 px-2 py-0.5 bg-gray-100 rounded">
+                                {formatDuration(parsedContent.duration)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1 truncate">
+                            {parsedContent?.originalFilename || activity.prompt || 'Untitled video'}
+                          </p>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {new Date(activity.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteConfirmModal(activity)
+                          }}
+                          className="text-red-600 hover:text-red-700 transition-colors p-1"
+                          title="Delete video"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+
+                // Use parsedContent for documents too
+                const documentContent = parsedContent
 
                 // Render document card differently
                 if (isDocument) {
@@ -3310,6 +3374,9 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
 }
 
 function ContentPreview({ content, type }) {
+  // Debug log to see what type is being passed
+  console.log('ContentPreview received:', { type, contentKeys: content ? Object.keys(content) : null })
+
   if (type === 'reading') {
     return (
       <div className="prose prose-sm max-w-none">
@@ -3422,6 +3489,101 @@ function ContentPreview({ content, type }) {
             )}
           </div>
         ))}
+      </div>
+    )
+  }
+
+  // Handle video type content
+  if (type === 'video') {
+    const videoUrl = content.url || content.videoUrl
+    const duration = content.duration || content.videoDuration
+    const transcript = content.transcript
+    const questions = content.questions || []
+
+    const formatDuration = (seconds) => {
+      if (!seconds) return 'Unknown'
+      const mins = Math.floor(seconds / 60)
+      const secs = seconds % 60
+      return `${mins}:${secs.toString().padStart(2, '0')}`
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Video Player */}
+        {videoUrl && (
+          <div className="rounded-lg overflow-hidden bg-black">
+            <video
+              controls
+              className="w-full max-h-64"
+              src={videoUrl.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${videoUrl}` : videoUrl}
+            >
+              Your browser does not support video playback.
+            </video>
+          </div>
+        )}
+
+        {/* Video Info */}
+        <div className="flex items-center gap-4 text-sm text-gray-600">
+          {duration && (
+            <span className="flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {formatDuration(duration)}
+            </span>
+          )}
+          {content.originalFilename && (
+            <span className="truncate">{content.originalFilename}</span>
+          )}
+        </div>
+
+        {/* Generated Questions */}
+        {questions.length > 0 && (
+          <div className="border-t pt-4">
+            <h4 className="font-semibold text-purple-700 mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Generated Questions ({questions.length})
+            </h4>
+            <div className="space-y-3">
+              {questions.map((q, i) => (
+                <div key={i} className="p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center gap-2 mb-1 text-xs text-gray-500">
+                    {q.timestamp_seconds !== undefined && (
+                      <span className="font-medium text-blue-600">
+                        @ {formatDuration(q.timestamp_seconds)}
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 bg-gray-200 rounded">
+                      {q.question_type?.replace('_', ' ') || 'question'}
+                    </span>
+                  </div>
+                  <p className="font-medium text-gray-900">{q.question_text || q.question}</p>
+                  {q.options && (
+                    <div className="mt-2 ml-4 space-y-1">
+                      {q.options.map((opt, j) => (
+                        <div key={j} className={`text-sm ${j === q.correct_answer ? 'text-green-600 font-medium' : 'text-gray-600'}`}>
+                          {String.fromCharCode(65 + j)}. {opt} {j === q.correct_answer && '✓'}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Transcript Preview */}
+        {transcript && (
+          <div className="border-t pt-4">
+            <h4 className="font-semibold text-gray-700 mb-2">Transcript</h4>
+            <p className="text-sm text-gray-600 line-clamp-4">
+              {typeof transcript === 'string' ? transcript : transcript.text || 'Transcript available'}
+            </p>
+          </div>
+        )}
       </div>
     )
   }

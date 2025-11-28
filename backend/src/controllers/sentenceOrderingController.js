@@ -86,12 +86,11 @@ Respond ONLY with valid JSON in this exact format:
 
     // Create activity in database
     const activityResult = await db.query(
-      `INSERT INTO activities (session_id, user_id, type, content, difficulty_level, prompt)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO activities (session_id, type, content, difficulty_level, prompt, ai_generated)
+       VALUES ($1, $2, $3, $4, $5, true)
        RETURNING *`,
       [
         sessionId,
-        teacherId,
         'sentence_ordering',
         JSON.stringify({
           sentences,

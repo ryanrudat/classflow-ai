@@ -232,13 +232,17 @@ export default function MediaUpload({ sessionId, onMediaUploaded, onActivityGene
         toast.success('Video Processed', 'Questions generated from your video!')
 
         if (onActivityGenerated) {
+          // Structure content properly for ContentPreview (expects type and content)
           onActivityGenerated({
             type: 'video',
-            videoId,
-            url: uploadResponse.data.url,
-            duration: uploadResponse.data.duration,
-            transcript: transcribeResponse.data.transcript,
-            questions: questionsResponse.data.questions
+            content: {
+              videoId,
+              url: uploadResponse.data.url,
+              originalFilename: selectedFile.name,
+              duration: uploadResponse.data.duration,
+              transcript: transcribeResponse.data.transcript,
+              questions: questionsResponse.data.questions
+            }
           })
         }
 
