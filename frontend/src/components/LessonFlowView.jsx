@@ -20,10 +20,11 @@ export default function LessonFlowView({
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
+  const [flowInfo, setFlowInfo] = useState(null) // Includes pacing mode
 
   const { on, off } = useSocket()
 
-  // Load current activity
+  // Load current activity and flow info
   useEffect(() => {
     async function loadCurrentActivity() {
       try {
@@ -35,6 +36,9 @@ export default function LessonFlowView({
         )
         setCurrentActivity(response.data.activity)
         setProgress(response.data.progress)
+        if (response.data.flowInfo) {
+          setFlowInfo(response.data.flowInfo)
+        }
         if (onActivityChange) {
           onActivityChange(response.data.activity, response.data.progress)
         }
@@ -48,7 +52,7 @@ export default function LessonFlowView({
     }
   }, [flowId, studentId, onActivityChange])
 
-  // Listen for auto-advance
+  // Listen for auto-advance and teacher-paced advance
   useEffect(() => {
     const handleFlowAdvance = (data) => {
       if (data.flowId === flowId && data.studentId === studentId) {
@@ -62,12 +66,22 @@ export default function LessonFlowView({
       }
     }
 
+    // Teacher-paced advance - applies to ALL students
+    const handleTeacherFlowAdvance = (data) => {
+      if (data.flowId === flowId) {
+        console.log('📚 Teacher advancing to activity:', data.sequence)
+        handleAdvance(data.activity, data.sequence, data.totalItems)
+      }
+    }
+
     on('flow-advance', handleFlowAdvance)
     on('lesson-flow-completed', handleFlowCompleted)
+    on('teacher-flow-advance', handleTeacherFlowAdvance)
 
     return () => {
       off('flow-advance', handleFlowAdvance)
       off('lesson-flow-completed', handleFlowCompleted)
+      off('teacher-flow-advance', handleTeacherFlowAdvance)
     }
   }, [flowId, studentId, on, off])
 

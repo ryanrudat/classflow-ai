@@ -2396,6 +2396,64 @@ function ActivitiesTab({
     }
   }
 
+  // Teacher flow control functions
+  const handleTeacherAdvanceFlow = async (flowId) => {
+    try {
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/teacher-advance`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.isComplete) {
+        notifySuccess('Lesson flow completed!')
+        setLessonFlows(flows => flows.map(f => f.id === flowId ? { ...f, is_active: false } : f))
+      } else {
+        // Update local flow state with new sequence
+        setLessonFlows(flows => flows.map(f =>
+          f.id === flowId
+            ? { ...f, teacher_current_sequence: data.currentSequence, currentActivity: data.activity }
+            : f
+        ))
+        notifySuccess(`Advanced to activity ${data.currentSequence} of ${data.totalItems}`)
+      }
+    } catch (error) {
+      console.error('Failed to advance flow:', error)
+      notifyError('Failed to advance lesson flow')
+    }
+  }
+
+  const handleTeacherBackFlow = async (flowId) => {
+    try {
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}/teacher-back`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      const data = await response.json()
+
+      // Update local flow state
+      setLessonFlows(flows => flows.map(f =>
+        f.id === flowId
+          ? { ...f, teacher_current_sequence: data.currentSequence, currentActivity: data.activity }
+          : f
+      ))
+      notifySuccess(`Went back to activity ${data.currentSequence} of ${data.totalItems}`)
+    } catch (error) {
+      console.error('Failed to go back in flow:', error)
+      notifyError('Failed to go back in lesson flow')
+    }
+  }
+
   const handleSaveInlineEdit = async () => {
     if (!generatedContent || !editedContent) return
 
@@ -2638,7 +2696,59 @@ function ActivitiesTab({
                           </svg>
                           {flow.total_activities} activities
                         </span>
+                        {flow.pacing_mode && (
+                          <span className="flex items-center gap-1">
+                            {flow.pacing_mode === 'teacher_paced' ? '👩‍🏫' : flow.pacing_mode === 'teacher_guided' ? '🤝' : '👨‍🎓'}
+                            <span className="capitalize">{flow.pacing_mode.replace('_', ' ')}</span>
+                          </span>
+                        )}
                       </div>
+
+                      {/* Teacher Controls for Active Teacher-Paced Flows */}
+                      {flow.is_active && (flow.pacing_mode === 'teacher_paced' || flow.pacing_mode === 'teacher_guided') && (
+                        <div className="mt-3 p-3 bg-purple-100 rounded-lg border border-purple-300">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-purple-700">
+                                Activity {flow.teacher_current_sequence || 1} of {flow.total_activities}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTeacherBackFlow(flow.id)
+                                }}
+                                disabled={(flow.teacher_current_sequence || 1) <= 1}
+                                className="p-2 bg-white text-purple-600 rounded-lg border border-purple-300 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Previous Activity"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleTeacherAdvanceFlow(flow.id)
+                                }}
+                                disabled={(flow.teacher_current_sequence || 1) >= parseInt(flow.total_activities)}
+                                className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                title="Next Activity"
+                              >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-purple-600 mt-2">
+                            {flow.pacing_mode === 'teacher_paced'
+                              ? 'All students will advance when you click next'
+                              : 'Students can catch up but not go ahead'}
+                          </p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2 ml-4">
                       <button

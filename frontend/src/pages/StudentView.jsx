@@ -45,6 +45,19 @@ export default function StudentView() {
   // WebSocket connection
   const { leaveSession, joinSession, submitResponse, on, off, emit, toggleConfusion, isConnected } = useSocket()
 
+  // Check for active lesson flow when student joins
+  const checkForActiveFlow = async (sessionId) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/sessions/${sessionId}/active-lesson-flow`)
+      if (response.data.activeFlow) {
+        console.log('📚 Found active lesson flow:', response.data.activeFlow.id)
+        setActiveFlowId(response.data.activeFlow.id)
+      }
+    } catch (error) {
+      console.error('Failed to check for active lesson flow:', error)
+    }
+  }
+
   async function handleJoin(e) {
     e.preventDefault()
 
@@ -70,6 +83,9 @@ export default function StudentView() {
         student: data.student
       }))
 
+      // Check for any active lesson flow the teacher has already started
+      await checkForActiveFlow(data.session.id)
+
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to join session')
     } finally {
@@ -86,6 +102,8 @@ export default function StudentView() {
         setSession(data.session)
         setStudent(data.student)
         setStep('active')
+        // Check for active lesson flow on restore
+        checkForActiveFlow(data.session.id)
       } catch (e) {
         sessionStorage.removeItem('student_session')
       }
@@ -221,6 +239,13 @@ export default function StudentView() {
       setFlowActivity(null)
     }
 
+    // Listen for teacher-paced flow advance (when teacher controls the flow)
+    const handleTeacherFlowAdvance = ({ flowId, sequence, totalItems, activity }) => {
+      console.log('📚 Teacher advanced flow to activity:', sequence, 'of', totalItems)
+      // The LessonFlowView component will handle this event internally
+      // This is just for logging
+    }
+
     on('activity-received', handleActivityReceived)
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
@@ -229,6 +254,7 @@ export default function StudentView() {
     on('force-disconnect', handleForceDisconnect)
     on('lesson-flow-started', handleLessonFlowStarted)
     on('lesson-flow-stopped', handleLessonFlowStopped)
+    on('teacher-flow-advance', handleTeacherFlowAdvance)
 
     // Cleanup
     return () => {
@@ -240,6 +266,7 @@ export default function StudentView() {
       off('force-disconnect', handleForceDisconnect)
       off('lesson-flow-started', handleLessonFlowStarted)
       off('lesson-flow-stopped', handleLessonFlowStopped)
+      off('teacher-flow-advance', handleTeacherFlowAdvance)
     }
   }, [session, student, leaveSession, joinSession, on, off])
 

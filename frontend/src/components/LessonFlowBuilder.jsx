@@ -26,6 +26,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   const [autoAdvance, setAutoAdvance] = useState(existingFlow?.auto_advance ?? true)
   const [showProgress, setShowProgress] = useState(existingFlow?.show_progress ?? true)
   const [allowReview, setAllowReview] = useState(existingFlow?.allow_review ?? false)
+  const [pacingMode, setPacingMode] = useState(existingFlow?.pacing_mode || 'student_paced')
 
   // Load available activities
   useEffect(() => {
@@ -150,9 +151,10 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
         title,
         description,
         activityIds: selectedActivities.map(a => a.id),
-        autoAdvance,
+        autoAdvance: pacingMode === 'teacher_paced' ? false : autoAdvance,
         showProgress,
-        allowReview
+        allowReview: pacingMode === 'teacher_paced' ? false : allowReview,
+        pacingMode
       }
 
       let response
@@ -235,16 +237,91 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
             </div>
           </div>
 
+          {/* Pacing Mode */}
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border-2 border-purple-200">
+            <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <span>🎮</span>
+              Pacing Control
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">Choose who controls the pace of the lesson flow</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  pacingMode === 'student_paced'
+                    ? 'border-purple-500 bg-purple-100'
+                    : 'border-gray-200 bg-white hover:border-purple-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="pacingMode"
+                  value="student_paced"
+                  checked={pacingMode === 'student_paced'}
+                  onChange={(e) => setPacingMode(e.target.value)}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <span className="text-2xl block mb-2">👨‍🎓</span>
+                  <span className="font-semibold text-gray-900 block">Student-Paced</span>
+                  <p className="text-xs text-gray-600 mt-1">Students move at their own speed</p>
+                </div>
+              </label>
+              <label
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  pacingMode === 'teacher_paced'
+                    ? 'border-purple-500 bg-purple-100'
+                    : 'border-gray-200 bg-white hover:border-purple-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="pacingMode"
+                  value="teacher_paced"
+                  checked={pacingMode === 'teacher_paced'}
+                  onChange={(e) => setPacingMode(e.target.value)}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <span className="text-2xl block mb-2">👩‍🏫</span>
+                  <span className="font-semibold text-gray-900 block">Teacher-Paced</span>
+                  <p className="text-xs text-gray-600 mt-1">You control all students (like slides)</p>
+                </div>
+              </label>
+              <label
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  pacingMode === 'teacher_guided'
+                    ? 'border-purple-500 bg-purple-100'
+                    : 'border-gray-200 bg-white hover:border-purple-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="pacingMode"
+                  value="teacher_guided"
+                  checked={pacingMode === 'teacher_guided'}
+                  onChange={(e) => setPacingMode(e.target.value)}
+                  className="sr-only"
+                />
+                <div className="text-center">
+                  <span className="text-2xl block mb-2">🤝</span>
+                  <span className="font-semibold text-gray-900 block">Teacher-Guided</span>
+                  <p className="text-xs text-gray-600 mt-1">You set pace, students can catch up</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Settings */}
           <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
-            <h3 className="font-semibold text-gray-900 mb-3">Flow Settings</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">Additional Settings</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className={`flex items-center gap-2 ${pacingMode === 'teacher_paced' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                 <input
                   type="checkbox"
-                  checked={autoAdvance}
+                  checked={pacingMode !== 'teacher_paced' && autoAdvance}
                   onChange={(e) => setAutoAdvance(e.target.checked)}
                   className="rounded"
+                  disabled={pacingMode === 'teacher_paced'}
                 />
                 <div>
                   <span className="font-medium text-gray-900">Auto-advance</span>
@@ -263,12 +340,13 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
                   <p className="text-xs text-gray-600">Display "2 of 5" to students</p>
                 </div>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className={`flex items-center gap-2 ${pacingMode === 'teacher_paced' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                 <input
                   type="checkbox"
-                  checked={allowReview}
+                  checked={pacingMode !== 'teacher_paced' && allowReview}
                   onChange={(e) => setAllowReview(e.target.checked)}
                   className="rounded"
+                  disabled={pacingMode === 'teacher_paced'}
                 />
                 <div>
                   <span className="font-medium text-gray-900">Allow Review</span>

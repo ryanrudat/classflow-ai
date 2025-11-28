@@ -9,7 +9,10 @@ import {
   getCurrentActivity,
   advanceToNext,
   stopLessonFlow,
-  deleteLessonFlow
+  deleteLessonFlow,
+  getActiveFlowForSession,
+  teacherAdvanceFlow,
+  teacherBackFlow
 } from '../controllers/lessonFlowController.js'
 
 const router = express.Router()
@@ -51,6 +54,19 @@ router.post(
   stopLessonFlow
 )
 
+// Teacher pacing controls
+router.post(
+  '/lesson-flows/:flowId/teacher-advance',
+  authenticateToken,
+  teacherAdvanceFlow
+)
+
+router.post(
+  '/lesson-flows/:flowId/teacher-back',
+  authenticateToken,
+  teacherBackFlow
+)
+
 router.delete(
   '/lesson-flows/:flowId',
   authenticateToken,
@@ -68,6 +84,13 @@ router.post(
   '/lesson-flows/:flowId/advance',
   optionalStudentAuth,
   advanceToNext
+)
+
+// Get active lesson flow for a session (for students joining after flow started)
+router.get(
+  '/sessions/:sessionId/active-lesson-flow',
+  optionalStudentAuth,
+  getActiveFlowForSession
 )
 
 export default router

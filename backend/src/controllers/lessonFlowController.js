@@ -7,7 +7,7 @@ import { getIO } from '../services/ioInstance.js'
  */
 export async function createLessonFlow(req, res) {
   const { sessionId } = req.params
-  const { title, description, activityIds, autoAdvance, showProgress, allowReview } = req.body
+  const { title, description, activityIds, autoAdvance, showProgress, allowReview, pacingMode } = req.body
   const userId = req.user.userId
 
   try {
@@ -24,10 +24,10 @@ export async function createLessonFlow(req, res) {
     // Create lesson flow
     const flowResult = await db.query(
       `INSERT INTO lesson_flows (
-        session_id, title, description, auto_advance, show_progress, allow_review
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+        session_id, title, description, auto_advance, show_progress, allow_review, pacing_mode
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *`,
-      [sessionId, title, description, autoAdvance !== false, showProgress !== false, allowReview || false]
+      [sessionId, title, description, autoAdvance !== false, showProgress !== false, allowReview || false, pacingMode || 'student_paced']
     )
 
     const flow = flowResult.rows[0]
@@ -233,6 +233,20 @@ export async function getCurrentActivity(req, res) {
 
     const studentProgress = progress.rows[0]
 
+    // Get flow info including pacing mode
+    const flowInfoResult = await db.query(
+      `SELECT pacing_mode, title, auto_advance, show_progress, allow_review, teacher_current_sequence
+       FROM lesson_flows WHERE id = $1`,
+      [flowId]
+    )
+
+    const flowInfo = flowInfoResult.rows[0] || {}
+
+    // For teacher-paced modes, use teacher's current sequence
+    const currentSequence = (flowInfo.pacing_mode === 'teacher_paced' || flowInfo.pacing_mode === 'teacher_guided')
+      ? (flowInfo.teacher_current_sequence || 1)
+      : studentProgress.current_sequence
+
     // Get current activity details
     const activityResult = await db.query(
       `SELECT
@@ -245,7 +259,7 @@ export async function getCurrentActivity(req, res) {
        JOIN activities a ON lfi.activity_id = a.id
        WHERE lfi.flow_id = $1 AND lfi.sequence_order = $2
        LIMIT 1`,
-      [flowId, studentProgress.current_sequence]
+      [flowId, currentSequence]
     )
 
     if (activityResult.rows.length === 0) {
@@ -257,10 +271,17 @@ export async function getCurrentActivity(req, res) {
     res.json({
       activity: currentActivity,
       progress: {
-        currentSequence: studentProgress.current_sequence,
+        currentSequence: currentSequence,
         totalItems: parseInt(currentActivity.total_items),
         isCompleted: studentProgress.is_completed,
         completedItems: studentProgress.completed_items || []
+      },
+      flowInfo: {
+        pacingMode: flowInfo.pacing_mode,
+        title: flowInfo.title,
+        autoAdvance: flowInfo.auto_advance,
+        showProgress: flowInfo.show_progress,
+        allowReview: flowInfo.allow_review
       }
     })
   } catch (error) {
@@ -430,16 +451,16 @@ export async function stopLessonFlow(req, res) {
  */
 export async function updateLessonFlow(req, res) {
   const { flowId } = req.params
-  const { title, description, activityIds, autoAdvance, showProgress, allowReview } = req.body
+  const { title, description, activityIds, autoAdvance, showProgress, allowReview, pacingMode } = req.body
 
   try {
     // Update lesson flow details
     const flowResult = await db.query(
       `UPDATE lesson_flows
-       SET title = $1, description = $2, auto_advance = $3, show_progress = $4, allow_review = $5, updated_at = NOW()
-       WHERE id = $6
+       SET title = $1, description = $2, auto_advance = $3, show_progress = $4, allow_review = $5, pacing_mode = $6, updated_at = NOW()
+       WHERE id = $7
        RETURNING *`,
-      [title, description, autoAdvance !== false, showProgress !== false, allowReview || false, flowId]
+      [title, description, autoAdvance !== false, showProgress !== false, allowReview || false, pacingMode || 'student_paced', flowId]
     )
 
     if (flowResult.rows.length === 0) {
@@ -487,5 +508,205 @@ export async function deleteLessonFlow(req, res) {
   } catch (error) {
     console.error('Delete lesson flow error:', error)
     res.status(500).json({ message: 'Failed to delete lesson flow' })
+  }
+}
+
+/**
+ * Get the active lesson flow for a session (for students joining after flow started)
+ * GET /api/sessions/:sessionId/active-lesson-flow
+ */
+export async function getActiveFlowForSession(req, res) {
+  const { sessionId } = req.params
+
+  try {
+    // Get active lesson flow for this session
+    const flowResult = await db.query(
+      `SELECT lf.*,
+        (SELECT COUNT(*) FROM lesson_flow_items WHERE flow_id = lf.id) as total_activities
+       FROM lesson_flows lf
+       WHERE lf.session_id = $1 AND lf.is_active = true
+       LIMIT 1`,
+      [sessionId]
+    )
+
+    if (flowResult.rows.length === 0) {
+      return res.json({ activeFlow: null })
+    }
+
+    const flow = flowResult.rows[0]
+
+    // Get the first activity details
+    const firstActivity = await db.query(
+      `SELECT lfi.*, a.*
+       FROM lesson_flow_items lfi
+       JOIN activities a ON lfi.activity_id = a.id
+       WHERE lfi.flow_id = $1
+       ORDER BY lfi.sequence_order
+       LIMIT 1`,
+      [flow.id]
+    )
+
+    res.json({
+      activeFlow: {
+        ...flow,
+        firstActivity: firstActivity.rows[0] || null
+      }
+    })
+  } catch (error) {
+    console.error('Get active flow error:', error)
+    res.status(500).json({ message: 'Failed to get active lesson flow' })
+  }
+}
+
+/**
+ * Teacher advances all students to the next activity (for teacher-paced mode)
+ * POST /api/lesson-flows/:flowId/teacher-advance
+ */
+export async function teacherAdvanceFlow(req, res) {
+  const { flowId } = req.params
+  const { targetSequence } = req.body // Optional: go to specific activity
+
+  try {
+    // Get flow info
+    const flowResult = await db.query(
+      `SELECT lf.*,
+        (SELECT COUNT(*) FROM lesson_flow_items WHERE flow_id = lf.id) as total_activities
+       FROM lesson_flows lf
+       WHERE lf.id = $1`,
+      [flowId]
+    )
+
+    if (flowResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Lesson flow not found' })
+    }
+
+    const flow = flowResult.rows[0]
+    const totalItems = parseInt(flow.total_activities)
+    const currentSequence = flow.teacher_current_sequence || 1
+    const newSequence = targetSequence ? parseInt(targetSequence) : currentSequence + 1
+
+    // Validate new sequence
+    if (newSequence < 1 || newSequence > totalItems) {
+      return res.status(400).json({ message: 'Invalid sequence number' })
+    }
+
+    // Check if flow is complete
+    if (newSequence > totalItems) {
+      return res.json({
+        isComplete: true,
+        message: 'Lesson flow is complete'
+      })
+    }
+
+    // Update teacher's current position
+    await db.query(
+      'UPDATE lesson_flows SET teacher_current_sequence = $1, updated_at = NOW() WHERE id = $2',
+      [newSequence, flowId]
+    )
+
+    // Get the activity at this sequence
+    const activityResult = await db.query(
+      `SELECT lfi.*, a.*
+       FROM lesson_flow_items lfi
+       JOIN activities a ON lfi.activity_id = a.id
+       WHERE lfi.flow_id = $1 AND lfi.sequence_order = $2
+       LIMIT 1`,
+      [flowId, newSequence]
+    )
+
+    if (activityResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found at this sequence' })
+    }
+
+    const activity = activityResult.rows[0]
+
+    // Emit WebSocket event to all students
+    const io = getIO()
+    if (io) {
+      io.to(`session-${flow.session_id}`).emit('teacher-flow-advance', {
+        flowId,
+        sequence: newSequence,
+        totalItems,
+        activity,
+        activityId: activity.activity_id
+      })
+    }
+
+    res.json({
+      isComplete: false,
+      currentSequence: newSequence,
+      totalItems,
+      activity
+    })
+  } catch (error) {
+    console.error('Teacher advance flow error:', error)
+    res.status(500).json({ message: 'Failed to advance lesson flow' })
+  }
+}
+
+/**
+ * Teacher goes back to previous activity (for teacher-paced mode)
+ * POST /api/lesson-flows/:flowId/teacher-back
+ */
+export async function teacherBackFlow(req, res) {
+  const { flowId } = req.params
+
+  try {
+    // Get flow info
+    const flowResult = await db.query(
+      `SELECT lf.*,
+        (SELECT COUNT(*) FROM lesson_flow_items WHERE flow_id = lf.id) as total_activities
+       FROM lesson_flows lf
+       WHERE lf.id = $1`,
+      [flowId]
+    )
+
+    if (flowResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Lesson flow not found' })
+    }
+
+    const flow = flowResult.rows[0]
+    const currentSequence = flow.teacher_current_sequence || 1
+    const newSequence = Math.max(1, currentSequence - 1)
+
+    // Update teacher's current position
+    await db.query(
+      'UPDATE lesson_flows SET teacher_current_sequence = $1, updated_at = NOW() WHERE id = $2',
+      [newSequence, flowId]
+    )
+
+    // Get the activity at this sequence
+    const activityResult = await db.query(
+      `SELECT lfi.*, a.*
+       FROM lesson_flow_items lfi
+       JOIN activities a ON lfi.activity_id = a.id
+       WHERE lfi.flow_id = $1 AND lfi.sequence_order = $2
+       LIMIT 1`,
+      [flowId, newSequence]
+    )
+
+    const activity = activityResult.rows[0]
+    const totalItems = parseInt(flow.total_activities)
+
+    // Emit WebSocket event to all students
+    const io = getIO()
+    if (io) {
+      io.to(`session-${flow.session_id}`).emit('teacher-flow-advance', {
+        flowId,
+        sequence: newSequence,
+        totalItems,
+        activity,
+        activityId: activity?.activity_id
+      })
+    }
+
+    res.json({
+      currentSequence: newSequence,
+      totalItems,
+      activity
+    })
+  } catch (error) {
+    console.error('Teacher back flow error:', error)
+    res.status(500).json({ message: 'Failed to go back in lesson flow' })
   }
 }
