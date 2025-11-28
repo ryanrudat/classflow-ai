@@ -3597,6 +3597,124 @@ function ContentPreview({ content, type }) {
     )
   }
 
+  // Handle sentence ordering type
+  if (type === 'sentence_ordering') {
+    const sentences = content.sentences || []
+    const instructions = content.instructions || 'Arrange these sentences in the correct order'
+    const topic = content.topic
+
+    return (
+      <div className="space-y-4">
+        {topic && (
+          <div className="text-sm text-purple-600 font-medium">Topic: {topic}</div>
+        )}
+        <div className="text-sm text-gray-600 italic mb-3">{instructions}</div>
+        <div className="space-y-2">
+          {sentences.map((sentence, i) => (
+            <div key={sentence.id || i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border">
+              <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                {i + 1}
+              </span>
+              <p className="text-gray-900">{sentence.text}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          {sentences.length} sentences • Students will arrange these in order
+        </div>
+      </div>
+    )
+  }
+
+  // Handle matching type
+  if (type === 'matching') {
+    const pairs = content.pairs || []
+    const instructions = content.instructions || 'Match the items'
+
+    return (
+      <div className="space-y-4">
+        <div className="text-sm text-gray-600 italic mb-3">{instructions}</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <h4 className="font-medium text-gray-700 mb-2">Items</h4>
+            <div className="space-y-2">
+              {pairs.map((pair, i) => (
+                <div key={i} className="p-2 bg-blue-50 rounded border border-blue-200 text-sm">
+                  {pair.left || pair.term}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-700 mb-2">Matches</h4>
+            <div className="space-y-2">
+              {pairs.map((pair, i) => (
+                <div key={i} className="p-2 bg-green-50 rounded border border-green-200 text-sm">
+                  {pair.right || pair.definition}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          {pairs.length} pairs to match
+        </div>
+      </div>
+    )
+  }
+
+  // Handle poll type
+  if (type === 'poll') {
+    const question = content.question || ''
+    const options = content.options || []
+
+    return (
+      <div className="space-y-4">
+        <div className="font-medium text-gray-900 text-lg">{question}</div>
+        <div className="space-y-2">
+          {options.map((option, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+              <span className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-medium">
+                {String.fromCharCode(65 + i)}
+              </span>
+              <span className="text-gray-900">{typeof option === 'string' ? option : option.text}</span>
+            </div>
+          ))}
+        </div>
+        <div className="text-xs text-gray-500 mt-2">
+          Poll with {options.length} options
+        </div>
+      </div>
+    )
+  }
+
+  // Handle interactive video type
+  if (type === 'interactive_video') {
+    const videoUrl = content.videoUrl
+    const title = content.title
+    const questions = content.questions || []
+
+    return (
+      <div className="space-y-4">
+        {title && <div className="font-medium text-gray-900">{title}</div>}
+        {videoUrl && (
+          <div className="rounded-lg overflow-hidden bg-black">
+            <video
+              controls
+              className="w-full max-h-64"
+              src={videoUrl.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${videoUrl}` : videoUrl}
+            >
+              Your browser does not support video playback.
+            </video>
+          </div>
+        )}
+        <div className="text-xs text-gray-500">
+          Interactive video with {questions.length} checkpoint questions
+        </div>
+      </div>
+    )
+  }
+
   return <pre className="text-sm">{JSON.stringify(content, null, 2)}</pre>
 }
 
