@@ -2200,13 +2200,19 @@ function ActivitiesTab({
   }
 
   const handlePreviewFlow = async (flowId) => {
+    console.log('handlePreviewFlow called with flowId:', flowId)
     setLoadingFlowDetails(true)
     try {
       const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+      console.log('Fetching from:', `${apiUrl}/api/lesson-flows/${flowId}`)
+
+      const response = await fetch(`${apiUrl}/api/lesson-flows/${flowId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
+      console.log('Flow details received:', data)
+
       // Combine flow with its items (activities)
       setPreviewLessonFlow({
         ...data.flow,
@@ -2455,10 +2461,14 @@ function ActivitiesTab({
                     </div>
                     <div className="flex gap-2 ml-4">
                       <button
-                        onClick={() => handlePreviewFlow(flow.id)}
-                        className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePreviewFlow(flow.id)
+                        }}
+                        disabled={loadingFlowDetails}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
                       >
-                        Preview
+                        {loadingFlowDetails ? 'Loading...' : 'Preview'}
                       </button>
                       {flow.is_active ? (
                         <button
