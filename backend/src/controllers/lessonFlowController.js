@@ -8,12 +8,12 @@ import { getIO } from '../services/ioInstance.js'
 export async function createLessonFlow(req, res) {
   const { sessionId } = req.params
   const { title, description, activityIds, autoAdvance, showProgress, allowReview } = req.body
-  const userId = req.user.id
+  const userId = req.user.userId
 
   try {
     // Verify session belongs to user
     const session = await db.query(
-      'SELECT * FROM sessions WHERE id = $1 AND user_id = $2',
+      'SELECT * FROM sessions WHERE id = $1 AND teacher_id = $2',
       [sessionId, userId]
     )
 

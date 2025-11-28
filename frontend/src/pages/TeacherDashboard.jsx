@@ -1292,10 +1292,13 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         <InteractiveVideoEditor
           sessionId={session.id}
           onClose={() => setShowVideoEditor(false)}
-          onSaved={(activity) => {
+          onSaved={async (activity) => {
             // Reload activities to show the new video activity
-            if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
             }
             setShowVideoEditor(false)
           }}
@@ -1307,10 +1310,13 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         <SentenceOrderingEditor
           sessionId={session.id}
           onClose={() => setShowSentenceOrderingEditor(false)}
-          onSaved={(activity) => {
+          onSaved={async (activity) => {
             // Reload activities to show the new sentence ordering activity
-            if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
             }
             setShowSentenceOrderingEditor(false)
           }}
@@ -1322,10 +1328,13 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         <MatchingEditor
           sessionId={session.id}
           onClose={() => setShowMatchingEditor(false)}
-          onSaved={(activity) => {
+          onSaved={async (activity) => {
             // Reload activities to show the new matching activity
-            if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
             }
             setShowMatchingEditor(false)
           }}
@@ -1337,10 +1346,13 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
         <PollEditor
           sessionId={session.id}
           onClose={() => setShowPollEditor(false)}
-          onSaved={(activity) => {
+          onSaved={async (activity) => {
             // Reload activities to show the new poll
-            if (selectedInstance) {
-              loadSessionActivities(session.id, selectedInstance.id)
+            try {
+              const activitiesData = await sessionsAPI.getActivities(session.id)
+              setSessionActivities(activitiesData.activities || [])
+            } catch (err) {
+              console.error('Failed to reload activities:', err)
             }
             setShowPollEditor(false)
           }}
@@ -3374,9 +3386,6 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
 }
 
 function ContentPreview({ content, type }) {
-  // Debug log to see what type is being passed
-  console.log('ContentPreview received:', { type, contentKeys: content ? Object.keys(content) : null })
-
   if (type === 'reading') {
     return (
       <div className="prose prose-sm max-w-none">
