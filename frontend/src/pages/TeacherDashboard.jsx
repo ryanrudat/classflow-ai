@@ -24,6 +24,7 @@ import SentenceOrderingEditor from '../components/SentenceOrderingEditor'
 import MatchingEditor from '../components/MatchingEditor'
 import PollEditor from '../components/PollEditor'
 import LessonFlowBuilder from '../components/LessonFlowBuilder'
+import TeacherLessonFlowPreview from '../components/TeacherLessonFlowPreview'
 import Leaderboard from '../components/Leaderboard'
 import { NoSessionsEmpty, NoStudentsEmpty, NoSlidesEmpty, NoAnalyticsEmpty, NoSessionSelectedEmpty } from '../components/EmptyState'
 import {
@@ -2035,6 +2036,132 @@ function ActivitiesTab({
   const [loadingFlows, setLoadingFlows] = useState(false)
   const [previewLessonFlow, setPreviewLessonFlow] = useState(null)
   const [loadingFlowDetails, setLoadingFlowDetails] = useState(false)
+  const [expandedActivities, setExpandedActivities] = useState({})
+  const [showFullPreview, setShowFullPreview] = useState(false)
+
+  // Helper function to toggle activity expansion in preview
+  const toggleActivityExpanded = (activityId) => {
+    setExpandedActivities(prev => ({
+      ...prev,
+      [activityId]: !prev[activityId]
+    }))
+  }
+
+  // Helper function to render activity content in preview
+  const renderActivityContent = (activity) => {
+    if (!activity.content) return <p className="text-gray-500 italic">No content available</p>
+
+    const content = typeof activity.content === 'string' ? JSON.parse(activity.content) : activity.content
+
+    switch (activity.type) {
+      case 'reading':
+        return (
+          <div className="prose max-w-none">
+            <div className="p-3 bg-gray-50 rounded border text-sm max-h-48 overflow-y-auto">
+              {typeof content === 'string' ? content : JSON.stringify(content)}
+            </div>
+          </div>
+        )
+
+      case 'questions':
+      case 'quiz':
+        const questions = content.questions || content.quiz || []
+        return (
+          <div className="space-y-2">
+            {questions.slice(0, 3).map((q, idx) => (
+              <div key={idx} className="p-2 bg-gray-50 rounded border text-sm">
+                <p className="font-medium text-gray-800">{idx + 1}. {q.question}</p>
+                {q.options && (
+                  <div className="mt-1 ml-3 text-xs text-gray-600">
+                    {q.options.map((opt, i) => (
+                      <div key={i} className={i === q.correct ? 'text-green-600 font-medium' : ''}>
+                        {String.fromCharCode(65 + i)}. {opt} {i === q.correct && '✓'}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            {questions.length > 3 && (
+              <p className="text-xs text-gray-500 italic">...and {questions.length - 3} more questions</p>
+            )}
+          </div>
+        )
+
+      case 'discussion':
+        const prompts = Array.isArray(content) ? content : content.prompts || []
+        return (
+          <div className="space-y-1">
+            {prompts.slice(0, 3).map((prompt, idx) => (
+              <div key={idx} className="p-2 bg-gray-50 rounded border text-sm text-gray-700">
+                {prompt}
+              </div>
+            ))}
+            {prompts.length > 3 && (
+              <p className="text-xs text-gray-500 italic">...and {prompts.length - 3} more prompts</p>
+            )}
+          </div>
+        )
+
+      case 'poll':
+        return (
+          <div className="p-2 bg-gray-50 rounded border text-sm">
+            <p className="font-medium text-gray-800">{content.question}</p>
+            {content.options && (
+              <div className="mt-1 ml-3 text-xs text-gray-600">
+                {content.options.map((opt, i) => (
+                  <div key={i}>• {opt}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+
+      case 'matching':
+        const pairs = content.pairs || []
+        return (
+          <div className="p-2 bg-gray-50 rounded border text-sm">
+            <p className="font-medium text-gray-700 mb-1">Match items ({pairs.length} pairs)</p>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              {pairs.slice(0, 3).map((pair, idx) => (
+                <div key={idx} className="contents">
+                  <span className="text-blue-600">{pair.left || pair.term}</span>
+                  <span className="text-green-600">{pair.right || pair.definition}</span>
+                </div>
+              ))}
+            </div>
+            {pairs.length > 3 && (
+              <p className="text-xs text-gray-500 italic mt-1">...and {pairs.length - 3} more pairs</p>
+            )}
+          </div>
+        )
+
+      case 'sentence_ordering':
+        const sentences = content.sentences || []
+        return (
+          <div className="p-2 bg-gray-50 rounded border text-sm">
+            <p className="font-medium text-gray-700 mb-1">Order sentences ({sentences.length} items)</p>
+            <div className="text-xs text-gray-600">
+              {sentences.slice(0, 3).map((s, idx) => (
+                <div key={idx}>• {typeof s === 'string' ? s : s.text}</div>
+              ))}
+            </div>
+            {sentences.length > 3 && (
+              <p className="text-xs text-gray-500 italic">...and {sentences.length - 3} more sentences</p>
+            )}
+          </div>
+        )
+
+      default:
+        return (
+          <div className="p-2 bg-gray-50 rounded border text-xs">
+            <pre className="whitespace-pre-wrap text-gray-600 max-h-32 overflow-y-auto">
+              {JSON.stringify(content, null, 2)}
+            </pre>
+          </div>
+        )
+    }
+  }
 
   const handleDocumentGenerated = async (newActivity) => {
     setGeneratedContent(newActivity)
@@ -2210,17 +2337,32 @@ function ActivitiesTab({
       const response = await fetch(`${apiUrl}/api/lesson-flows/${flowId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error ${response.status}`)
+      }
+
       const data = await response.json()
       console.log('Flow details received:', data)
+
+      // Validate response has expected structure
+      if (!data.flow) {
+        throw new Error('Invalid response: missing flow data')
+      }
+
+      // Reset expanded state for new preview
+      setExpandedActivities({})
 
       // Combine flow with its items (activities)
       setPreviewLessonFlow({
         ...data.flow,
         activities: data.items || []
       })
+      console.log('Preview modal should now be visible')
     } catch (error) {
       console.error('Failed to load flow details:', error)
-      notifyError('Failed to load lesson flow details')
+      notifyError(error.message || 'Failed to load lesson flow details')
     } finally {
       setLoadingFlowDetails(false)
     }
@@ -2420,13 +2562,24 @@ function ActivitiesTab({
           </button>
         </div>
 
-        {/* Existing Lesson Flows */}
-        {lessonFlows.length > 0 && (
-          <div className="mt-6 border-t pt-6">
-            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="text-2xl">✨</span>
-              Your Lesson Flows
-            </h4>
+        {/* Existing Lesson Flows - Always visible */}
+        <div className="mt-6 border-t pt-6">
+          <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="text-2xl">✨</span>
+            Your Lesson Flows
+            {loadingFlows && (
+              <span className="text-sm text-gray-400 font-normal">(Loading...)</span>
+            )}
+          </h4>
+
+          {loadingFlows ? (
+            <div className="text-center py-4 text-gray-500">Loading lesson flows...</div>
+          ) : lessonFlows.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+              <p className="mb-2">No lesson flows yet</p>
+              <p className="text-sm">Click "Create Lesson Flow" above to combine activities into a guided lesson</p>
+            </div>
+          ) : (
             <div className="space-y-3">
               {lessonFlows.map(flow => (
                 <div
@@ -2500,8 +2653,8 @@ function ActivitiesTab({
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Generated Content Preview */}
         {generatedContent && (
@@ -3143,39 +3296,59 @@ function ActivitiesTab({
               {previewLessonFlow.activities && previewLessonFlow.activities.length > 0 ? (
                 <div className="space-y-3">
                   {previewLessonFlow.activities.map((activity, index) => (
-                    <div key={activity.id} className="flex items-start gap-3">
+                    <div key={activity.id || index} className="flex items-start gap-3">
                       {/* Step number */}
                       <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
                         {index + 1}
                       </div>
 
-                      {/* Activity card */}
-                      <div className="flex-1 p-4 bg-white border-2 border-gray-200 rounded-lg">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">
-                            {activity.type === 'quiz' && '📝'}
-                            {activity.type === 'questions' && '❓'}
-                            {activity.type === 'reading' && '📖'}
-                            {activity.type === 'discussion' && '💬'}
-                            {activity.type === 'sentence_ordering' && '📋'}
-                            {activity.type === 'matching' && '🎯'}
-                            {activity.type === 'poll' && '📊'}
-                            {activity.type === 'video' && '🎥'}
-                            {activity.type === 'interactive_video' && '🎬'}
-                          </span>
-                          <span className="font-medium text-gray-900 capitalize">
-                            {activity.type?.replace('_', ' ')}
-                          </span>
+                      {/* Activity card - expandable */}
+                      <div
+                        className={`flex-1 p-4 bg-white border-2 rounded-lg cursor-pointer transition-all hover:border-purple-300 ${
+                          expandedActivities[activity.id || index] ? 'border-purple-400' : 'border-gray-200'
+                        }`}
+                        onClick={() => toggleActivityExpanded(activity.id || index)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              {activity.type === 'quiz' && '📝'}
+                              {activity.type === 'questions' && '❓'}
+                              {activity.type === 'reading' && '📖'}
+                              {activity.type === 'discussion' && '💬'}
+                              {activity.type === 'sentence_ordering' && '📋'}
+                              {activity.type === 'matching' && '🎯'}
+                              {activity.type === 'poll' && '📊'}
+                              {activity.type === 'video' && '🎥'}
+                              {activity.type === 'interactive_video' && '🎬'}
+                            </span>
+                            <span className="font-medium text-gray-900 capitalize">
+                              {activity.type?.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform ${
+                              expandedActivities[activity.id || index] ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
                         </div>
-                        <p className="text-sm text-gray-600 truncate">
+                        <p className="text-sm text-gray-600 mt-1">
                           {activity.prompt || 'No description'}
                         </p>
-                      </div>
 
-                      {/* Connector line */}
-                      {index < previewLessonFlow.activities.length - 1 && (
-                        <div className="absolute left-4 mt-10 w-0.5 h-6 bg-purple-300"></div>
-                      )}
+                        {/* Expanded content */}
+                        {expandedActivities[activity.id || index] && (
+                          <div className="mt-3 pt-3 border-t border-gray-100">
+                            <p className="text-xs font-medium text-gray-500 mb-2">Content Preview:</p>
+                            {renderActivityContent(activity)}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -3185,25 +3358,46 @@ function ActivitiesTab({
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end gap-3 rounded-b-lg">
+            <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-between items-center rounded-b-lg">
               <button
-                onClick={() => setPreviewLessonFlow(null)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                onClick={() => setShowFullPreview(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
               >
-                Close
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview as Student
               </button>
-              <button
-                onClick={() => {
-                  handleStartFlow(previewLessonFlow.id)
-                  setPreviewLessonFlow(null)
-                }}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              >
-                Start Flow
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPreviewLessonFlow(null)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    handleStartFlow(previewLessonFlow.id)
+                    setPreviewLessonFlow(null)
+                  }}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Start Flow
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Full-Screen Student Preview */}
+      {showFullPreview && previewLessonFlow && (
+        <TeacherLessonFlowPreview
+          flow={previewLessonFlow}
+          activities={previewLessonFlow.activities || []}
+          onClose={() => setShowFullPreview(false)}
+        />
       )}
     </div>
   )
