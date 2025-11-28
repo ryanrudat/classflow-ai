@@ -2033,6 +2033,8 @@ function ActivitiesTab({
   // Lesson flow state
   const [lessonFlows, setLessonFlows] = useState([])
   const [loadingFlows, setLoadingFlows] = useState(false)
+  const [previewLessonFlow, setPreviewLessonFlow] = useState(null)
+  const [loadingFlowDetails, setLoadingFlowDetails] = useState(false)
 
   const handleDocumentGenerated = async (newActivity) => {
     setGeneratedContent(newActivity)
@@ -2194,6 +2196,27 @@ function ActivitiesTab({
     } catch (error) {
       console.error('Failed to delete flow:', error)
       notifyError('Failed to delete lesson flow')
+    }
+  }
+
+  const handlePreviewFlow = async (flowId) => {
+    setLoadingFlowDetails(true)
+    try {
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/lesson-flows/${flowId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      // Combine flow with its items (activities)
+      setPreviewLessonFlow({
+        ...data.flow,
+        activities: data.items || []
+      })
+    } catch (error) {
+      console.error('Failed to load flow details:', error)
+      notifyError('Failed to load lesson flow details')
+    } finally {
+      setLoadingFlowDetails(false)
     }
   }
 
@@ -2431,6 +2454,12 @@ function ActivitiesTab({
                       </div>
                     </div>
                     <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handlePreviewFlow(flow.id)}
+                        className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors"
+                      >
+                        Preview
+                      </button>
                       {flow.is_active ? (
                         <button
                           onClick={() => handleStopFlow(flow.id)}
@@ -3046,6 +3075,125 @@ function ActivitiesTab({
             setShowLessonFlowBuilder(false)
           }}
         />
+      )}
+
+      {/* Lesson Flow Preview Modal */}
+      {previewLessonFlow && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <span className="text-2xl">✨</span>
+                    {previewLessonFlow.title}
+                  </h2>
+                  {previewLessonFlow.description && (
+                    <p className="text-purple-100 text-sm mt-1">{previewLessonFlow.description}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setPreviewLessonFlow(null)}
+                  className="text-white hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Settings */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-semibold text-gray-700 mb-3">Flow Settings</h3>
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${previewLessonFlow.auto_advance ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    <span>Auto-advance: {previewLessonFlow.auto_advance ? 'Yes' : 'No'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${previewLessonFlow.show_progress ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    <span>Show progress: {previewLessonFlow.show_progress ? 'Yes' : 'No'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-3 h-3 rounded-full ${previewLessonFlow.allow_review ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+                    <span>Allow review: {previewLessonFlow.allow_review ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activities in sequence */}
+              <h3 className="font-semibold text-gray-700 mb-3">
+                Activities ({previewLessonFlow.activities?.length || 0})
+              </h3>
+
+              {previewLessonFlow.activities && previewLessonFlow.activities.length > 0 ? (
+                <div className="space-y-3">
+                  {previewLessonFlow.activities.map((activity, index) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      {/* Step number */}
+                      <div className="flex-shrink-0 w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                        {index + 1}
+                      </div>
+
+                      {/* Activity card */}
+                      <div className="flex-1 p-4 bg-white border-2 border-gray-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">
+                            {activity.type === 'quiz' && '📝'}
+                            {activity.type === 'questions' && '❓'}
+                            {activity.type === 'reading' && '📖'}
+                            {activity.type === 'discussion' && '💬'}
+                            {activity.type === 'sentence_ordering' && '📋'}
+                            {activity.type === 'matching' && '🎯'}
+                            {activity.type === 'poll' && '📊'}
+                            {activity.type === 'video' && '🎥'}
+                            {activity.type === 'interactive_video' && '🎬'}
+                          </span>
+                          <span className="font-medium text-gray-900 capitalize">
+                            {activity.type?.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 truncate">
+                          {activity.prompt || 'No description'}
+                        </p>
+                      </div>
+
+                      {/* Connector line */}
+                      {index < previewLessonFlow.activities.length - 1 && (
+                        <div className="absolute left-4 mt-10 w-0.5 h-6 bg-purple-300"></div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No activities in this lesson flow</p>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-gray-50 p-4 border-t flex justify-end gap-3 rounded-b-lg">
+              <button
+                onClick={() => setPreviewLessonFlow(null)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  handleStartFlow(previewLessonFlow.id)
+                  setPreviewLessonFlow(null)
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Start Flow
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
