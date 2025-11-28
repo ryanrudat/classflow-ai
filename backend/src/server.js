@@ -154,6 +154,7 @@ app.get('/health', async (req, res) => {
       },
       env: {
         claudeApiKey: process.env.CLAUDE_API_KEY ? 'set' : 'missing',
+        openaiApiKey: process.env.OPENAI_API_KEY ? 'set' : 'missing',
         nodeEnv: process.env.NODE_ENV,
         frontendUrl: process.env.FRONTEND_URL
       }
