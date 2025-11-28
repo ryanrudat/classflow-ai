@@ -4,6 +4,7 @@ import {
   createLessonFlow,
   getSessionLessonFlows,
   getLessonFlowDetails,
+  updateLessonFlow,
   startLessonFlow,
   getCurrentActivity,
   advanceToNext,
@@ -30,6 +31,12 @@ router.get(
   '/lesson-flows/:flowId',
   authenticateToken,
   getLessonFlowDetails
+)
+
+router.put(
+  '/lesson-flows/:flowId',
+  authenticateToken,
+  updateLessonFlow
 )
 
 router.post(

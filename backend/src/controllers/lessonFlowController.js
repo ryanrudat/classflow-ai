@@ -425,6 +425,55 @@ export async function stopLessonFlow(req, res) {
 }
 
 /**
+ * Update a lesson flow
+ * PUT /api/lesson-flows/:flowId
+ */
+export async function updateLessonFlow(req, res) {
+  const { flowId } = req.params
+  const { title, description, activityIds, autoAdvance, showProgress, allowReview } = req.body
+
+  try {
+    // Update lesson flow details
+    const flowResult = await db.query(
+      `UPDATE lesson_flows
+       SET title = $1, description = $2, auto_advance = $3, show_progress = $4, allow_review = $5, updated_at = NOW()
+       WHERE id = $6
+       RETURNING *`,
+      [title, description, autoAdvance !== false, showProgress !== false, allowReview || false, flowId]
+    )
+
+    if (flowResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Lesson flow not found' })
+    }
+
+    const flow = flowResult.rows[0]
+
+    // Delete existing flow items
+    await db.query('DELETE FROM lesson_flow_items WHERE flow_id = $1', [flowId])
+
+    // Add new activities to flow in sequence
+    if (activityIds && activityIds.length > 0) {
+      for (let i = 0; i < activityIds.length; i++) {
+        await db.query(
+          `INSERT INTO lesson_flow_items (
+            flow_id, activity_id, sequence_order, advance_type
+          ) VALUES ($1, $2, $3, $4)`,
+          [flowId, activityIds[i], i + 1, 'on_complete']
+        )
+      }
+    }
+
+    res.json({
+      message: 'Lesson flow updated successfully',
+      flow
+    })
+  } catch (error) {
+    console.error('Update lesson flow error:', error)
+    res.status(500).json({ message: 'Failed to update lesson flow' })
+  }
+}
+
+/**
  * Delete a lesson flow
  * DELETE /api/lesson-flows/:flowId
  */

@@ -2038,6 +2038,7 @@ function ActivitiesTab({
   const [loadingFlowDetails, setLoadingFlowDetails] = useState(false)
   const [expandedActivities, setExpandedActivities] = useState({})
   const [showFullPreview, setShowFullPreview] = useState(false)
+  const [editingFlow, setEditingFlow] = useState(null)
 
   // Helper function to toggle activity expansion in preview
   const toggleActivityExpanded = (activityId) => {
@@ -2323,6 +2324,33 @@ function ActivitiesTab({
     } catch (error) {
       console.error('Failed to delete flow:', error)
       notifyError('Failed to delete lesson flow')
+    }
+  }
+
+  const handleEditFlow = async (flowId) => {
+    try {
+      const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+      const response = await fetch(`${apiUrl}/api/lesson-flows/${flowId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Combine flow with its items (activities) for editing
+      setEditingFlow({
+        ...data.flow,
+        activities: data.items || []
+      })
+    } catch (error) {
+      console.error('Failed to load flow for editing:', error)
+      notifyError('Failed to load lesson flow for editing')
     }
   }
 
@@ -2622,6 +2650,15 @@ function ActivitiesTab({
                         className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
                       >
                         {loadingFlowDetails ? 'Loading...' : 'Preview'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEditFlow(flow.id)
+                        }}
+                        className="px-3 py-1.5 bg-yellow-50 text-yellow-700 text-sm rounded hover:bg-yellow-100 transition-colors"
+                      >
+                        Edit
                       </button>
                       {flow.is_active ? (
                         <button
@@ -3227,7 +3264,7 @@ function ActivitiesTab({
         </div>
       )}
 
-      {/* Lesson Flow Builder Modal */}
+      {/* Lesson Flow Builder Modal - Create Mode */}
       {showLessonFlowBuilder && session && (
         <LessonFlowBuilder
           sessionId={session.id}
@@ -3236,6 +3273,20 @@ function ActivitiesTab({
             // Reload lesson flows to show the new one
             loadLessonFlows()
             setShowLessonFlowBuilder(false)
+          }}
+        />
+      )}
+
+      {/* Lesson Flow Builder Modal - Edit Mode */}
+      {editingFlow && session && (
+        <LessonFlowBuilder
+          sessionId={session.id}
+          existingFlow={editingFlow}
+          onClose={() => setEditingFlow(null)}
+          onSaved={(flow) => {
+            // Reload lesson flows to show the updated one
+            loadLessonFlows()
+            setEditingFlow(null)
           }}
         />
       )}

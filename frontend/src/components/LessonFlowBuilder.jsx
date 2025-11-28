@@ -6,23 +6,26 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
  * LessonFlowBuilder Component
- * Visual drag & drop interface for creating sequential lesson experiences
+ * Visual drag & drop interface for creating/editing sequential lesson experiences
  */
-export default function LessonFlowBuilder({ sessionId, onClose, onSaved }) {
+export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existingFlow = null }) {
   const { notifySuccess, notifyError } = useNotifications()
   const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const isEditMode = !!existingFlow
+
+  const [title, setTitle] = useState(existingFlow?.title || '')
+  const [description, setDescription] = useState(existingFlow?.description || '')
   const [availableActivities, setAvailableActivities] = useState([])
   const [selectedActivities, setSelectedActivities] = useState([])
   const [draggedIndex, setDraggedIndex] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
   // Settings
-  const [autoAdvance, setAutoAdvance] = useState(true)
-  const [showProgress, setShowProgress] = useState(true)
-  const [allowReview, setAllowReview] = useState(false)
+  const [autoAdvance, setAutoAdvance] = useState(existingFlow?.auto_advance ?? true)
+  const [showProgress, setShowProgress] = useState(existingFlow?.show_progress ?? true)
+  const [allowReview, setAllowReview] = useState(existingFlow?.allow_review ?? false)
 
   // Load available activities
   useEffect(() => {
@@ -34,13 +37,24 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved }) {
             headers: { 'Authorization': `Bearer ${token}` }
           }
         )
-        setAvailableActivities(response.data.activities || [])
+        const activities = response.data.activities || []
+        setAvailableActivities(activities)
+
+        // In edit mode, pre-populate selected activities
+        if (isEditMode && existingFlow?.activities && !initialLoadDone) {
+          const selectedIds = existingFlow.activities.map(a => a.activity_id || a.id)
+          const selected = selectedIds
+            .map(id => activities.find(a => a.id === id))
+            .filter(Boolean)
+          setSelectedActivities(selected)
+          setInitialLoadDone(true)
+        }
       } catch (error) {
         console.error('Failed to load activities:', error)
       }
     }
     loadActivities()
-  }, [sessionId, token])
+  }, [sessionId, token, isEditMode, existingFlow, initialLoadDone])
 
   const getActivityIcon = (type) => {
     const icons = {
@@ -132,26 +146,42 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved }) {
     setSaving(true)
 
     try {
-      const response = await axios.post(
-        `${API_URL}/api/sessions/${sessionId}/lesson-flows`,
-        {
-          title,
-          description,
-          activityIds: selectedActivities.map(a => a.id),
-          autoAdvance,
-          showProgress,
-          allowReview
-        },
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
-      )
+      const payload = {
+        title,
+        description,
+        activityIds: selectedActivities.map(a => a.id),
+        autoAdvance,
+        showProgress,
+        allowReview
+      }
 
-      notifySuccess('Lesson flow created successfully!')
+      let response
+      if (isEditMode) {
+        // Update existing flow
+        response = await axios.put(
+          `${API_URL}/api/lesson-flows/${existingFlow.id}`,
+          payload,
+          {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }
+        )
+        notifySuccess('Lesson flow updated successfully!')
+      } else {
+        // Create new flow
+        response = await axios.post(
+          `${API_URL}/api/sessions/${sessionId}/lesson-flows`,
+          payload,
+          {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }
+        )
+        notifySuccess('Lesson flow created successfully!')
+      }
+
       if (onSaved) onSaved(response.data.flow)
     } catch (error) {
       console.error('Save error:', error)
-      notifyError('Failed to create lesson flow. Please try again.')
+      notifyError(isEditMode ? 'Failed to update lesson flow. Please try again.' : 'Failed to create lesson flow. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -165,10 +195,12 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved }) {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
-                <span className="text-3xl">✨</span>
-                Create Magical Lesson Flow
+                <span className="text-3xl">{isEditMode ? '✏️' : '✨'}</span>
+                {isEditMode ? 'Edit Lesson Flow' : 'Create Magical Lesson Flow'}
               </h2>
-              <p className="text-purple-100 text-sm mt-1">Build a sequential learning experience for your students</p>
+              <p className="text-purple-100 text-sm mt-1">
+                {isEditMode ? 'Modify the activities and settings for this lesson' : 'Build a sequential learning experience for your students'}
+              </p>
             </div>
             <button onClick={onClose} className="text-white hover:text-gray-200">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -410,7 +442,10 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved }) {
               disabled={saving || !title.trim() || selectedActivities.length === 0}
               className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
             >
-              {saving ? 'Creating...' : '✨ Create Lesson Flow'}
+              {saving
+                ? (isEditMode ? 'Saving...' : 'Creating...')
+                : (isEditMode ? '💾 Save Changes' : '✨ Create Lesson Flow')
+              }
             </button>
           </div>
         </div>
