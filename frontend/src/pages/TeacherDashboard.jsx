@@ -2698,7 +2698,7 @@ function ActivitiesTab({
                         </span>
                         {flow.pacing_mode && (
                           <span className="flex items-center gap-1">
-                            {flow.pacing_mode === 'teacher_paced' ? '👩‍🏫' : flow.pacing_mode === 'teacher_guided' ? '🤝' : '👨‍🎓'}
+                            {flow.pacing_mode === 'teacher_paced' ? '👩‍🏫' : flow.pacing_mode === 'teacher_guided' ? '🤝' : ''}
                             <span className="capitalize">{flow.pacing_mode.replace('_', ' ')}</span>
                           </span>
                         )}

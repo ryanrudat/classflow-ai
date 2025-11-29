@@ -261,7 +261,6 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
                   className="sr-only"
                 />
                 <div className="text-center">
-                  <span className="text-2xl block mb-2">👨‍🎓</span>
                   <span className="font-semibold text-gray-900 block">Student-Paced</span>
                   <p className="text-xs text-gray-600 mt-1">Students move at their own speed</p>
                 </div>

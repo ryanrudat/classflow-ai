@@ -144,13 +144,6 @@ export default function StudentView() {
     // Join the session room (this will be called when session/student changes)
     joinSession(session.id, 'student', student.id, student.student_name)
 
-    // Cleanup: Leave session when component unmounts or session changes
-    return () => {
-      if (session?.id) {
-        leaveSession(session.id)
-      }
-    }
-
     // Listen for activity pushed by teacher
     const handleActivityReceived = ({ activity, targetStudentId }) => {
       if (!targetStudentId || targetStudentId === student.id) {
@@ -258,6 +251,11 @@ export default function StudentView() {
 
     // Cleanup
     return () => {
+      // Leave the session room
+      if (session?.id) {
+        leaveSession(session.id)
+      }
+      // Remove all event listeners
       off('activity-received', handleActivityReceived)
       off('screen-locked', handleScreenLocked)
       off('screen-unlocked', handleScreenUnlocked)
