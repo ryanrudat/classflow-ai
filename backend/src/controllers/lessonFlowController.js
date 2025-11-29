@@ -357,7 +357,12 @@ export async function advanceToNext(req, res) {
 
     // Get next activity
     const nextItem = await db.query(
-      `SELECT lfi.*, a.*
+      `SELECT
+        lfi.id as flow_item_id,
+        lfi.sequence_order,
+        lfi.advance_type,
+        lfi.advance_delay_seconds,
+        a.*
        FROM lesson_flow_items lfi
        JOIN activities a ON lfi.activity_id = a.id
        WHERE lfi.flow_id = $1 AND lfi.sequence_order = $2
@@ -371,12 +376,12 @@ export async function advanceToNext(req, res) {
 
     const nextActivity = nextItem.rows[0]
 
-    // Update progress
+    // Update progress (use flow_item_id, not activity id)
     await db.query(
       `UPDATE lesson_flow_progress
        SET current_sequence = $1, current_item_id = $2
        WHERE flow_id = $3 AND student_id = $4`,
-      [nextSequence, nextActivity.id, flowId, studentId]
+      [nextSequence, nextActivity.flow_item_id, flowId, studentId]
     )
 
     // Get flow and session info for WebSocket
