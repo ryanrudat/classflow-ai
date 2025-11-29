@@ -14,7 +14,7 @@ import {
   getLeaderboard,
   getMyScore
 } from '../controllers/sentenceOrderingController.js'
-import { authenticateToken, authenticateStudent } from '../middleware/auth.js'
+import { authenticateToken, optionalStudentAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
@@ -30,7 +30,7 @@ router.get('/completions/:studentAccountId', authenticateToken, getStudentComple
 router.post('/:activityId/respond', submitResponse)
 router.post('/:activityId/submit-question', submitQuestionResponse)
 
-// Sentence ordering routes
-router.post('/:activityId/sentence-ordering/submit', authenticateStudent, submitSentenceOrdering)
+// Sentence ordering routes (optional auth - lesson flow students may not have token)
+router.post('/:activityId/sentence-ordering/submit', optionalStudentAuth, submitSentenceOrdering)
 
 export default router
