@@ -1,7 +1,105 @@
 import { useState } from 'react'
 import axios from 'axios'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragOverlay
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+/**
+ * SortableItem Component - Individual draggable sentence
+ */
+function SortableItem({ sentence, index, disabled }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: sentence.id, disabled })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 1000 : 'auto'
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`
+        flex items-start gap-3 p-4 rounded-lg border-2 bg-white
+        transition-shadow duration-200
+        ${isDragging ? 'shadow-2xl border-blue-500 opacity-90' : 'border-gray-200'}
+        ${!disabled ? 'hover:border-blue-300 hover:shadow-md' : ''}
+      `}
+    >
+      {/* Drag Handle */}
+      {!disabled && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="flex-shrink-0 text-gray-400 hover:text-blue-600 cursor-grab active:cursor-grabbing pt-1 touch-none"
+          aria-label="Drag to reorder"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </button>
+      )}
+
+      {/* Sentence Number and Text */}
+      <div className="flex-1">
+        <div className="flex items-start gap-3">
+          <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-semibold text-sm">
+            {index + 1}
+          </span>
+          <p className="text-gray-900 pt-1 leading-relaxed">{sentence.text}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * DragOverlayItem - Shows while dragging
+ */
+function DragOverlayItem({ sentence, index }) {
+  return (
+    <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-blue-500 bg-white shadow-2xl opacity-95">
+      <div className="flex-shrink-0 text-blue-500 pt-1">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+      <div className="flex-1">
+        <div className="flex items-start gap-3">
+          <span className="flex-shrink-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+            {index + 1}
+          </span>
+          <p className="text-gray-900 pt-1 leading-relaxed">{sentence.text}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * SentenceOrderingActivity Component
@@ -21,58 +119,57 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
     return shuffled
   })
 
-  const [draggingIndex, setDraggingIndex] = useState(null)
+  const [activeId, setActiveId] = useState(null)
   const [submitted, setSubmitted] = useState(false)
   const [result, setResult] = useState(null)
 
-  const handleDragStart = (e, index) => {
-    setDraggingIndex(index)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/html', e.target)
+  // Configure sensors for different input types
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8 // 8px movement before drag starts
+      }
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150, // 150ms hold before drag on touch
+        tolerance: 5
+      }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  )
+
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id)
   }
 
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
+  const handleDragEnd = (event) => {
+    const { active, over } = event
+    setActiveId(null)
 
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault()
-
-    if (draggingIndex === null || draggingIndex === dropIndex) {
-      setDraggingIndex(null)
-      return
+    if (over && active.id !== over.id) {
+      setOrderedSentences((items) => {
+        const oldIndex = items.findIndex(item => item.id === active.id)
+        const newIndex = items.findIndex(item => item.id === over.id)
+        return arrayMove(items, oldIndex, newIndex)
+      })
     }
-
-    const newOrder = [...orderedSentences]
-    const draggedItem = newOrder[draggingIndex]
-    newOrder.splice(draggingIndex, 1)
-    newOrder.splice(dropIndex, 0, draggedItem)
-
-    setOrderedSentences(newOrder)
-    setDraggingIndex(null)
   }
 
-  const handleDragEnd = () => {
-    setDraggingIndex(null)
+  const handleDragCancel = () => {
+    setActiveId(null)
   }
 
   const handleMoveUp = (index) => {
     if (index === 0) return
-    const newOrder = [...orderedSentences]
-    const temp = newOrder[index]
-    newOrder[index] = newOrder[index - 1]
-    newOrder[index - 1] = temp
-    setOrderedSentences(newOrder)
+    setOrderedSentences(items => arrayMove(items, index, index - 1))
   }
 
   const handleMoveDown = (index) => {
     if (index === orderedSentences.length - 1) return
-    const newOrder = [...orderedSentences]
-    const temp = newOrder[index]
-    newOrder[index] = newOrder[index + 1]
-    newOrder[index + 1] = temp
-    setOrderedSentences(newOrder)
+    setOrderedSentences(items => arrayMove(items, index, index + 1))
   }
 
   const handleSubmit = async () => {
@@ -82,7 +179,6 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
     setSubmitted(true)
 
     try {
-      // Make API call to sentence ordering endpoint
       const response = await axios.post(
         `${API_URL}/api/activities/${activity.id}/sentence-ordering/submit`,
         { orderedSentences: orderedIds },
@@ -91,12 +187,10 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
         }
       )
 
-      // Set result from API response
       if (response.data?.response) {
         setResult(response.data.response)
       }
 
-      // Also call parent's onSubmit for WebSocket notification (optional)
       if (onSubmit) {
         onSubmit({
           type: 'sentence_ordering',
@@ -110,6 +204,10 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
       alert('Failed to submit. Please try again.')
     }
   }
+
+  // Get active item for drag overlay
+  const activeItem = activeId ? orderedSentences.find(s => s.id === activeId) : null
+  const activeIndex = activeId ? orderedSentences.findIndex(s => s.id === activeId) : -1
 
   if (submitted && result) {
     const isCorrect = result.isCorrect || result.score === 100
@@ -173,69 +271,63 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
         </p>
       </div>
 
-      {/* Sentences */}
-      <div className="space-y-3 mb-6">
-        {orderedSentences.map((sentence, index) => (
-          <div
-            key={sentence.id}
-            draggable={!submitted}
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDrop(e, index)}
-            onDragEnd={handleDragEnd}
-            className={`
-              flex items-start gap-3 p-4 rounded-lg border-2 transition-all
-              ${draggingIndex === index ? 'opacity-50 border-blue-400' : 'border-gray-300'}
-              ${!submitted ? 'cursor-move hover:border-blue-400 hover:shadow-md' : 'cursor-default'}
-            `}
-          >
-            {/* Drag Handle */}
-            {!submitted && (
-              <div className="flex-shrink-0 text-gray-400 pt-1">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
+      {/* Sentences with DnD */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <SortableContext
+          items={orderedSentences.map(s => s.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-3 mb-6">
+            {orderedSentences.map((sentence, index) => (
+              <div key={sentence.id} className="relative">
+                <SortableItem
+                  sentence={sentence}
+                  index={index}
+                  disabled={submitted}
+                />
+                {/* Mobile Controls - Always visible for touch */}
+                {!submitted && (
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 sm:hidden">
+                    <button
+                      onClick={() => handleMoveUp(index)}
+                      disabled={index === 0}
+                      className="p-2 bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                      aria-label="Move up"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleMoveDown(index)}
+                      disabled={index === orderedSentences.length - 1}
+                      className="p-2 bg-white border border-gray-200 rounded-lg text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                      aria-label="Move down"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Sentence Number and Text */}
-            <div className="flex-1">
-              <div className="flex items-start gap-2">
-                <span className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-semibold text-sm">
-                  {index + 1}
-                </span>
-                <p className="text-gray-900 pt-1">{sentence.text}</p>
-              </div>
-            </div>
-
-            {/* Mobile Controls */}
-            {!submitted && (
-              <div className="flex flex-col gap-1 sm:hidden">
-                <button
-                  onClick={() => handleMoveUp(index)}
-                  disabled={index === 0}
-                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                  aria-label="Move up"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleMoveDown(index)}
-                  disabled={index === orderedSentences.length - 1}
-                  className="p-1 text-gray-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed"
-                  aria-label="Move down"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </SortableContext>
+
+        {/* Drag Overlay - Shows while dragging */}
+        <DragOverlay adjustScale={false}>
+          {activeItem ? (
+            <DragOverlayItem sentence={activeItem} index={activeIndex} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Submit Button */}
       <button
