@@ -1000,6 +1000,36 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
     )
   }
 
+  if (activity.type === 'video') {
+    const videoUrl = activity.content?.url
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+    const fullVideoUrl = videoUrl?.startsWith('http') ? videoUrl : `${API_URL}${videoUrl}`
+
+    return (
+      <div className="card">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">{activity.prompt || 'Video'}</h3>
+        <div className="relative rounded-lg overflow-hidden bg-black">
+          <video
+            controls
+            className="w-full"
+            src={fullVideoUrl}
+            onEnded={() => onSubmit({ type: 'video_completed', timestamp: new Date().toISOString() })}
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            onClick={() => onSubmit({ type: 'video_completed', timestamp: new Date().toISOString() })}
+            className="btn-primary"
+          >
+            Mark as Complete
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (activity.type === 'interactive_video') {
     return (
       <InteractiveVideoPlayer
