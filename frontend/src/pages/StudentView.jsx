@@ -1008,20 +1008,22 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
     return (
       <div className="card">
         <h3 className="text-xl font-bold text-gray-900 mb-4">{activity.prompt || 'Video'}</h3>
-        <div className="relative rounded-lg overflow-hidden bg-black">
-          <video
-            controls
-            className="w-full"
-            src={fullVideoUrl}
-            onEnded={() => onSubmit({ type: 'video_completed', timestamp: new Date().toISOString() })}
-          >
-            Your browser does not support the video tag.
-          </video>
+        <div className="relative w-full max-w-3xl mx-auto">
+          <div className="relative aspect-video rounded-lg overflow-hidden bg-black shadow-lg">
+            <video
+              controls
+              className="absolute inset-0 w-full h-full object-contain"
+              src={fullVideoUrl}
+              onEnded={() => onSubmit({ type: 'video_completed', timestamp: new Date().toISOString() })}
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-6 flex justify-center">
           <button
             onClick={() => onSubmit({ type: 'video_completed', timestamp: new Date().toISOString() })}
-            className="btn-primary"
+            className="btn-primary px-8"
           >
             Mark as Complete
           </button>
