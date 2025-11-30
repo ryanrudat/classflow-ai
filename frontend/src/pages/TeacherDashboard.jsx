@@ -54,6 +54,9 @@ export default function TeacherDashboard() {
   const [reactivateInstances, setReactivateInstances] = useState([])
   const [confirmDialog, setConfirmDialog] = useState(null)
 
+  // Sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
   // Session editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isEditingSubject, setIsEditingSubject] = useState(false)
@@ -242,19 +245,35 @@ export default function TeacherDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left sidebar - Sessions */}
-          <div className="lg:col-span-1">
-            <div className="card">
+      <div className="flex">
+        {/* Collapsible Sessions Sidebar */}
+        <div
+          className={`fixed lg:relative inset-y-0 left-0 z-40 bg-white shadow-lg lg:shadow-none transform transition-transform duration-300 ease-in-out ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-translate-x-full'
+          }`}
+          style={{ width: '320px' }}
+        >
+          <div className="h-full overflow-y-auto">
+            <div className="p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800">Sessions</h2>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="btn-primary text-sm"
-                >
-                  + New Session
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="btn-primary text-sm"
+                  >
+                    + New
+                  </button>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg lg:hidden"
+                    title="Close sidebar"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -276,7 +295,13 @@ export default function TeacherDashboard() {
                     <div className="flex items-start justify-between">
                       <div
                         className="flex-1 cursor-pointer"
-                        onClick={() => setActiveSession(session)}
+                        onClick={() => {
+                          setActiveSession(session)
+                          // Auto-close sidebar on mobile after selection
+                          if (window.innerWidth < 1024) {
+                            setSidebarOpen(false)
+                          }
+                        }}
                       >
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-gray-900">{session.title}</div>
@@ -311,9 +336,38 @@ export default function TeacherDashboard() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Main content */}
-          <div className="lg:col-span-2">
+        {/* Sidebar overlay for mobile */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* Main content */}
+        <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-0' : 'lg:ml-0'}`}>
+          {/* Toggle button */}
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`fixed z-50 p-3 bg-primary-600 text-white rounded-r-lg shadow-lg hover:bg-primary-700 transition-all duration-300 ${
+              sidebarOpen ? 'left-[320px]' : 'left-0'
+            }`}
+            style={{ top: '80px' }}
+            title={sidebarOpen ? 'Close sessions' : 'Open sessions'}
+          >
+            <svg
+              className={`w-5 h-5 transition-transform duration-300 ${sidebarOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {!activeSession ? (
               <div className="card">
                 <NoSessionSelectedEmpty onCreate={() => setShowCreateModal(true)} />
