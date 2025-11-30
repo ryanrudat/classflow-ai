@@ -138,11 +138,16 @@ Respond ONLY with valid JSON in this exact format:
 export async function submitSentenceOrdering(req, res) {
   try {
     const { activityId } = req.params
-    const { orderedSentences } = req.body // Array of sentence IDs in student's order
-    const studentId = req.student.studentId
+    const { orderedSentences, studentId: bodyStudentId } = req.body // Array of sentence IDs in student's order
+    // Use studentId from token if available, otherwise from request body (for lesson flow students)
+    const studentId = req.student?.studentId || bodyStudentId
 
     if (!orderedSentences || !Array.isArray(orderedSentences)) {
       return res.status(400).json({ message: 'Ordered sentences array is required' })
+    }
+
+    if (!studentId) {
+      return res.status(400).json({ message: 'Student ID is required' })
     }
 
     // Get activity
@@ -176,13 +181,13 @@ export async function submitSentenceOrdering(req, res) {
     // Save response
     const responseResult = await db.query(
       `INSERT INTO student_responses
-       (student_id, activity_id, session_instance_id, response, is_correct, submitted_at)
+       (student_id, activity_id, session_id, response, is_correct, submitted_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING *`,
       [
         studentId,
         activityId,
-        req.student.sessionInstanceId,
+        activity.session_id,
         JSON.stringify({
           orderedSentences,
           score,
@@ -200,7 +205,7 @@ export async function submitSentenceOrdering(req, res) {
       const sessionId = activity.session_id
 
       io.to(`session-${sessionId}`).emit('leaderboard-updated', {
-        sessionInstanceId: req.student.sessionInstanceId,
+        sessionId,
         studentId,
         activityId,
         score,

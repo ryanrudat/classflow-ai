@@ -105,7 +105,7 @@ function DragOverlayItem({ sentence, index }) {
  * SentenceOrderingActivity Component
  * Student view - drag sentences into correct order
  */
-export default function SentenceOrderingActivity({ activity, onSubmit }) {
+export default function SentenceOrderingActivity({ activity, onSubmit, studentId }) {
   const content = activity.content
   const sentences = content.sentences || []
 
@@ -181,7 +181,7 @@ export default function SentenceOrderingActivity({ activity, onSubmit }) {
     try {
       const response = await axios.post(
         `${API_URL}/api/activities/${activity.id}/sentence-ordering/submit`,
-        { orderedSentences: orderedIds },
+        { orderedSentences: orderedIds, studentId },
         {
           headers: studentToken ? { 'Authorization': `Bearer ${studentToken}` } : {}
         }

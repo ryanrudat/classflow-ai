@@ -1047,6 +1047,7 @@ function ActivityDisplay({ activity, student, studentId, sessionId, emit, onSubm
       <SentenceOrderingActivity
         activity={activity}
         onSubmit={onSubmit}
+        studentId={studentId}
       />
     )
   }
