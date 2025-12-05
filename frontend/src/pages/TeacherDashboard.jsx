@@ -3384,8 +3384,8 @@ function ActivitiesTab({
           onGenerated={(updatedVideo) => {
             // Refresh activities to show the updated video with questions
             if (session?.id) {
-              activitiesAPI.getSessionActivities(session.id)
-                .then(res => setSessionActivities(res.data.activities || []))
+              sessionsAPI.getActivities(session.id)
+                .then(data => setSessionActivities(data.activities || []))
                 .catch(err => console.error('Failed to refresh activities:', err))
             }
             setVideoGenerateModal(null)
