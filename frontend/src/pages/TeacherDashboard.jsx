@@ -2296,6 +2296,13 @@ function ActivitiesTab({
 
   const handleEnterEditMode = () => {
     if (!generatedContent) return
+
+    // Videos should use the video editor modal, not inline text editing
+    if (generatedContent.type === 'video' || generatedContent.type === 'interactive_video') {
+      setVideoGenerateModal(generatedContent)
+      return
+    }
+
     setEditedContent(generatedContent.content)
     setInlineEditMode(true)
   }
@@ -2872,7 +2879,9 @@ function ActivitiesTab({
                 Generated Content:
                 {!inlineEditMode && (
                   <span className="text-xs text-gray-500 font-normal">
-                    (Double-click to edit)
+                    {(generatedContent.type === 'video' || generatedContent.type === 'interactive_video')
+                      ? '(Double-click to edit questions)'
+                      : '(Double-click to edit)'}
                   </span>
                 )}
               </h4>
