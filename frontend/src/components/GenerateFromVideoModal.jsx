@@ -5,13 +5,14 @@ import { useToast } from './Toast'
 /**
  * GenerateFromVideoModal
  * Modal to transcribe and generate questions from a previously uploaded video
+ * Now includes a preview/edit step before saving
  */
 export default function GenerateFromVideoModal({ video, onClose, onGenerated }) {
   const toast = useToast()
   const [difficulty, setDifficulty] = useState('medium')
   const [questionCount, setQuestionCount] = useState(5)
   const [processing, setProcessing] = useState(false)
-  const [stage, setStage] = useState('') // 'transcribing' | 'generating'
+  const [stage, setStage] = useState('setup') // 'setup' | 'transcribing' | 'generating' | 'preview'
   const [showTranscript, setShowTranscript] = useState(false)
 
   // Parse video content
@@ -20,7 +21,20 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
     : video.content
 
   const hasTranscript = !!videoContent?.transcript
+  const hasExistingQuestions = !!videoContent?.questions?.length
   const videoId = videoContent?.videoId
+
+  // Generated questions for preview/edit - initialize with existing questions if any
+  const [questions, setQuestions] = useState(videoContent?.questions || [])
+  const [transcript, setTranscript] = useState(videoContent?.transcript || null)
+  const [editingIndex, setEditingIndex] = useState(null)
+
+  // If video already has questions, start in preview/edit mode
+  useEffect(() => {
+    if (hasExistingQuestions && stage === 'setup') {
+      setStage('preview')
+    }
+  }, [hasExistingQuestions])
 
   // Handle Escape key
   useEffect(() => {
@@ -41,6 +55,12 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  const formatTimestamp = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   const handleProcess = async () => {
     if (!videoId) {
       toast.error('Error', 'Video ID not found. Please re-upload the video.')
@@ -50,15 +70,17 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
     setProcessing(true)
 
     try {
-      let transcript = videoContent?.transcript
+      let currentTranscript = videoContent?.transcript
 
       // Step 1: Transcribe if not already done
       if (!hasTranscript) {
         setStage('transcribing')
         const transcribeResponse = await api.post(`/videos/${videoId}/transcribe`)
-        transcript = transcribeResponse.data.transcript
+        currentTranscript = transcribeResponse.data.transcript
         toast.success('Transcription Complete', 'Audio has been transcribed successfully!')
       }
+
+      setTranscript(currentTranscript)
 
       // Step 2: Generate questions
       setStage('generating')
@@ -67,39 +89,250 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
         count: questionCount
       })
 
-      toast.success('Questions Generated', `${questionsResponse.data.questions.length} questions created!`)
+      // Store questions for preview/editing
+      setQuestions(questionsResponse.data.questions || [])
+      setStage('preview')
+      toast.success('Questions Generated', `${questionsResponse.data.questions.length} questions created! Review and edit below.`)
 
-      if (onGenerated) {
-        onGenerated({
-          ...video,
-          content: {
-            ...videoContent,
-            transcript,
-            questions: questionsResponse.data.questions
-          }
-        })
-      }
-
-      onClose()
     } catch (error) {
       console.error('Process error:', error)
       toast.error('Error', error.response?.data?.message || 'Failed to process video')
+      setStage('setup')
     } finally {
       setProcessing(false)
-      setStage('')
     }
+  }
+
+  const handleSave = () => {
+    if (onGenerated) {
+      onGenerated({
+        ...video,
+        content: {
+          ...videoContent,
+          transcript: transcript || videoContent?.transcript,
+          questions: questions
+        }
+      })
+    }
+    toast.success('Saved', 'Video questions have been saved!')
+    onClose()
+  }
+
+  const handleDeleteQuestion = (index) => {
+    setQuestions(questions.filter((_, i) => i !== index))
+    if (editingIndex === index) {
+      setEditingIndex(null)
+    }
+  }
+
+  const handleUpdateQuestion = (index, field, value) => {
+    setQuestions(questions.map((q, i) => {
+      if (i !== index) return q
+      return { ...q, [field]: value }
+    }))
+  }
+
+  const handleUpdateOption = (questionIndex, optionIndex, value) => {
+    setQuestions(questions.map((q, i) => {
+      if (i !== questionIndex) return q
+      const newOptions = [...(q.options || [])]
+      newOptions[optionIndex] = value
+      return { ...q, options: newOptions }
+    }))
   }
 
   const getTranscriptText = () => {
-    if (!videoContent?.transcript) return null
-    const transcript = videoContent.transcript
-    if (transcript.text) return transcript.text
-    if (transcript.segments) {
-      return transcript.segments.map(seg => seg.text).join(' ')
+    const t = transcript || videoContent?.transcript
+    if (!t) return null
+    if (t.text) return t.text
+    if (t.segments) {
+      return t.segments.map(seg => seg.text).join(' ')
     }
-    return JSON.stringify(transcript)
+    return JSON.stringify(t)
   }
 
+  // Preview/Edit Stage
+  if (stage === 'preview') {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
+          {/* Header */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {hasExistingQuestions ? 'Edit Video Questions' : 'Review & Edit Questions'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {questions.length} question{questions.length !== 1 ? 's' : ''} - edit or remove as needed
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors w-11 h-11 flex items-center justify-center rounded-lg hover:bg-gray-100"
+                aria-label="Close"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Questions List */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {questions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>No questions to display. Go back to generate questions.</p>
+                <button
+                  onClick={() => setStage('setup')}
+                  className="mt-4 text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Back to Setup
+                </button>
+              </div>
+            ) : (
+              questions.map((question, index) => (
+                <div
+                  key={index}
+                  className={`border rounded-lg p-4 ${editingIndex === index ? 'border-purple-500 bg-purple-50' : 'border-gray-200'}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {/* Question Header */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
+                          {formatTimestamp(question.timestamp_seconds)}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          question.question_type === 'multiple_choice'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-green-100 text-green-700'
+                        }`}>
+                          {question.question_type === 'multiple_choice' ? 'Multiple Choice' : 'Open Ended'}
+                        </span>
+                      </div>
+
+                      {/* Question Text */}
+                      {editingIndex === index ? (
+                        <textarea
+                          value={question.question_text}
+                          onChange={(e) => handleUpdateQuestion(index, 'question_text', e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-lg text-sm resize-none"
+                          rows={2}
+                        />
+                      ) : (
+                        <p className="text-gray-900 font-medium">{question.question_text}</p>
+                      )}
+
+                      {/* Multiple Choice Options */}
+                      {question.question_type === 'multiple_choice' && question.options && (
+                        <div className="mt-3 space-y-2">
+                          {question.options.map((option, optIdx) => (
+                            <div key={optIdx} className="flex items-center gap-2">
+                              <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium ${
+                                question.correct_answer === optIdx
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-200 text-gray-600'
+                              }`}>
+                                {String.fromCharCode(65 + optIdx)}
+                              </span>
+                              {editingIndex === index ? (
+                                <div className="flex-1 flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={option}
+                                    onChange={(e) => handleUpdateOption(index, optIdx, e.target.value)}
+                                    className="flex-1 p-1 border border-gray-300 rounded text-sm"
+                                  />
+                                  <button
+                                    onClick={() => handleUpdateQuestion(index, 'correct_answer', optIdx)}
+                                    className={`px-2 py-1 text-xs rounded ${
+                                      question.correct_answer === optIdx
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-gray-200 text-gray-600 hover:bg-green-100'
+                                    }`}
+                                  >
+                                    Correct
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className={`text-sm ${
+                                  question.correct_answer === optIdx ? 'text-green-700 font-medium' : 'text-gray-600'
+                                }`}>
+                                  {option}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => setEditingIndex(editingIndex === index ? null : index)}
+                        className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title={editingIndex === index ? 'Done Editing' : 'Edit'}
+                      >
+                        {editingIndex === index ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteQuestion(index)}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t border-gray-200 flex gap-3 bg-gray-50">
+            <button
+              onClick={() => setStage('setup')}
+              className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              {hasExistingQuestions ? 'Regenerate All' : 'Regenerate'}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={questions.length === 0}
+              className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Save {questions.length} Question{questions.length !== 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Setup/Processing Stage
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] flex flex-col">
