@@ -20,6 +20,12 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
     ? JSON.parse(video.content)
     : video.content
 
+  // Debug logging
+  console.log('📹 Modal opened with video:', video)
+  console.log('📹 Parsed videoContent:', videoContent)
+  console.log('📹 hasTranscript:', !!videoContent?.transcript)
+  console.log('📹 hasQuestions:', !!videoContent?.questions?.length)
+
   const hasTranscript = !!videoContent?.transcript
   const hasExistingQuestions = !!videoContent?.questions?.length
   const videoId = videoContent?.videoId
@@ -106,8 +112,14 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
+    console.log('📹 handleSave called with video:', video)
+    console.log('📹 video.id:', video.id)
+    console.log('📹 questions to save:', questions)
+    console.log('📹 transcript:', transcript ? 'present' : 'missing')
+
     if (!video.id) {
       toast.error('Error', 'Activity ID not found')
+      console.error('❌ No video.id found')
       return
     }
 
@@ -120,8 +132,11 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
         questions: questions
       }
 
+      console.log('📹 Saving content:', updatedContent)
+
       // Save to database
-      await activitiesAPI.updateContent(video.id, updatedContent)
+      const result = await activitiesAPI.updateContent(video.id, updatedContent)
+      console.log('✅ Save result:', result)
 
       // Notify parent to refresh
       if (onGenerated) {
