@@ -66,6 +66,30 @@ const upload = multer({
   }
 })
 
+// OpenAI Whisper has a 25MB file size limit
+const WHISPER_MAX_SIZE = 25 * 1024 * 1024 // 25 MB
+
+/**
+ * Extract audio from video using ffmpeg
+ * Returns path to temporary audio file (mp3)
+ */
+async function extractAudioFromVideo(videoPath) {
+  const audioPath = videoPath.replace(/\.[^.]+$/, '') + `-audio-${Date.now()}.mp3`
+
+  try {
+    // Extract audio as mp3 with reasonable quality
+    // -vn: no video, -acodec libmp3lame: mp3 codec, -ab 128k: 128kbps bitrate
+    await execAsync(
+      `ffmpeg -i "${videoPath}" -vn -acodec libmp3lame -ab 128k -y "${audioPath}"`
+    )
+    console.log('✅ Audio extracted successfully:', audioPath)
+    return audioPath
+  } catch (error) {
+    console.error('❌ Failed to extract audio:', error.message)
+    throw new Error(`Failed to extract audio: ${error.message}`)
+  }
+}
+
 /**
  * Get video duration using ffprobe (if available)
  */
@@ -255,6 +279,9 @@ export async function deleteVideo(req, res) {
  * POST /api/videos/:videoId/transcribe
  */
 export async function transcribeVideo(req, res) {
+  // Track temp audio file for cleanup (declared outside try for access in catch)
+  let tempAudioPath = null
+
   try {
     const { videoId } = req.params
     const teacherId = req.user.userId
@@ -299,16 +326,47 @@ export async function transcribeVideo(req, res) {
     // Get OpenAI client (will throw if API key not configured)
     const client = getOpenAIClient()
 
-    console.log('📝 Reading video file for transcription...', {
+    console.log('📝 Checking file for transcription...', {
       filename: video.filename,
       contentType: video.mime_type,
       fileSize: video.file_size
     })
 
-    // Read file into buffer and convert to File object for OpenAI SDK
-    const fileBuffer = await fs.readFile(filePath)
-    const audioFile = await OpenAI.toFile(fileBuffer, video.filename, {
+    // Check if file is too large for Whisper API (25MB limit)
+    let transcribeFilePath = filePath
+    let fileToSend = {
+      name: video.filename,
       type: video.mime_type || 'video/mp4'
+    }
+
+    if (video.file_size > WHISPER_MAX_SIZE) {
+      console.log(`📝 Video file too large (${(video.file_size / 1024 / 1024).toFixed(1)}MB > 25MB). Extracting audio...`)
+
+      try {
+        tempAudioPath = await extractAudioFromVideo(filePath)
+        transcribeFilePath = tempAudioPath
+        fileToSend = {
+          name: video.filename.replace(/\.[^.]+$/, '.mp3'),
+          type: 'audio/mpeg'
+        }
+
+        const audioStats = await fs.stat(tempAudioPath)
+        console.log(`✅ Audio extracted successfully: ${(audioStats.size / 1024 / 1024).toFixed(1)}MB`)
+
+        // Check if extracted audio is still too large
+        if (audioStats.size > WHISPER_MAX_SIZE) {
+          throw new Error(`Audio file still too large (${(audioStats.size / 1024 / 1024).toFixed(1)}MB). Try a shorter video.`)
+        }
+      } catch (extractError) {
+        console.error('❌ Audio extraction failed:', extractError.message)
+        throw new Error(`Failed to process large video: ${extractError.message}`)
+      }
+    }
+
+    // Read file into buffer and convert to File object for OpenAI SDK
+    const fileBuffer = await fs.readFile(transcribeFilePath)
+    const audioFile = await OpenAI.toFile(fileBuffer, fileToSend.name, {
+      type: fileToSend.type
     })
 
     console.log('📝 Sending to OpenAI Whisper API...')
@@ -330,6 +388,16 @@ export async function transcribeVideo(req, res) {
       [JSON.stringify(transcriptData), videoId]
     )
 
+    // Clean up temporary audio file if it was created
+    if (tempAudioPath) {
+      try {
+        await fs.unlink(tempAudioPath)
+        console.log('🧹 Cleaned up temporary audio file')
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to clean up temp audio file:', cleanupError.message)
+      }
+    }
+
     res.json({
       message: 'Video transcribed successfully',
       transcript: transcriptData
@@ -342,6 +410,16 @@ export async function transcribeVideo(req, res) {
       status: error.status,
       code: error.code
     })
+
+    // Clean up temporary audio file if it was created
+    if (tempAudioPath) {
+      try {
+        await fs.unlink(tempAudioPath)
+        console.log('🧹 Cleaned up temporary audio file after error')
+      } catch (cleanupError) {
+        console.warn('⚠️ Failed to clean up temp audio file:', cleanupError.message)
+      }
+    }
 
     // Handle OpenAI SDK specific errors
     if (error.message?.includes('OPENAI_API_KEY')) {
