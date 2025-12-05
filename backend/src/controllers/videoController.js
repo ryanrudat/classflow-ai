@@ -5,11 +5,25 @@ import fs from 'fs/promises'
 import fsSync from 'fs'
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import FormData from 'form-data'
 import axios from 'axios'
+import OpenAI from 'openai'
 import db from '../database/db.js'
 
 const execAsync = promisify(exec)
+
+// Lazy initialize OpenAI client (same pattern as reverseTutoringService)
+let openai = null
+function getOpenAIClient() {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is required for video transcription')
+    }
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    })
+  }
+  return openai
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -280,49 +294,33 @@ export async function transcribeVideo(req, res) {
       })
     }
 
-    // Check OpenAI API key
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('❌ OPENAI_API_KEY not configured')
-      return res.status(500).json({
-        message: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.'
-      })
-    }
-
     console.log('📝 Starting transcription with OpenAI Whisper...')
-    console.log('📝 Using API key:', process.env.OPENAI_API_KEY ? `${process.env.OPENAI_API_KEY.substring(0, 7)}...` : 'NOT SET')
 
-    // Prepare form data for OpenAI Whisper API
-    // Use createReadStream for better handling of large files
-    const formData = new FormData()
-    formData.append('file', fsSync.createReadStream(filePath), {
-      filename: video.filename,
-      contentType: video.mime_type || 'video/mp4'
-    })
-    formData.append('model', 'whisper-1')
-    formData.append('response_format', 'verbose_json') // Get timestamps
+    // Get OpenAI client (will throw if API key not configured)
+    const client = getOpenAIClient()
 
-    console.log('📝 Sending to OpenAI...', {
+    console.log('📝 Reading video file for transcription...', {
       filename: video.filename,
       contentType: video.mime_type,
       fileSize: video.file_size
     })
 
-    // Call OpenAI Whisper API with extended timeout for large files
-    const response = await axios.post(
-      'https://api.openai.com/v1/audio/transcriptions',
-      formData,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-          ...formData.getHeaders()
-        },
-        maxBodyLength: Infinity,
-        maxContentLength: Infinity,
-        timeout: 300000 // 5 minute timeout for large files
-      }
-    )
+    // Read file into buffer and convert to File object for OpenAI SDK
+    const fileBuffer = await fs.readFile(filePath)
+    const audioFile = await OpenAI.toFile(fileBuffer, video.filename, {
+      type: video.mime_type || 'video/mp4'
+    })
 
-    const transcriptData = response.data
+    console.log('📝 Sending to OpenAI Whisper API...')
+
+    // Call OpenAI Whisper API using the SDK (same pattern as reverse tutoring)
+    const transcription = await client.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      response_format: 'verbose_json' // Get timestamps
+    })
+
+    const transcriptData = transcription
 
     // Store transcript in database
     await db.query(
@@ -338,36 +336,41 @@ export async function transcribeVideo(req, res) {
     })
 
   } catch (error) {
-    const errorStatus = error.response?.status
-    const errorData = error.response?.data
-    const isHtmlError = typeof errorData === 'string' && errorData.includes('<!DOCTYPE')
-
     console.error('❌ Transcription error:', {
       message: error.message,
-      status: errorStatus,
-      isHtmlError
+      name: error.name,
+      status: error.status,
+      code: error.code
     })
 
-    if (errorStatus === 401) {
+    // Handle OpenAI SDK specific errors
+    if (error.message?.includes('OPENAI_API_KEY')) {
       return res.status(500).json({
-        message: 'OpenAI API key not configured or invalid'
+        message: 'OpenAI API key not configured. Please add OPENAI_API_KEY to environment variables.'
       })
     }
 
-    // Handle 502/503 or HTML error pages (Cloudflare errors)
-    if (errorStatus === 502 || errorStatus === 503 || isHtmlError) {
+    // OpenAI API errors have a status property
+    if (error.status === 401) {
+      return res.status(500).json({
+        message: 'OpenAI API key is invalid or expired'
+      })
+    }
+
+    if (error.status === 429) {
+      return res.status(429).json({
+        message: 'OpenAI rate limit exceeded. Please wait a moment and try again.'
+      })
+    }
+
+    if (error.status === 502 || error.status === 503) {
       return res.status(503).json({
         message: 'OpenAI service is temporarily unavailable. Please try again in a few minutes.',
         details: 'Check status.openai.com for updates'
       })
     }
 
-    if (errorStatus === 429) {
-      return res.status(429).json({
-        message: 'OpenAI rate limit exceeded. Please wait a moment and try again.'
-      })
-    }
-
+    // File system errors
     if (error.code === 'ENOENT') {
       return res.status(404).json({
         message: 'Video file was deleted. Please re-upload the video.',
@@ -375,16 +378,9 @@ export async function transcribeVideo(req, res) {
       })
     }
 
-    // Check if error message contains "Bad gateway" (from HTML response)
-    if (error.message?.includes('Bad gateway') || error.message?.includes('502')) {
-      return res.status(503).json({
-        message: 'OpenAI service is temporarily unavailable. Please try again in a few minutes.',
-        details: 'Check status.openai.com for updates'
-      })
-    }
-
+    // Generic error
     res.status(500).json({
-      message: `Transcription failed: ${errorData?.error?.message || error.message}`
+      message: `Transcription failed: ${error.message}`
     })
   }
 }
