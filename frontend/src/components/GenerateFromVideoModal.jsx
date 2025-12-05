@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import api from '../services/api'
+import api, { activitiesAPI } from '../services/api'
 import { useToast } from './Toast'
 
 /**
@@ -103,19 +103,42 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
     }
   }
 
-  const handleSave = () => {
-    if (onGenerated) {
-      onGenerated({
-        ...video,
-        content: {
-          ...videoContent,
-          transcript: transcript || videoContent?.transcript,
-          questions: questions
-        }
-      })
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!video.id) {
+      toast.error('Error', 'Activity ID not found')
+      return
     }
-    toast.success('Saved', 'Video questions have been saved!')
-    onClose()
+
+    setSaving(true)
+    try {
+      // Build updated content with transcript and questions
+      const updatedContent = {
+        ...videoContent,
+        transcript: transcript || videoContent?.transcript,
+        questions: questions
+      }
+
+      // Save to database
+      await activitiesAPI.updateContent(video.id, updatedContent)
+
+      // Notify parent to refresh
+      if (onGenerated) {
+        onGenerated({
+          ...video,
+          content: updatedContent
+        })
+      }
+
+      toast.success('Saved', 'Video questions have been saved!')
+      onClose()
+    } catch (error) {
+      console.error('Save error:', error)
+      toast.error('Error', error.response?.data?.message || 'Failed to save questions')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDeleteQuestion = (index) => {
@@ -318,13 +341,25 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
             </button>
             <button
               onClick={handleSave}
-              disabled={questions.length === 0}
+              disabled={questions.length === 0 || saving}
               className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              Save {questions.length} Question{questions.length !== 1 ? 's' : ''}
+              {saving ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Save {questions.length} Question{questions.length !== 1 ? 's' : ''}
+                </>
+              )}
             </button>
           </div>
         </div>
