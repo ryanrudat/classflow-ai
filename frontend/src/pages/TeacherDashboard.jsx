@@ -4031,6 +4031,11 @@ function SlideGeneratorModal({ onClose, onGenerate, loading, subject }) {
 }
 
 function ContentPreview({ content, type }) {
+  // Parse content if it's a JSON string
+  const parsedContent = typeof content === 'string'
+    ? (() => { try { return JSON.parse(content) } catch { return content } })()
+    : content
+
   if (type === 'reading') {
     return (
       <div className="prose prose-sm max-w-none">
@@ -4148,11 +4153,13 @@ function ContentPreview({ content, type }) {
   }
 
   // Handle video type content
-  if (type === 'video') {
-    const videoUrl = content.url || content.videoUrl
-    const duration = content.duration || content.videoDuration
-    const transcript = content.transcript
-    const questions = content.questions || []
+  if (type === 'video' || type === 'interactive_video') {
+    const videoData = parsedContent
+    const videoUrl = videoData?.url || videoData?.videoUrl
+    const duration = videoData?.duration || videoData?.videoDuration
+    const transcript = videoData?.transcript
+    const questions = videoData?.questions || []
+    const originalFilename = videoData?.originalFilename
 
     const formatDuration = (seconds) => {
       if (!seconds) return 'Unknown'
@@ -4186,8 +4193,8 @@ function ContentPreview({ content, type }) {
               {formatDuration(duration)}
             </span>
           )}
-          {content.originalFilename && (
-            <span className="truncate">{content.originalFilename}</span>
+          {originalFilename && (
+            <span className="truncate">{originalFilename}</span>
           )}
         </div>
 
