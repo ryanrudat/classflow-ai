@@ -248,8 +248,13 @@ export default function TeacherDashboard() {
       <div className="flex">
         {/* Collapsible Sessions Sidebar */}
         <div
-          className={`fixed lg:relative inset-y-0 left-0 z-40 bg-white shadow-lg lg:shadow-none transform transition-transform duration-300 ease-in-out ${
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:-translate-x-full'
+          className={`hidden lg:block transition-all duration-300 ease-in-out flex-shrink-0 ${
+            sidebarOpen ? 'w-[320px]' : 'w-0'
+          }`}
+        />
+        <div
+          className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           style={{ width: '320px' }}
         >
@@ -347,7 +352,7 @@ export default function TeacherDashboard() {
         )}
 
         {/* Main content */}
-        <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-0' : 'lg:ml-0'}`}>
+        <div className="flex-1 transition-all duration-300">
           {/* Toggle button */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
