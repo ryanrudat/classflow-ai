@@ -8,11 +8,6 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import TeacherDashboard from './pages/TeacherDashboard'
 import StudentView from './pages/StudentView'
-import SlideEditor from './pages/SlideEditor'
-import SlideEditorCanvas from './pages/SlideEditorCanvas'
-import Presentation from './pages/Presentation'
-import ProjectorView from './pages/ProjectorView'
-import StudentMonitoringDashboard from './pages/StudentMonitoringDashboard'
 import ReverseTutoring from './pages/ReverseTutoring'
 import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
 import LibraryBrowser from './pages/LibraryBrowser'
@@ -43,28 +38,6 @@ function App() {
             <Route
               path="/library"
               element={user ? <LibraryBrowser /> : <Navigate to="/login" />}
-            />
-
-            {/* Slides routes */}
-            <Route
-              path="/slides/edit/:deckId"
-              element={user ? <SlideEditor /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/slides/canvas/:deckId"
-              element={user ? <SlideEditorCanvas /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/present/:deckId"
-              element={user ? <Presentation /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/projector/:deckId"
-              element={<ProjectorView />}
-            />
-            <Route
-              path="/slides/monitor/:deckId"
-              element={user ? <StudentMonitoringDashboard /> : <Navigate to="/login" />}
             />
 
             {/* Reverse Tutoring routes */}

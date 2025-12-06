@@ -1,4 +1,4 @@
-// v1.1.0 - Added live progress monitoring endpoint
+// v1.2.0 - Removed slides/presentation feature
 import express from 'express'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
@@ -28,9 +28,7 @@ import sessionRoutes from './routes/sessions.js'
 import aiRoutes from './routes/ai.js'
 import activityRoutes from './routes/activities.js'
 import analyticsRoutes from './routes/analytics.js'
-import slidesRoutes from './routes/slides.js'
 import uploadRoutes from './routes/upload.js'
-import presentationRoutes from './routes/presentation.js'
 import studentHelpRoutes from './routes/studentHelp.js'
 import studentRoutes from './routes/students.js'
 import reverseTutoringRoutes from './routes/reverseTutoring.js'
@@ -106,19 +104,6 @@ app.get('/health', async (req, res) => {
     // Check database connection
     await db.query('SELECT 1')
 
-    // Check if slides tables exist
-    const tablesResult = await db.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_name IN ('slide_decks', 'slides', 'uploaded_images', 'student_slide_progress')
-      ORDER BY table_name
-    `)
-
-    const existingTables = tablesResult.rows.map(r => r.table_name)
-    const requiredTables = ['slide_decks', 'slides', 'uploaded_images', 'student_slide_progress']
-    const missingTables = requiredTables.filter(t => !existingTables.includes(t))
-
     // Check library tables
     const libraryTablesResult = await db.query(`
       SELECT table_name
@@ -142,10 +127,6 @@ app.get('/health', async (req, res) => {
       websocket: {
         status: 'running',
         connectedClients: connectedSockets.length
-      },
-      tables: {
-        existing: existingTables,
-        missing: missingTables.length > 0 ? missingTables : null
       },
       libraryTables: {
         existing: existingLibraryTables,
@@ -174,9 +155,7 @@ app.use('/api/sessions', sessionRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/activities', activityRoutes)
 app.use('/api', analyticsRoutes)
-app.use('/api/slides', slidesRoutes)
 app.use('/api/upload', uploadRoutes)
-app.use('/api/presentation', presentationRoutes)
 app.use('/api/student-help', studentHelpRoutes)
 app.use('/api/students', studentRoutes)
 app.use('/api/reverse-tutoring', reverseTutoringRoutes)
