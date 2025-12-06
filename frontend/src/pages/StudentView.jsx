@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { sessionsAPI, slidesAPI, studentHelpAPI, activitiesAPI } from '../services/api'
+import { sessionsAPI, studentHelpAPI, activitiesAPI } from '../services/api'
 import { useSocket } from '../hooks/useSocket'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-import StudentPresentationViewer from '../components/slides/StudentPresentationViewer'
 import StudentHelpModal from '../components/StudentHelpModal'
 import ConfusionButton from '../components/ConfusionButton'
 import InteractiveVideoPlayer from '../components/InteractiveVideoPlayer'
@@ -31,10 +30,6 @@ export default function StudentView() {
   // Lesson flow state
   const [activeFlowId, setActiveFlowId] = useState(null)
   const [flowActivity, setFlowActivity] = useState(null)
-
-  // Presentation state
-  const [presentationActive, setPresentationActive] = useState(false)
-  const [currentDeck, setCurrentDeck] = useState(null)
 
   // Confusion state
   const [isConfused, setIsConfused] = useState(false)
@@ -165,43 +160,6 @@ export default function StudentView() {
       }
     }
 
-    // Listen for presentation started
-    const handlePresentationStarted = ({ deckId, mode, deck }) => {
-      console.log('>>> PRESENTATION STARTED EVENT RECEIVED!')
-      console.log('  DeckId:', deckId)
-      console.log('  Mode:', mode)
-      console.log('  Session:', session?.id)
-      console.log('  Student:', student?.student_name)
-      console.log('  Deck data included:', deck ? 'YES (' + deck.slides?.length + ' slides)' : 'NO')
-
-      if (!deck) {
-        console.error('  ❌ No deck data in presentation-started event')
-        return
-      }
-
-      try {
-        // Use deck data from WebSocket event (no API call needed!)
-        const restructuredDeck = {
-          id: deck.id,
-          title: deck.title,
-          slides: deck.slides,
-          initialMode: mode // Pass the initial mode to the viewer
-        }
-
-        setCurrentDeck(restructuredDeck)
-        setPresentationActive(true)
-        console.log('  ✅ Presentation view activated with mode:', mode)
-        console.log('  ✅ No authentication required - deck data came via WebSocket')
-
-        // Announce presence to teacher (in case teacher joined after student)
-        setTimeout(() => {
-          console.log('  📢 Student announcing presence to teacher')
-        }, 100)
-      } catch (err) {
-        console.error('  ❌ Failed to process presentation data:', err)
-      }
-    }
-
     // Listen for confusion cleared by teacher
     const handleConfusionCleared = () => {
       setIsConfused(false)
@@ -214,8 +172,6 @@ export default function StudentView() {
       setStep('join')
       setSession(null)
       setStudent(null)
-      setPresentationActive(false)
-      setCurrentDeck(null)
     }
 
     // Listen for lesson flow started
@@ -242,7 +198,6 @@ export default function StudentView() {
     on('activity-received', handleActivityReceived)
     on('screen-locked', handleScreenLocked)
     on('screen-unlocked', handleScreenUnlocked)
-    on('presentation-started', handlePresentationStarted)
     on('confusion-cleared', handleConfusionCleared)
     on('force-disconnect', handleForceDisconnect)
     on('lesson-flow-started', handleLessonFlowStarted)
@@ -259,7 +214,6 @@ export default function StudentView() {
       off('activity-received', handleActivityReceived)
       off('screen-locked', handleScreenLocked)
       off('screen-unlocked', handleScreenUnlocked)
-      off('presentation-started', handlePresentationStarted)
       off('confusion-cleared', handleConfusionCleared)
       off('force-disconnect', handleForceDisconnect)
       off('lesson-flow-started', handleLessonFlowStarted)
@@ -369,20 +323,6 @@ export default function StudentView() {
     )
   }
 
-  // Show presentation viewer if presentation is active
-  if (presentationActive && currentDeck) {
-    return (
-      <StudentPresentationViewer
-        deck={currentDeck}
-        sessionId={session.id}
-        studentId={student.id}
-        on={on}
-        off={off}
-        emit={emit}
-      />
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -409,8 +349,6 @@ export default function StudentView() {
               setScreenLocked(false)
               setActiveFlowId(null)
               setFlowActivity(null)
-              setPresentationActive(false)
-              setCurrentDeck(null)
               setIsConfused(false)
             }}
             className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -490,7 +428,7 @@ export default function StudentView() {
                 </svg>
               </div>
               <h3 className="text-xl font-medium text-gray-600">Waiting for teacher...</h3>
-              <p className="text-gray-500 mt-2">Your teacher will push activities or presentations</p>
+              <p className="text-gray-500 mt-2">Your teacher will push activities to you</p>
             </div>
 
             {/* Confusion Button */}

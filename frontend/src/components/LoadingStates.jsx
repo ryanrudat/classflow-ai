@@ -89,29 +89,6 @@ export function ActivityCardSkeleton({ count = 3 }) {
 }
 
 /**
- * Skeleton loader for slide deck cards
- */
-export function SlideDeckSkeleton({ count = 2 }) {
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="p-5 border-2 border-gray-200 rounded-lg bg-white">
-          <div className="space-y-3">
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-3 w-1/3" />
-          </div>
-          <div className="flex gap-2 mt-4">
-            <Skeleton className="h-10 flex-1" />
-            <Skeleton className="h-10 flex-1" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/**
  * Spinning loader (replacement for basic spinners)
  */
 export function Spinner({ size = 'medium', color = 'blue' }) {

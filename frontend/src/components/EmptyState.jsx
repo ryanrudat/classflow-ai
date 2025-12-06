@@ -131,25 +131,6 @@ export function NoActivitiesEmpty({ onGenerate }) {
 }
 
 /**
- * Specialized empty state for "No Slides"
- */
-export function NoSlidesEmpty({ onGenerate }) {
-  return (
-    <EmptyState
-      icon="📽️"
-      title="No slide decks yet"
-      description="Generate AI-powered presentation slides for your lessons. Edit them with our Google Slides-style canvas editor and present to your class."
-      action={{
-        label: '✨ Create Your First Deck',
-        onClick: onGenerate,
-        variant: 'primary'
-      }}
-      size="large"
-    />
-  )
-}
-
-/**
  * Specialized empty state for "No Session Selected"
  */
 export function NoSessionSelectedEmpty({ onCreate }) {
