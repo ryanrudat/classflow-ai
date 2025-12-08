@@ -7,25 +7,36 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 /**
  * InteractiveVideoEditor Component
  * Allows teachers to upload videos and add timestamp-based questions
+ * Supports both CREATE and EDIT modes
+ *
+ * Props:
+ * - sessionId: string (required for create mode)
+ * - existingActivity: object (optional - pass to enter edit mode)
+ * - onClose: function
+ * - onSaved: function
  */
-export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) {
+export default function InteractiveVideoEditor({ sessionId, existingActivity, onClose, onSaved }) {
   const toast = useToast()
   const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
   const videoRef = useRef(null)
   const fileInputRef = useRef(null)
 
-  const [step, setStep] = useState('upload') // 'upload', 'add-questions', 'preview'
+  const isEditMode = !!existingActivity
+
+  // Start at 'add-questions' if editing, 'upload' if creating
+  const [step, setStep] = useState(isEditMode ? 'add-questions' : 'upload')
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
-  // Video data
+  // Video data - pre-populate if editing
   const [uploadedVideo, setUploadedVideo] = useState(null)
-  const [activity, setActivity] = useState(null)
+  const [activity, setActivity] = useState(existingActivity || null)
 
   // Questions
   const [questions, setQuestions] = useState([])
   const [currentTime, setCurrentTime] = useState(0)
   const [addingQuestion, setAddingQuestion] = useState(false)
+  const [loadingQuestions, setLoadingQuestions] = useState(isEditMode)
 
   // Question form
   const [newQuestion, setNewQuestion] = useState({
@@ -41,6 +52,42 @@ export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) 
   const [generatingAI, setGeneratingAI] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Load existing video and questions when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingActivity) {
+      // Set up video data from existing activity content
+      const content = existingActivity.content || {}
+      setUploadedVideo({
+        id: content.videoId,
+        url: content.videoUrl,
+        duration: content.videoDuration
+      })
+
+      // Load existing questions
+      async function loadExistingQuestions() {
+        try {
+          const response = await axios.get(
+            `${API_URL}/api/activities/${existingActivity.id}/video-questions`,
+            {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }
+          )
+          setQuestions(response.data.questions || [])
+        } catch (error) {
+          console.error('Failed to load existing questions:', error)
+          // Try to use questions from content if API fails
+          if (content.questions && content.questions.length > 0) {
+            setQuestions(content.questions)
+          }
+        } finally {
+          setLoadingQuestions(false)
+        }
+      }
+
+      loadExistingQuestions()
+    }
+  }, [isEditMode, existingActivity, token])
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0]
@@ -200,7 +247,7 @@ export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) 
       return
     }
 
-    toast.success('Success', 'Interactive video activity created!')
+    toast.success('Success', isEditMode ? 'Video questions updated!' : 'Interactive video activity created!')
     if (onSaved) {
       onSaved(activity)
     }
@@ -326,11 +373,15 @@ export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) 
           <div className="flex items-center justify-between">
             <div>
               <h2 id="video-editor-title" className="text-xl font-bold text-gray-900">
-                Create Interactive Video
+                {isEditMode ? 'Edit Interactive Video' : 'Create Interactive Video'}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {step === 'upload' && 'Upload a video (max 10 minutes)'}
-                {step === 'add-questions' && `${questions.length} question${questions.length !== 1 ? 's' : ''} added`}
+                {step === 'add-questions' && (
+                  loadingQuestions
+                    ? 'Loading questions...'
+                    : `${questions.length} question${questions.length !== 1 ? 's' : ''} added`
+                )}
               </p>
             </div>
             <button
@@ -668,10 +719,13 @@ export default function InteractiveVideoEditor({ sessionId, onClose, onSaved }) 
             </button>
             <button
               onClick={handleSave}
-              disabled={questions.length === 0}
+              disabled={questions.length === 0 || loadingQuestions}
               className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-              Create Activity ({questions.length} question{questions.length !== 1 ? 's' : ''})
+              {isEditMode
+                ? `Save Changes (${questions.length} question${questions.length !== 1 ? 's' : ''})`
+                : `Create Activity (${questions.length} question${questions.length !== 1 ? 's' : ''})`
+              }
             </button>
           </div>
         )}
