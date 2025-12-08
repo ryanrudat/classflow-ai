@@ -26,6 +26,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   const [draggedIndex, setDraggedIndex] = useState(null)
   const [saving, setSaving] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [activitiesLoading, setActivitiesLoading] = useState(true)
 
   // Settings
   const [autoAdvance, setAutoAdvance] = useState(existingFlow?.auto_advance ?? true)
@@ -39,6 +40,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   // Load available activities
   useEffect(() => {
     async function loadActivities() {
+      setActivitiesLoading(true)
       try {
         const response = await axios.get(
           `${API_URL}/api/sessions/${sessionId}/activities`,
@@ -60,6 +62,8 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
         }
       } catch (error) {
         console.error('Failed to load activities:', error)
+      } finally {
+        setActivitiesLoading(false)
       }
     }
     loadActivities()
@@ -112,6 +116,13 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
 
     if (matchedActivities.length > 0) {
       setSelectedActivities(matchedActivities)
+      if (matchedActivities.length < template.activitySequence.length) {
+        notifySuccess(`Added ${matchedActivities.length} of ${template.activitySequence.length} activities from template. Add more from the available activities!`)
+      } else {
+        notifySuccess(`Template "${template.name}" loaded with ${matchedActivities.length} activities!`)
+      }
+    } else {
+      notifySuccess(`Template "${template.name}" selected. Add activities from the available list to build your flow.`)
     }
 
     // Move to builder step
@@ -255,6 +266,8 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
             <LessonFlowTemplateSelector
               onSelectTemplate={handleTemplateSelect}
               onBuildFromScratch={handleBuildFromScratch}
+              availableActivities={availableActivities}
+              activitiesLoading={activitiesLoading}
             />
           )}
 
