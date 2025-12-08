@@ -12,11 +12,12 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  * Visual drag & drop interface for creating/editing sequential lesson experiences
  * v2 - Enhanced with centralized activity config and templates
  */
-export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existingFlow = null }) {
+export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existingFlow = null, preselectedVideo = null }) {
   const { notifySuccess, notifyError } = useNotifications()
   const token = JSON.parse(localStorage.getItem('auth-storage') || '{}')?.state?.token
 
   const isEditMode = !!existingFlow
+  const hasPreselectedVideo = !!preselectedVideo
 
   const [step, setStep] = useState(isEditMode ? 'builder' : 'template') // 'template', 'generating', or 'builder'
   const [title, setTitle] = useState(existingFlow?.title || '')
@@ -73,6 +74,22 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     }
     loadActivities()
   }, [sessionId, token, isEditMode, existingFlow, initialLoadDone])
+
+  // Auto-start generation when preselectedVideo is provided
+  useEffect(() => {
+    if (preselectedVideo && !activitiesLoading && step === 'template') {
+      // Find the Video-Based Lesson template
+      const videoTemplate = {
+        id: 'video_lesson',
+        name: 'Video-Based Lesson',
+        description: 'Watch a video with comprehension checks',
+        activitySequence: ['interactive_video', 'quiz', 'discussion']
+      }
+
+      // Start generation with this video
+      handleTemplateSelect(videoTemplate, { videoId: preselectedVideo.id })
+    }
+  }, [preselectedVideo, activitiesLoading, step])
 
   // Use centralized activity config for icons and colors
   const getActivityIcon = (type) => {

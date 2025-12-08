@@ -544,7 +544,7 @@ function ActiveSessionView({ session, onEnd, onReactivate, onUpdate, setClickedI
   const [showSentenceOrderingEditor, setShowSentenceOrderingEditor] = useState(false)
   const [showMatchingEditor, setShowMatchingEditor] = useState(false)
   const [showPollEditor, setShowPollEditor] = useState(false)
-  const [showLessonFlowBuilder, setShowLessonFlowBuilder] = useState(false)
+  const [showLessonFlowBuilder, setShowLessonFlowBuilder] = useState(null) // null or { preselectedVideo?: activity }
   const [helpHistory, setHelpHistory] = useState([])
   const [loadingHelpHistory, setLoadingHelpHistory] = useState(false)
   const [selectedStudentDetail, setSelectedStudentDetail] = useState(null)
@@ -2566,7 +2566,7 @@ function ActivitiesTab({
         {/* Lesson Flow - Featured */}
         <div className="mt-6">
           <button
-            onClick={() => setShowLessonFlowBuilder(true)}
+            onClick={() => setShowLessonFlowBuilder({})}
             className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-blue-700 transition-all flex items-center justify-center gap-3 shadow-lg"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -3077,6 +3077,20 @@ function ActivitiesTab({
                           </button>
                         )}
                       </div>
+                      {/* Create Lesson Flow Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowLessonFlowBuilder({ preselectedVideo: activity })
+                        }}
+                        className="w-full mt-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg text-sm font-medium hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Create Lesson Flow
+                      </button>
                     </div>
                   )
                 }
@@ -3382,12 +3396,13 @@ function ActivitiesTab({
       {showLessonFlowBuilder && session && (
         <LessonFlowBuilder
           sessionId={session.id}
-          onClose={() => setShowLessonFlowBuilder(false)}
+          onClose={() => setShowLessonFlowBuilder(null)}
           onSaved={(flow) => {
             // Reload lesson flows to show the new one
             loadLessonFlows()
-            setShowLessonFlowBuilder(false)
+            setShowLessonFlowBuilder(null)
           }}
+          preselectedVideo={showLessonFlowBuilder?.preselectedVideo || null}
         />
       )}
 
