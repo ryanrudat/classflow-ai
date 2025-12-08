@@ -510,7 +510,7 @@ export async function getSessionActivities(req, res) {
     })
 
     // Parse content for each activity (only parse JSON types, not plain text)
-    const activities = activitiesResult.rows.map(activity => {
+    const activities = await Promise.all(activitiesResult.rows.map(async (activity) => {
       let parsedContent = activity.content
 
       // Only parse JSON for non-reading types
@@ -523,11 +523,40 @@ export async function getSessionActivities(req, res) {
         }
       }
 
+      // For interactive_video activities, fetch questions from video_questions table
+      if (activity.type === 'interactive_video') {
+        try {
+          const questionsResult = await db.query(
+            `SELECT id, timestamp_seconds, question_type, question_text, options, correct_answer, ai_generated, question_order
+             FROM video_questions
+             WHERE activity_id = $1
+             ORDER BY timestamp_seconds ASC, question_order ASC`,
+            [activity.id]
+          )
+
+          // Merge questions into content
+          if (typeof parsedContent === 'object' && parsedContent !== null) {
+            parsedContent.questions = questionsResult.rows.map(q => ({
+              id: q.id,
+              timestampSeconds: q.timestamp_seconds,
+              questionType: q.question_type,
+              questionText: q.question_text,
+              options: q.options,
+              correctAnswer: q.correct_answer,
+              aiGenerated: q.ai_generated,
+              order: q.question_order
+            }))
+          }
+        } catch (err) {
+          console.error('Failed to fetch video questions for activity', activity.id, err)
+        }
+      }
+
       return {
         ...activity,
         content: parsedContent
       }
-    })
+    }))
 
     res.json({
       activities,

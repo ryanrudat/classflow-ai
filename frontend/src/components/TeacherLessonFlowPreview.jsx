@@ -160,6 +160,15 @@ export default function TeacherLessonFlowPreview({ flow, activities, onClose }) 
       case 'video':
       case 'interactive_video':
         const videoUrl = content?.videoUrl || content?.video_url || content?.url
+        const videoQuestions = content?.questions || []
+        const videoDuration = content?.videoDuration || content?.duration || 0
+
+        const formatTimestamp = (seconds) => {
+          const mins = Math.floor(seconds / 60)
+          const secs = seconds % 60
+          return `${mins}:${secs.toString().padStart(2, '0')}`
+        }
+
         return (
           <div className="space-y-4">
             {videoUrl ? (
@@ -185,11 +194,54 @@ export default function TeacherLessonFlowPreview({ flow, activities, onClose }) 
                 </div>
               </div>
             )}
+
+            {/* Show video questions for interactive videos */}
             {currentActivity.type === 'interactive_video' && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700 text-center">
-                  This video has interactive questions. Students will see questions appear at specific timestamps.
-                </p>
+              <div className="space-y-3">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700 text-center font-medium">
+                    {videoQuestions.length > 0
+                      ? `${videoQuestions.length} checkpoint question${videoQuestions.length !== 1 ? 's' : ''} will pause the video`
+                      : 'No questions added yet. Students will watch without interruptions.'}
+                  </p>
+                </div>
+
+                {videoQuestions.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="font-medium text-gray-700 text-sm">Questions at timestamps:</h5>
+                    {videoQuestions.map((q, idx) => (
+                      <div key={q.id || idx} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <span className="flex-shrink-0 px-2 py-1 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">
+                            {formatTimestamp(q.timestampSeconds || q.timestamp_seconds || 0)}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-800">
+                              {q.questionText || q.question_text}
+                            </p>
+                            {(q.questionType === 'multiple_choice' || q.question_type === 'multiple_choice') && q.options && (
+                              <div className="mt-2 space-y-1">
+                                {q.options.map((opt, optIdx) => (
+                                  <div
+                                    key={optIdx}
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      optIdx === (q.correctAnswer ?? q.correct_answer)
+                                        ? 'bg-green-100 text-green-700 font-medium'
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}
+                                  >
+                                    {String.fromCharCode(65 + optIdx)}. {opt}
+                                    {optIdx === (q.correctAnswer ?? q.correct_answer) && ' ✓'}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
