@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNotifications } from './Toast'
+import { getActivityById, ACTIVITY_TYPES } from '../config/activityTypes'
+import LessonFlowTemplateSelector from './LessonFlowTemplateSelector'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
  * LessonFlowBuilder Component
  * Visual drag & drop interface for creating/editing sequential lesson experiences
+ * v2 - Enhanced with centralized activity config and templates
  */
 export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existingFlow = null }) {
   const { notifySuccess, notifyError } = useNotifications()
@@ -14,6 +17,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
 
   const isEditMode = !!existingFlow
 
+  const [step, setStep] = useState(isEditMode ? 'builder' : 'template') // 'template' or 'builder'
   const [title, setTitle] = useState(existingFlow?.title || '')
   const [description, setDescription] = useState(existingFlow?.description || '')
   const [availableActivities, setAvailableActivities] = useState([])
@@ -57,32 +61,40 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     loadActivities()
   }, [sessionId, token, isEditMode, existingFlow, initialLoadDone])
 
+  // Use centralized activity config for icons and colors
   const getActivityIcon = (type) => {
-    const icons = {
-      reading: '📖',
-      questions: '❓',
-      quiz: '📝',
-      discussion: '💬',
-      interactive_video: '🎥',
-      sentence_ordering: '📋',
-      matching: '🎯',
-      poll: '📊'
-    }
-    return icons[type] || '📄'
+    const activity = getActivityById(type)
+    return activity?.icon || '📄'
   }
 
   const getActivityColor = (type) => {
-    const colors = {
-      reading: 'bg-blue-100 border-blue-300',
-      questions: 'bg-yellow-100 border-yellow-300',
-      quiz: 'bg-purple-100 border-purple-300',
-      discussion: 'bg-pink-100 border-pink-300',
-      interactive_video: 'bg-indigo-100 border-indigo-300',
-      sentence_ordering: 'bg-teal-100 border-teal-300',
-      matching: 'bg-green-100 border-green-300',
-      poll: 'bg-orange-100 border-orange-300'
+    const activity = getActivityById(type)
+    return activity?.bgClass || 'bg-gray-100 border-gray-300'
+  }
+
+  // Handle template selection
+  const handleTemplateSelect = (template) => {
+    // Set title from template
+    setTitle(template.name)
+    setDescription(template.description)
+
+    // Find matching activities from available activities
+    const matchedActivities = template.activitySequence
+      .map(activityType => {
+        return availableActivities.find(a => a.type === activityType)
+      })
+      .filter(Boolean)
+
+    if (matchedActivities.length > 0) {
+      setSelectedActivities(matchedActivities)
     }
-    return colors[type] || 'bg-gray-100 border-gray-300'
+
+    // Move to builder step
+    setStep('builder')
+  }
+
+  const handleBuildFromScratch = () => {
+    setStep('builder')
   }
 
   const addToFlow = (activity) => {
@@ -213,6 +225,17 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Template Selection Step */}
+          {step === 'template' && (
+            <LessonFlowTemplateSelector
+              onSelectTemplate={handleTemplateSelect}
+              onBuildFromScratch={handleBuildFromScratch}
+            />
+          )}
+
+          {/* Builder Step */}
+          {step === 'builder' && (
+            <>
           {/* Lesson Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -496,34 +519,49 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
               </div>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t p-6 flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            {selectedActivities.length > 0 && (
+            {step === 'builder' && selectedActivities.length > 0 && (
               <span className="font-medium">
-                ✨ {selectedActivities.length} {selectedActivities.length === 1 ? 'activity' : 'activities'} in flow
+                {selectedActivities.length} {selectedActivities.length === 1 ? 'activity' : 'activities'} in flow
               </span>
+            )}
+            {step === 'template' && (
+              <span className="text-gray-500">Choose a template or build from scratch</span>
             )}
           </div>
           <div className="flex gap-3">
+            {step === 'builder' && !isEditMode && (
+              <button
+                onClick={() => setStep('template')}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Back to Templates
+              </button>
+            )}
             <button
               onClick={onClose}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !title.trim() || selectedActivities.length === 0}
-              className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-            >
-              {saving
-                ? (isEditMode ? 'Saving...' : 'Creating...')
-                : (isEditMode ? '💾 Save Changes' : '✨ Create Lesson Flow')
-              }
-            </button>
+            {step === 'builder' && (
+              <button
+                onClick={handleSave}
+                disabled={saving || !title.trim() || selectedActivities.length === 0}
+                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              >
+                {saving
+                  ? (isEditMode ? 'Saving...' : 'Creating...')
+                  : (isEditMode ? 'Save Changes' : 'Create Lesson Flow')
+                }
+              </button>
+            )}
           </div>
         </div>
       </div>
