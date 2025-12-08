@@ -18,7 +18,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
 
   const isEditMode = !!existingFlow
 
-  const [step, setStep] = useState(isEditMode ? 'builder' : 'template') // 'template' or 'builder'
+  const [step, setStep] = useState(isEditMode ? 'builder' : 'template') // 'template', 'generating', or 'builder'
   const [title, setTitle] = useState(existingFlow?.title || '')
   const [description, setDescription] = useState(existingFlow?.description || '')
   const [availableActivities, setAvailableActivities] = useState([])
@@ -27,6 +27,11 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   const [saving, setSaving] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [activitiesLoading, setActivitiesLoading] = useState(true)
+
+  // Template generation state
+  const [generatingTemplate, setGeneratingTemplate] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, currentType: '' })
+  const [generationError, setGenerationError] = useState(null)
 
   // Settings
   const [autoAdvance, setAutoAdvance] = useState(existingFlow?.auto_advance ?? true)
@@ -101,32 +106,85 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     setVideoForQuestions(null)
   }
 
-  // Handle template selection
-  const handleTemplateSelect = (template) => {
-    // Set title from template
-    setTitle(template.name)
+  // Handle template selection - now generates activities
+  const handleTemplateSelect = async (template, topic) => {
+    // Set title from template with topic
+    setTitle(`${template.name}: ${topic}`)
     setDescription(template.description)
+    setStep('generating')
+    setGeneratingTemplate(true)
+    setGenerationError(null)
+    setGenerationProgress({ current: 0, total: template.activitySequence.length, currentType: '' })
 
-    // Find matching activities from available activities
-    const matchedActivities = template.activitySequence
-      .map(activityType => {
-        return availableActivities.find(a => a.type === activityType)
-      })
-      .filter(Boolean)
+    const generatedActivities = []
 
-    if (matchedActivities.length > 0) {
-      setSelectedActivities(matchedActivities)
-      if (matchedActivities.length < template.activitySequence.length) {
-        notifySuccess(`Added ${matchedActivities.length} of ${template.activitySequence.length} activities from template. Add more from the available activities!`)
-      } else {
-        notifySuccess(`Template "${template.name}" loaded with ${matchedActivities.length} activities!`)
+    try {
+      // Generate each activity in sequence
+      for (let i = 0; i < template.activitySequence.length; i++) {
+        const activityType = template.activitySequence[i]
+        const activityConfig = getActivityById(activityType)
+
+        setGenerationProgress({
+          current: i + 1,
+          total: template.activitySequence.length,
+          currentType: activityConfig?.label || activityType
+        })
+
+        // Skip interactive_video - can't be AI generated without upload
+        if (activityType === 'interactive_video') {
+          continue
+        }
+
+        try {
+          // Generate activity using AI API
+          const response = await axios.post(
+            `${API_URL}/api/ai/generate`,
+            {
+              sessionId,
+              prompt: topic,
+              type: activityType,
+              difficulty: 'medium'
+            },
+            {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }
+          )
+
+          if (response.data.activity) {
+            generatedActivities.push(response.data.activity)
+          }
+        } catch (err) {
+          console.error(`Failed to generate ${activityType}:`, err)
+          // Continue with other activities even if one fails
+        }
       }
-    } else {
-      notifySuccess(`Template "${template.name}" selected. Add activities from the available list to build your flow.`)
-    }
 
-    // Move to builder step
-    setStep('builder')
+      // Reload available activities to include the newly generated ones
+      const activitiesResponse = await axios.get(
+        `${API_URL}/api/sessions/${sessionId}/activities`,
+        {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      )
+      setAvailableActivities(activitiesResponse.data.activities || [])
+
+      // Set the generated activities as selected
+      setSelectedActivities(generatedActivities)
+
+      if (generatedActivities.length > 0) {
+        notifySuccess(`Generated ${generatedActivities.length} activities for "${topic}"!`)
+      } else {
+        notifyError('Failed to generate activities. Please try again or build from scratch.')
+      }
+
+      setStep('builder')
+    } catch (err) {
+      console.error('Template generation failed:', err)
+      setGenerationError('Failed to generate activities. Please try again.')
+      notifyError('Failed to generate activities. Please try again.')
+    } finally {
+      setGeneratingTemplate(false)
+    }
   }
 
   const handleBuildFromScratch = () => {
@@ -266,9 +324,61 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
             <LessonFlowTemplateSelector
               onSelectTemplate={handleTemplateSelect}
               onBuildFromScratch={handleBuildFromScratch}
-              availableActivities={availableActivities}
-              activitiesLoading={activitiesLoading}
             />
+          )}
+
+          {/* Generating Step */}
+          {step === 'generating' && (
+            <div className="flex flex-col items-center justify-center py-16">
+              <div className="text-center space-y-6">
+                {/* Animated Icon */}
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 flex items-center justify-center animate-pulse">
+                    <svg className="w-12 h-12 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Generating Your Lesson Flow</h3>
+                  <p className="text-gray-600 mt-2">AI is creating activities for your lesson...</p>
+                </div>
+
+                {/* Progress */}
+                <div className="w-full max-w-md mx-auto">
+                  <div className="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Progress</span>
+                    <span>{generationProgress.current} of {generationProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-500"
+                      style={{ width: `${(generationProgress.current / generationProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                  {generationProgress.currentType && (
+                    <p className="text-sm text-purple-600 mt-2 font-medium">
+                      Creating: {generationProgress.currentType}
+                    </p>
+                  )}
+                </div>
+
+                {/* Error State */}
+                {generationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md mx-auto">
+                    <p className="text-red-700">{generationError}</p>
+                    <button
+                      onClick={() => setStep('template')}
+                      className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      Go Back
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
           {/* Builder Step */}
@@ -605,47 +715,49 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
           )}
         </div>
 
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t p-6 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            {step === 'builder' && selectedActivities.length > 0 && (
-              <span className="font-medium">
-                {selectedActivities.length} {selectedActivities.length === 1 ? 'activity' : 'activities'} in flow
-              </span>
-            )}
-            {step === 'template' && (
-              <span className="text-gray-500">Choose a template or build from scratch</span>
-            )}
-          </div>
-          <div className="flex gap-3">
-            {step === 'builder' && !isEditMode && (
+        {/* Footer - hidden during generation */}
+        {step !== 'generating' && (
+          <div className="sticky bottom-0 bg-white border-t p-6 flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              {step === 'builder' && selectedActivities.length > 0 && (
+                <span className="font-medium">
+                  {selectedActivities.length} {selectedActivities.length === 1 ? 'activity' : 'activities'} in flow
+                </span>
+              )}
+              {step === 'template' && (
+                <span className="text-gray-500">Choose a template or build from scratch</span>
+              )}
+            </div>
+            <div className="flex gap-3">
+              {step === 'builder' && !isEditMode && (
+                <button
+                  onClick={() => setStep('template')}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Back to Templates
+                </button>
+              )}
               <button
-                onClick={() => setStep('template')}
+                onClick={onClose}
                 className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
-                Back to Templates
+                Cancel
               </button>
-            )}
-            <button
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            {step === 'builder' && (
-              <button
-                onClick={handleSave}
-                disabled={saving || !title.trim() || selectedActivities.length === 0}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
-              >
-                {saving
-                  ? (isEditMode ? 'Saving...' : 'Creating...')
-                  : (isEditMode ? 'Save Changes' : 'Create Lesson Flow')
-                }
-              </button>
-            )}
+              {step === 'builder' && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !title.trim() || selectedActivities.length === 0}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+                >
+                  {saving
+                    ? (isEditMode ? 'Saving...' : 'Creating...')
+                    : (isEditMode ? 'Save Changes' : 'Create Lesson Flow')
+                  }
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Video Question Generation Modal */}
