@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 /**
  * TeacherLessonFlowPreview Component
  * Full-screen preview showing exactly what students see during a lesson flow
  */
 export default function TeacherLessonFlowPreview({ flow, activities, onClose }) {
+  const videoRef = useRef(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isTransitioning, setIsTransitioning] = useState(false)
 
@@ -156,21 +159,38 @@ export default function TeacherLessonFlowPreview({ flow, activities, onClose }) 
 
       case 'video':
       case 'interactive_video':
+        const videoUrl = content?.videoUrl || content?.video_url || content?.url
         return (
           <div className="space-y-4">
-            <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
-              <div className="text-center text-white">
-                <svg className="w-20 h-20 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z"/>
-                </svg>
-                <p className="text-lg font-medium">{currentActivity.prompt || 'Video'}</p>
-                <p className="text-sm text-gray-400 mt-2">Video preview not available in this mode</p>
+            {videoUrl ? (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <video
+                  ref={videoRef}
+                  src={videoUrl.startsWith('http') ? videoUrl : `${API_URL}${videoUrl}`}
+                  controls
+                  className="w-full h-full object-contain"
+                  playsInline
+                >
+                  Your browser does not support the video tag.
+                </video>
               </div>
-            </div>
+            ) : (
+              <div className="aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
+                <div className="text-center text-white">
+                  <svg className="w-20 h-20 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                  <p className="text-lg font-medium">{currentActivity.prompt || 'Video'}</p>
+                  <p className="text-sm text-gray-400 mt-2">No video URL found</p>
+                </div>
+              </div>
+            )}
             {currentActivity.type === 'interactive_video' && (
-              <p className="text-sm text-gray-500 text-center">
-                This video has interactive questions embedded
-              </p>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700 text-center">
+                  This video has interactive questions. Students will see questions appear at specific timestamps.
+                </p>
+              </div>
             )}
           </div>
         )
