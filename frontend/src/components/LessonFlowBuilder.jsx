@@ -3,6 +3,7 @@ import axios from 'axios'
 import { useNotifications } from './Toast'
 import { getActivityById, ACTIVITY_TYPES } from '../config/activityTypes'
 import LessonFlowTemplateSelector from './LessonFlowTemplateSelector'
+import GenerateFromVideoModal from './GenerateFromVideoModal'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -31,6 +32,9 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   const [showProgress, setShowProgress] = useState(existingFlow?.show_progress ?? true)
   const [allowReview, setAllowReview] = useState(existingFlow?.allow_review ?? false)
   const [pacingMode, setPacingMode] = useState(existingFlow?.pacing_mode || 'student_paced')
+
+  // Video question generation modal
+  const [videoForQuestions, setVideoForQuestions] = useState(null)
 
   // Load available activities
   useEffect(() => {
@@ -70,6 +74,27 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
   const getActivityColor = (type) => {
     const activity = getActivityById(type)
     return activity?.bgClass || 'bg-gray-100 border-gray-300'
+  }
+
+  // Check if a video activity has questions
+  const hasVideoQuestions = (activity) => {
+    if (activity.type !== 'interactive_video') return true
+    const content = typeof activity.content === 'string'
+      ? JSON.parse(activity.content)
+      : activity.content
+    return content?.questions && content.questions.length > 0
+  }
+
+  // Handle video question generation complete
+  const handleVideoQuestionsGenerated = (updatedVideo) => {
+    // Update the activity in both available and selected lists
+    setAvailableActivities(prev =>
+      prev.map(a => a.id === updatedVideo.id ? updatedVideo : a)
+    )
+    setSelectedActivities(prev =>
+      prev.map(a => a.id === updatedVideo.id ? updatedVideo : a)
+    )
+    setVideoForQuestions(null)
   }
 
   // Handle template selection
@@ -466,6 +491,50 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
                               <p className="font-semibold text-gray-900 truncate">{activity.prompt}</p>
                             </div>
                             <p className="text-xs text-gray-600 capitalize">{activity.type.replace('_', ' ')}</p>
+
+                            {/* Warning for videos without questions */}
+                            {activity.type === 'interactive_video' && !hasVideoQuestions(activity) && (
+                              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-yellow-700 text-xs">
+                                  <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                  <span>No comprehension questions added</span>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setVideoForQuestions(activity)
+                                  }}
+                                  className="mt-2 w-full px-3 py-1.5 bg-yellow-500 text-white text-xs font-medium rounded hover:bg-yellow-600 transition-colors"
+                                >
+                                  Generate Questions
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Show question count for videos with questions */}
+                            {activity.type === 'interactive_video' && hasVideoQuestions(activity) && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                                  {(() => {
+                                    const content = typeof activity.content === 'string'
+                                      ? JSON.parse(activity.content)
+                                      : activity.content
+                                    return `${content?.questions?.length || 0} comprehension questions`
+                                  })()}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setVideoForQuestions(activity)
+                                  }}
+                                  className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )}
                           </div>
 
                           {/* Controls */}
@@ -565,6 +634,15 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
           </div>
         </div>
       </div>
+
+      {/* Video Question Generation Modal */}
+      {videoForQuestions && (
+        <GenerateFromVideoModal
+          video={videoForQuestions}
+          onClose={() => setVideoForQuestions(null)}
+          onGenerated={handleVideoQuestionsGenerated}
+        />
+      )}
     </div>
   )
 }
