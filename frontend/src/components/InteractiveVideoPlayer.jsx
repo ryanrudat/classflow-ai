@@ -189,10 +189,16 @@ export default function InteractiveVideoPlayer({ activity, studentId, token }) {
         )}
       </div>
 
-      {/* Question Overlay */}
+      {/* Question Overlay - Smooth fade in */}
       {activeQuestion && (
-        <div className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-10">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div
+          className="absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center p-4 z-10 animate-fadeIn"
+          style={{ animation: 'fadeIn 0.5s ease-out' }}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto shadow-2xl transform"
+            style={{ animation: 'slideUp 0.4s ease-out' }}
+          >
             <div className="flex items-start justify-between mb-4">
               <div>
                 <div className="text-sm font-medium text-blue-600 mb-2">
@@ -311,6 +317,37 @@ export default function InteractiveVideoPlayer({ activity, studentId, token }) {
           </div>
         </div>
       )}
+      {/* CSS Animations for smooth transitions */}
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.7;
+          }
+        }
+      `}</style>
     </div>
   )
 }

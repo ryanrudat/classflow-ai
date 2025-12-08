@@ -34,13 +34,36 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
   const [questions, setQuestions] = useState(videoContent?.questions || [])
   const [transcript, setTranscript] = useState(videoContent?.transcript || null)
   const [editingIndex, setEditingIndex] = useState(null)
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
 
-  // If video already has questions, start in preview/edit mode
+  // Fetch questions from database if not already in content
   useEffect(() => {
-    if (hasExistingQuestions && stage === 'setup') {
+    async function fetchQuestionsFromDB() {
+      if (video.id && (!videoContent?.questions || videoContent.questions.length === 0)) {
+        setLoadingQuestions(true)
+        try {
+          const response = await api.get(`/activities/${video.id}/video-questions`)
+          if (response.data.questions && response.data.questions.length > 0) {
+            console.log('📹 Loaded questions from database:', response.data.questions.length)
+            setQuestions(response.data.questions)
+            setStage('preview')
+          }
+        } catch (error) {
+          console.error('Failed to fetch questions from DB:', error)
+        } finally {
+          setLoadingQuestions(false)
+        }
+      }
+    }
+    fetchQuestionsFromDB()
+  }, [video.id])
+
+  // If video already has questions (from content or DB), start in preview/edit mode
+  useEffect(() => {
+    if ((hasExistingQuestions || questions.length > 0) && stage === 'setup' && !loadingQuestions) {
       setStage('preview')
     }
-  }, [hasExistingQuestions])
+  }, [hasExistingQuestions, questions.length, loadingQuestions])
 
   // Handle Escape key
   useEffect(() => {
@@ -239,9 +262,24 @@ export default function GenerateFromVideoModal({ video, onClose, onGenerated }) 
                     <div className="flex-1">
                       {/* Question Header */}
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">
-                          {formatTimestamp(question.timestamp_seconds)}
-                        </span>
+                        {editingIndex === index ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-gray-500">Timestamp:</span>
+                            <input
+                              type="number"
+                              min="0"
+                              max={videoContent?.duration || 9999}
+                              value={question.timestamp_seconds || question.timestampSeconds || 0}
+                              onChange={(e) => handleUpdateQuestion(index, 'timestamp_seconds', parseInt(e.target.value) || 0)}
+                              className="w-16 px-2 py-0.5 border border-gray-300 rounded text-xs text-center"
+                            />
+                            <span className="text-xs text-gray-500">sec</span>
+                          </div>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                            ⏱️ {formatTimestamp(question.timestamp_seconds || question.timestampSeconds || 0)}
+                          </span>
+                        )}
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           question.question_type === 'multiple_choice'
                             ? 'bg-blue-100 text-blue-700'
