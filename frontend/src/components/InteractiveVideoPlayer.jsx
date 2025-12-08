@@ -22,20 +22,30 @@ export default function InteractiveVideoPlayer({ activity, studentId, token }) {
   const videoUrl = activity.content?.videoUrl
   const videoDuration = activity.content?.videoDuration
 
-  // Load questions
+  // Load questions - use pre-loaded from content or fetch from API
   useEffect(() => {
     async function loadQuestions() {
+      // First check if questions are already in activity content
+      const contentQuestions = activity.content?.questions
+      if (contentQuestions && contentQuestions.length > 0) {
+        console.log('📹 Using pre-loaded questions from activity content:', contentQuestions.length)
+        setQuestions(contentQuestions)
+        return
+      }
+
+      // Otherwise fetch from API
       try {
         const response = await axios.get(
           `${API_URL}/api/activities/${activity.id}/video-questions`
         )
+        console.log('📹 Fetched questions from API:', response.data.questions.length)
         setQuestions(response.data.questions)
       } catch (error) {
         console.error('Failed to load questions:', error)
       }
     }
     loadQuestions()
-  }, [activity.id])
+  }, [activity.id, activity.content?.questions])
 
   // Check for questions at current timestamp
   useEffect(() => {

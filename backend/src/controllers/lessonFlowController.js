@@ -268,6 +268,46 @@ export async function getCurrentActivity(req, res) {
 
     const currentActivity = activityResult.rows[0]
 
+    // Parse content if it's a string
+    let parsedContent = currentActivity.content
+    if (typeof parsedContent === 'string') {
+      try {
+        parsedContent = JSON.parse(parsedContent)
+      } catch (e) {
+        // Keep as string if not valid JSON
+      }
+    }
+
+    // For interactive_video activities, fetch questions from video_questions table
+    if (currentActivity.type === 'interactive_video' && typeof parsedContent === 'object') {
+      try {
+        const questionsResult = await db.query(
+          `SELECT id, timestamp_seconds, question_type, question_text, options, correct_answer, ai_generated, question_order
+           FROM video_questions
+           WHERE activity_id = $1
+           ORDER BY timestamp_seconds ASC, question_order ASC`,
+          [currentActivity.id]
+        )
+
+        parsedContent.questions = questionsResult.rows.map(q => ({
+          id: q.id,
+          timestampSeconds: q.timestamp_seconds,
+          questionType: q.question_type,
+          questionText: q.question_text,
+          options: q.options,
+          correctAnswer: q.correct_answer,
+          aiGenerated: q.ai_generated,
+          order: q.question_order
+        }))
+
+        console.log(`📹 Fetched ${parsedContent.questions.length} video questions for activity ${currentActivity.id}`)
+      } catch (err) {
+        console.error('Failed to fetch video questions:', err)
+      }
+    }
+
+    currentActivity.content = parsedContent
+
     res.json({
       activity: currentActivity,
       progress: {
