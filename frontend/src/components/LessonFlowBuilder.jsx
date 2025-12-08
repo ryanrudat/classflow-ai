@@ -75,21 +75,6 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     loadActivities()
   }, [sessionId, token, isEditMode, existingFlow, initialLoadDone])
 
-  // Auto-start generation when preselectedVideo is provided
-  useEffect(() => {
-    if (preselectedVideo && !activitiesLoading && step === 'template') {
-      // Find the Video-Based Lesson template
-      const videoTemplate = {
-        id: 'video_lesson',
-        name: 'Video-Based Lesson',
-        description: 'Watch a video with comprehension checks',
-        activitySequence: ['interactive_video', 'quiz', 'discussion']
-      }
-
-      // Start generation with this video
-      handleTemplateSelect(videoTemplate, { videoId: preselectedVideo.id })
-    }
-  }, [preselectedVideo, activitiesLoading, step])
 
   // Use centralized activity config for icons and colors
   const getActivityIcon = (type) => {
@@ -385,6 +370,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
               onSelectTemplate={handleTemplateSelect}
               onBuildFromScratch={handleBuildFromScratch}
               availableVideos={availableActivities}
+              preselectedVideo={preselectedVideo}
             />
           )}
 

@@ -16,14 +16,20 @@ export default function LessonFlowTemplateSelector({
   onSelectTemplate,
   onBuildFromScratch,
   subject = 'all',
-  availableVideos = []
+  availableVideos = [],
+  preselectedVideo = null
 }) {
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [topic, setTopic] = useState('')
-  const [selectedVideoId, setSelectedVideoId] = useState(null)
+  const [selectedVideoId, setSelectedVideoId] = useState(preselectedVideo?.id || null)
   const [showInputStep, setShowInputStep] = useState(false)
 
   const templates = getTemplatesBySubject(subject)
+
+  // Parse preselected video content for display
+  const preselectedVideoContent = preselectedVideo
+    ? (typeof preselectedVideo.content === 'string' ? JSON.parse(preselectedVideo.content) : preselectedVideo.content)
+    : null
 
   // Check if template is video-based
   const isVideoTemplate = (template) => {
@@ -66,27 +72,80 @@ export default function LessonFlowTemplateSelector({
 
   return (
     <div className="space-y-6">
+      {/* Preselected Video Banner */}
+      {preselectedVideo && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-600">Creating lesson flow from:</p>
+              <p className="font-semibold text-gray-900">
+                {preselectedVideoContent?.originalFilename || preselectedVideo.prompt || 'Selected Video'}
+              </p>
+              {preselectedVideoContent?.transcript && (
+                <span className="inline-flex items-center gap-1 text-xs text-green-600 mt-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  Transcript ready
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="text-sm text-blue-700 mt-3">
+            Choose a video-based template below to generate activities from this video's transcript.
+          </p>
+        </div>
+      )}
+
       <div className="text-center">
-        <h3 className="text-lg font-bold text-gray-900">Start Your Lesson Flow</h3>
+        <h3 className="text-lg font-bold text-gray-900">
+          {preselectedVideo ? 'Choose a Template' : 'Start Your Lesson Flow'}
+        </h3>
         <p className="text-sm text-gray-600 mt-1">
-          Choose a template to get started quickly, or build from scratch
+          {preselectedVideo
+            ? 'Select a template to generate activities from your video'
+            : 'Choose a template to get started quickly, or build from scratch'
+          }
         </p>
       </div>
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {templates.map(template => {
+        {/* Sort video templates first when a video is preselected */}
+        {[...templates].sort((a, b) => {
+          if (preselectedVideo) {
+            const aIsVideo = isVideoTemplate(a)
+            const bIsVideo = isVideoTemplate(b)
+            if (aIsVideo && !bIsVideo) return -1
+            if (!aIsVideo && bIsVideo) return 1
+          }
+          return 0
+        }).map(template => {
           const isVideo = isVideoTemplate(template)
+          const isRecommended = preselectedVideo && isVideo
           return (
             <button
               key={template.id}
               onClick={() => handleSelect(template)}
-              className={`p-4 border-2 rounded-lg text-left transition-all ${
+              className={`p-4 border-2 rounded-lg text-left transition-all relative ${
                 selectedTemplate === template.id
                   ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200'
-                  : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                  : isRecommended
+                    ? 'border-blue-300 bg-blue-50 hover:border-blue-400'
+                    : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
               }`}
             >
+              {/* Recommended badge */}
+              {isRecommended && (
+                <div className="absolute -top-2 -right-2 px-2 py-0.5 bg-blue-600 text-white text-xs font-bold rounded-full">
+                  Recommended
+                </div>
+              )}
               <div className="flex items-start gap-3">
                 <span className="text-2xl">{template.icon}</span>
                 <div className="flex-1 min-w-0">
