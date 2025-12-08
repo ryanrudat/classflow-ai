@@ -52,9 +52,10 @@ export default function LessonFlowTemplateSelector({
     if (!template) return
 
     if (isVideoTemplate(template)) {
-      // Video-based template - pass selected video
-      if (selectedVideoId && onSelectTemplate) {
-        onSelectTemplate(template, { videoId: selectedVideoId })
+      // Video-based template - use selectedVideoId or preselectedVideo
+      const videoId = selectedVideoId || preselectedVideo?.id
+      if (videoId && onSelectTemplate) {
+        onSelectTemplate(template, { videoId })
       }
     } else {
       // Topic-based template
@@ -239,13 +240,32 @@ export default function LessonFlowTemplateSelector({
                     The video will be transcribed and used to generate quiz questions, discussion prompts, and more
                   </p>
 
-                  {videoActivities.length === 0 ? (
+                  {/* Show preselected video if available */}
+                  {preselectedVideo && (
+                    <div className="p-4 bg-green-50 border-2 border-green-300 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-green-200 rounded flex items-center justify-center">
+                          <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-green-900">
+                            {preselectedVideoContent?.originalFilename || preselectedVideo.prompt || 'Selected Video'}
+                          </p>
+                          <p className="text-sm text-green-700">Video ready to use</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!preselectedVideo && videoActivities.length === 0 ? (
                     <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                       <p className="text-yellow-700 text-sm">
                         No videos uploaded yet. Please upload a video first, then come back to create a video-based lesson flow.
                       </p>
                     </div>
-                  ) : (
+                  ) : !preselectedVideo && (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {videoActivities.map(video => {
                         const content = typeof video.content === 'string' ? JSON.parse(video.content) : video.content
@@ -379,7 +399,7 @@ export default function LessonFlowTemplateSelector({
               </button>
               <button
                 onClick={handleGenerate}
-                disabled={templateIsVideo ? !selectedVideoId : !topic.trim()}
+                disabled={templateIsVideo ? (!selectedVideoId && !preselectedVideo) : !topic.trim()}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
