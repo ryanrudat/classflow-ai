@@ -106,42 +106,86 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     setVideoForQuestions(null)
   }
 
-  // Handle template selection - now generates activities
-  const handleTemplateSelect = async (template, topic) => {
-    // Set title from template with topic
-    setTitle(`${template.name}: ${topic}`)
-    setDescription(template.description)
+  // Handle template selection - generates activities from topic or video transcript
+  const handleTemplateSelect = async (template, options) => {
+    const { topic, videoId } = options || {}
+    const isVideoTemplate = template.activitySequence.includes('interactive_video')
+
     setStep('generating')
     setGeneratingTemplate(true)
     setGenerationError(null)
-    setGenerationProgress({ current: 0, total: template.activitySequence.length, currentType: '' })
 
     const generatedActivities = []
+    let transcriptText = null
+    let selectedVideo = null
 
     try {
-      // Generate each activity in sequence
-      for (let i = 0; i < template.activitySequence.length; i++) {
-        const activityType = template.activitySequence[i]
+      // For video-based templates, get the video and its transcript
+      if (isVideoTemplate && videoId) {
+        selectedVideo = availableActivities.find(a => a.id === videoId)
+        if (!selectedVideo) {
+          throw new Error('Selected video not found')
+        }
+
+        const videoContent = typeof selectedVideo.content === 'string'
+          ? JSON.parse(selectedVideo.content)
+          : selectedVideo.content
+
+        // Set title from video filename
+        const videoName = videoContent?.originalFilename || selectedVideo.prompt || 'Video'
+        setTitle(`${template.name}: ${videoName.replace(/\.[^/.]+$/, '')}`)
+        setDescription(template.description)
+
+        // Check if we need to transcribe
+        if (!videoContent?.transcript) {
+          setGenerationProgress({ current: 0, total: template.activitySequence.length, currentType: 'Transcribing video...' })
+
+          // Transcribe the video
+          const transcribeResponse = await axios.post(
+            `${API_URL}/api/videos/${videoContent.videoId}/transcribe`,
+            {},
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          )
+          transcriptText = transcribeResponse.data.transcript?.text ||
+            (transcribeResponse.data.transcript?.segments || []).map(s => s.text).join(' ')
+
+          notifySuccess('Video transcribed successfully!')
+        } else {
+          // Use existing transcript
+          transcriptText = videoContent.transcript.text ||
+            (videoContent.transcript.segments || []).map(s => s.text).join(' ')
+        }
+
+        // Add the video as the first activity
+        generatedActivities.push(selectedVideo)
+      } else {
+        // Topic-based template
+        setTitle(`${template.name}: ${topic}`)
+        setDescription(template.description)
+        transcriptText = topic // Use topic as the prompt
+      }
+
+      // Generate activities based on transcript/topic
+      const activityTypes = template.activitySequence.filter(type => type !== 'interactive_video')
+      setGenerationProgress({ current: 0, total: activityTypes.length + (isVideoTemplate ? 1 : 0), currentType: '' })
+
+      for (let i = 0; i < activityTypes.length; i++) {
+        const activityType = activityTypes[i]
         const activityConfig = getActivityById(activityType)
 
         setGenerationProgress({
-          current: i + 1,
-          total: template.activitySequence.length,
+          current: (isVideoTemplate ? 1 : 0) + i + 1,
+          total: activityTypes.length + (isVideoTemplate ? 1 : 0),
           currentType: activityConfig?.label || activityType
         })
 
-        // Skip interactive_video - can't be AI generated without upload
-        if (activityType === 'interactive_video') {
-          continue
-        }
-
         try {
-          // Generate activity using AI API
+          // Generate activity using AI API with transcript/topic
           const response = await axios.post(
             `${API_URL}/api/ai/generate`,
             {
               sessionId,
-              prompt: topic,
+              prompt: transcriptText,
               type: activityType,
               difficulty: 'medium'
             },
@@ -162,17 +206,16 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
       // Reload available activities to include the newly generated ones
       const activitiesResponse = await axios.get(
         `${API_URL}/api/sessions/${sessionId}/activities`,
-        {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
+        { headers: { 'Authorization': `Bearer ${token}` } }
       )
       setAvailableActivities(activitiesResponse.data.activities || [])
 
       // Set the generated activities as selected
       setSelectedActivities(generatedActivities)
 
+      const topicOrVideo = isVideoTemplate ? 'video' : `"${topic}"`
       if (generatedActivities.length > 0) {
-        notifySuccess(`Generated ${generatedActivities.length} activities for "${topic}"!`)
+        notifySuccess(`Generated ${generatedActivities.length} activities from ${topicOrVideo}!`)
       } else {
         notifyError('Failed to generate activities. Please try again or build from scratch.')
       }
@@ -180,8 +223,8 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
       setStep('builder')
     } catch (err) {
       console.error('Template generation failed:', err)
-      setGenerationError('Failed to generate activities. Please try again.')
-      notifyError('Failed to generate activities. Please try again.')
+      setGenerationError(err.message || 'Failed to generate activities. Please try again.')
+      notifyError(err.message || 'Failed to generate activities. Please try again.')
     } finally {
       setGeneratingTemplate(false)
     }
@@ -324,6 +367,7 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
             <LessonFlowTemplateSelector
               onSelectTemplate={handleTemplateSelect}
               onBuildFromScratch={handleBuildFromScratch}
+              availableVideos={availableActivities}
             />
           )}
 
