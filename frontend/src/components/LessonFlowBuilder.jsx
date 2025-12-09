@@ -124,9 +124,15 @@ export default function LessonFlowBuilder({ sessionId, onClose, onSaved, existin
     try {
       // For video-based templates, get the video and its transcript
       if (isVideoTemplate && videoId) {
-        selectedVideo = availableActivities.find(a => a.id === videoId)
+        // First check if this is the preselected video (already have full object)
+        if (preselectedVideo && preselectedVideo.id === videoId) {
+          selectedVideo = preselectedVideo
+        } else {
+          // Otherwise look in available activities
+          selectedVideo = availableActivities.find(a => a.id === videoId)
+        }
         if (!selectedVideo) {
-          throw new Error('Selected video not found')
+          throw new Error('Selected video not found. Please refresh the page and try again.')
         }
 
         const videoContent = typeof selectedVideo.content === 'string'
