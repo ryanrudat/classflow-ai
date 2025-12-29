@@ -175,9 +175,10 @@ After the student demonstrates understanding, you may ask 2-3 deeper questions s
  * @param {array} conceptsCovered - Concepts students learned in class
  * @param {array} expectedExplanations - What ALEX should expect to hear
  * @param {string} topic - The lesson topic
+ * @param {string} documentContext - Combined text from uploaded documents (optional)
  * @returns {string} Prompt section for lesson context
  */
-function getLessonContextPrompt(conceptsCovered, expectedExplanations, topic) {
+function getLessonContextPrompt(conceptsCovered, expectedExplanations, topic, documentContext = null) {
   let prompt = ''
 
   if (conceptsCovered && conceptsCovered.length > 0) {
@@ -200,6 +201,18 @@ ${expectedExplanations.map((e, i) => `- ${e}`).join('\n')}
 Listen for these explanations or similar ideas expressed in their own words.
 If they miss key points, ask clarifying questions to see if they understand but just forgot to mention it.
 Don't correct them or give away answers - just ask questions that reveal their understanding.
+`
+  }
+
+  // Add document context if available
+  if (documentContext) {
+    prompt += `
+REFERENCE MATERIALS (Teacher-provided documents):
+The following content is from documents uploaded by the teacher about ${topic}.
+Use this to verify accuracy of student explanations AND to formulate better clarifying questions.
+Do NOT quote from these documents directly - use them as background knowledge only.
+
+${documentContext}
 `
   }
 
@@ -273,7 +286,9 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
     conceptsCovered = [],
     expectedExplanations = [],
     criticalThinkingTopics = [],
-    criticalThinkingDepth = 'none'
+    criticalThinkingDepth = 'none',
+    // Document context (from uploaded materials)
+    documentContext = null
   } = lessonInfo
 
   try {
@@ -326,7 +341,7 @@ Your educational role:
 - Use natural, friendly language (not overly formal)
 - Occasionally make common student mistakes to see if they catch it
 
-${getLessonContextPrompt(conceptsCovered, expectedExplanations, topic)}
+${getLessonContextPrompt(conceptsCovered, expectedExplanations, topic, documentContext)}
 
 ${getCriticalThinkingPrompt(criticalThinkingDepth, criticalThinkingTopics, topic)}
 
@@ -444,7 +459,7 @@ export async function continueConversation(conversationId, studentMessage, metad
   } = metadata
 
   try {
-    // Get conversation history and topic settings (including lesson context)
+    // Get conversation history and topic settings (including lesson context and documents)
     const conversationResult = await db.query(
       `SELECT rtc.*,
               COALESCE(rtt.language_complexity, 'standard') as language_complexity,
@@ -452,7 +467,8 @@ export async function continueConversation(conversationId, studentMessage, metad
               COALESCE(rtt.concepts_covered, '[]'::jsonb) as concepts_covered,
               COALESCE(rtt.expected_explanations, '[]'::jsonb) as expected_explanations,
               COALESCE(rtt.critical_thinking_topics, '[]'::jsonb) as critical_thinking_topics,
-              COALESCE(rtt.critical_thinking_depth, 'none') as critical_thinking_depth
+              COALESCE(rtt.critical_thinking_depth, 'none') as critical_thinking_depth,
+              rtt.document_context
        FROM reverse_tutoring_conversations rtc
        LEFT JOIN reverse_tutoring_topics rtt
          ON rtc.session_id = rtt.session_id
@@ -533,6 +549,7 @@ export async function continueConversation(conversationId, studentMessage, metad
       ? JSON.parse(conversation.critical_thinking_topics)
       : (conversation.critical_thinking_topics || [])
     const criticalThinkingDepth = conversation.critical_thinking_depth || 'none'
+    const documentContext = conversation.document_context || null
 
     // Calculate current and remaining student responses
     const currentStudentResponses = studentResponseCount + 1 // +1 for the current message
@@ -594,7 +611,7 @@ Your educational role:
 - Use natural, friendly language (not overly formal)
 - Occasionally make common student mistakes to see if they catch it
 
-${getLessonContextPrompt(conceptsCovered, expectedExplanations, conversation.topic)}
+${getLessonContextPrompt(conceptsCovered, expectedExplanations, conversation.topic, documentContext)}
 
 ${getCriticalThinkingPrompt(criticalThinkingDepth, criticalThinkingTopics, conversation.topic)}
 

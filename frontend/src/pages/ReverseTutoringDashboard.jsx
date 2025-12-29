@@ -4,6 +4,8 @@ import { useToast } from '../components/Toast'
 import { useAuthStore } from '../stores/authStore'
 import { useSocket } from '../hooks/useSocket'
 import ConfirmDialog from '../components/ConfirmDialog'
+import TopicDocumentUpload from '../components/TopicDocumentUpload'
+import TopicDocumentList from '../components/TopicDocumentList'
 import axios from 'axios'
 import { subjectsAPI, standardsAPI } from '../services/api'
 
@@ -57,6 +59,9 @@ export default function ReverseTutoringDashboard() {
   const [selectedFocusSubject, setSelectedFocusSubject] = useState(null)
   const [recommendedStandards, setRecommendedStandards] = useState({ universal: [], subject: [] })
   const [loadingStandards, setLoadingStandards] = useState(false)
+
+  // Document upload state
+  const [documentRefresh, setDocumentRefresh] = useState(0)
 
   // Conversation monitoring state
   const [conversations, setConversations] = useState([])
@@ -1106,6 +1111,33 @@ export default function ReverseTutoringDashboard() {
                           )}
                         </div>
                       </div>
+
+                      {/* Reference Documents Section - Only show when editing existing topic */}
+                      {editingTopic && (
+                        <div className="border-t pt-4">
+                          <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Reference Documents
+                          </h3>
+                          <p className="text-sm text-gray-500 mb-4">
+                            Upload lesson materials, slides, or readings. Alex will use these to better understand and verify student explanations.
+                          </p>
+
+                          <TopicDocumentList
+                            topicId={editingTopic.id}
+                            refreshTrigger={documentRefresh}
+                          />
+
+                          <div className="mt-3">
+                            <TopicDocumentUpload
+                              topicId={editingTopic.id}
+                              onDocumentsChange={() => setDocumentRefresh(prev => prev + 1)}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       {/* AI Response Settings */}
                       <div className="border-t pt-4">

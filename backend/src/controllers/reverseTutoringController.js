@@ -6,8 +6,25 @@ import {
   getTeacherDashboard,
   getConversationTranscript
 } from '../services/reverseTutoringService.js'
+import {
+  needsSummarization,
+  summarizeDocument,
+  combineDocumentContexts
+} from '../services/documentSummarizationService.js'
+import { extractTextFromPPTX } from '../utils/pptxParser.js'
 import multer from 'multer'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { createRequire } from 'module'
+import fs from 'fs/promises'
+import mammoth from 'mammoth'
 import db from '../database/db.js'
+
+const require = createRequire(import.meta.url)
+const pdfParse = require('pdf-parse')
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // Configure multer for audio file uploads (in-memory storage)
 const upload = multer({
@@ -138,20 +155,30 @@ export async function startConversation(req, res) {
       })
     }
 
-    // Fetch topic settings for language complexity, response length, and controls
+    // Fetch topic settings for language complexity, response length, controls, and lesson context
     console.log('📚 Fetching topic settings for:', topic)
     const topicSettings = await db.query(
-      `SELECT language_complexity, response_length, max_student_responses, enforce_topic_focus
+      `SELECT language_complexity, response_length, max_student_responses, enforce_topic_focus,
+              concepts_covered, expected_explanations, critical_thinking_topics, critical_thinking_depth,
+              document_context
        FROM reverse_tutoring_topics
        WHERE session_id = $1 AND topic = $2 AND is_active = true
        LIMIT 1`,
       [sessionId, topic]
     )
 
-    const languageComplexity = topicSettings.rows.length > 0 ? topicSettings.rows[0].language_complexity : 'standard'
-    const responseLength = topicSettings.rows.length > 0 ? topicSettings.rows[0].response_length : 'medium'
-    const maxStudentResponses = topicSettings.rows.length > 0 ? topicSettings.rows[0].max_student_responses : 10
-    const enforceTopicFocus = topicSettings.rows.length > 0 ? topicSettings.rows[0].enforce_topic_focus : true
+    const ts = topicSettings.rows[0] || {}
+    const languageComplexity = ts.language_complexity || 'standard'
+    const responseLength = ts.response_length || 'medium'
+    const maxStudentResponses = ts.max_student_responses || 10
+    const enforceTopicFocus = ts.enforce_topic_focus !== false
+
+    // Parse lesson context fields
+    const conceptsCovered = Array.isArray(ts.concepts_covered) ? ts.concepts_covered : []
+    const expectedExplanations = Array.isArray(ts.expected_explanations) ? ts.expected_explanations : []
+    const criticalThinkingTopics = Array.isArray(ts.critical_thinking_topics) ? ts.critical_thinking_topics : []
+    const criticalThinkingDepth = ts.critical_thinking_depth || 'none'
+    const documentContext = ts.document_context || null
 
     console.log('⚙️  Topic settings:', { languageComplexity, responseLength, maxStudentResponses, enforceTopicFocus })
     console.log('🤖 Calling Claude API to start conversation...')
@@ -170,7 +197,13 @@ export async function startConversation(req, res) {
         languageComplexity,
         responseLength,
         maxStudentResponses,
-        enforceTopicFocus
+        enforceTopicFocus,
+        // Lesson context
+        conceptsCovered,
+        expectedExplanations,
+        criticalThinkingTopics,
+        criticalThinkingDepth,
+        documentContext
       }
     )
 
@@ -1106,6 +1139,333 @@ export async function unblockStudent(req, res) {
     res.status(500).json({
       message: `Failed to unblock student: ${error.message}`
     })
+  }
+}
+
+// =====================================================
+// TOPIC DOCUMENT UPLOAD FUNCTIONS
+// =====================================================
+
+// Configure multer for topic document uploads (disk storage)
+const topicDocumentStorage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../temp-uploads')
+    try {
+      await fs.mkdir(uploadDir, { recursive: true })
+      cb(null, uploadDir)
+    } catch (error) {
+      cb(error)
+    }
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(7)}${path.extname(file.originalname)}`
+    cb(null, uniqueName)
+  }
+})
+
+export const topicDocumentUpload = multer({
+  storage: topicDocumentStorage,
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = /pdf|docx|doc|txt|md|pptx/
+    const ext = allowed.test(path.extname(file.originalname).toLowerCase())
+    const mimeTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'text/markdown'
+    ]
+    const mime = mimeTypes.includes(file.mimetype) || file.mimetype.startsWith('text/')
+
+    if (ext || mime) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only PDF, Word, PowerPoint, and text files are allowed'))
+    }
+  }
+})
+
+/**
+ * Extract text content from uploaded file (supports PDF, DOCX, PPTX, TXT, MD)
+ */
+async function extractTextFromDocument(filePath, mimetype, originalname) {
+  const ext = path.extname(originalname).toLowerCase()
+
+  try {
+    // PowerPoint files
+    if (ext === '.pptx' || mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+      return await extractTextFromPPTX(filePath)
+    }
+
+    // PDF files
+    if (ext === '.pdf' || mimetype === 'application/pdf') {
+      const dataBuffer = await fs.readFile(filePath)
+      const data = await pdfParse(dataBuffer)
+      return data.text
+    }
+
+    // Word documents (.docx)
+    if (ext === '.docx' || mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const result = await mammoth.extractRawText({ path: filePath })
+      return result.value
+    }
+
+    // Text files (.txt, .md, etc.)
+    if (ext === '.txt' || ext === '.md' || mimetype.startsWith('text/')) {
+      const content = await fs.readFile(filePath, 'utf-8')
+      return content
+    }
+
+    throw new Error('Unsupported file format')
+  } catch (error) {
+    console.error('Text extraction error:', error)
+    throw new Error(`Failed to extract text: ${error.message}`)
+  }
+}
+
+/**
+ * Regenerate combined document context for a topic
+ * Called after documents are added or removed
+ */
+async function regenerateDocumentContext(topicId) {
+  const docs = await db.query(
+    `SELECT original_filename, extracted_text, is_summarized, summary, uploaded_at
+     FROM reverse_tutoring_topic_documents
+     WHERE topic_id = $1
+     ORDER BY uploaded_at DESC`,
+    [topicId]
+  )
+
+  const combinedContext = combineDocumentContexts(docs.rows)
+
+  await db.query(
+    `UPDATE reverse_tutoring_topics
+     SET document_context = $1, document_context_updated_at = NOW()
+     WHERE id = $2`,
+    [combinedContext, topicId]
+  )
+
+  return combinedContext
+}
+
+/**
+ * Upload documents to a topic
+ * POST /api/reverse-tutoring/topics/:topicId/documents
+ * Protected: Teacher only
+ */
+export async function uploadTopicDocuments(req, res) {
+  try {
+    const { topicId } = req.params
+    const teacherId = req.user.userId
+    const files = req.files // Multiple files support
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' })
+    }
+
+    // Verify topic ownership
+    const topicCheck = await db.query(
+      `SELECT rt.id, rt.session_id, s.teacher_id
+       FROM reverse_tutoring_topics rt
+       JOIN sessions s ON rt.session_id = s.id
+       WHERE rt.id = $1`,
+      [topicId]
+    )
+
+    if (topicCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Topic not found' })
+    }
+
+    if (topicCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    const uploadedDocs = []
+
+    for (const file of files) {
+      const ext = path.extname(file.originalname).toLowerCase().replace('.', '')
+      let extractedText
+
+      try {
+        // Extract text based on file type
+        extractedText = await extractTextFromDocument(file.path, file.mimetype, file.originalname)
+      } catch (extractError) {
+        console.error(`Failed to extract text from ${file.originalname}:`, extractError)
+        // Clean up temp file
+        try { await fs.unlink(file.path) } catch {}
+        continue // Skip this file but continue with others
+      }
+
+      // Check if summarization is needed
+      let summary = null
+      let isSummarized = false
+
+      if (needsSummarization(extractedText.length)) {
+        try {
+          summary = await summarizeDocument(
+            extractedText,
+            file.originalname,
+            ext.toUpperCase()
+          )
+          isSummarized = true
+        } catch (summaryError) {
+          console.error('Summarization failed, using truncation:', summaryError.message)
+          // Fall back to truncation
+          summary = extractedText.substring(0, 2000) + '\n\n[Content truncated due to length]'
+          isSummarized = true
+        }
+      }
+
+      // Save to database
+      const result = await db.query(
+        `INSERT INTO reverse_tutoring_topic_documents (
+          topic_id, original_filename, file_type, file_size_bytes,
+          extracted_text, text_length, is_summarized, summary,
+          summary_generated_at, uploaded_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, original_filename, file_type, file_size_bytes, text_length, is_summarized, uploaded_at`,
+        [
+          topicId,
+          file.originalname,
+          ext,
+          file.size,
+          extractedText,
+          extractedText.length,
+          isSummarized,
+          summary,
+          isSummarized ? new Date() : null,
+          teacherId
+        ]
+      )
+
+      uploadedDocs.push(result.rows[0])
+
+      // Clean up temp file
+      try {
+        await fs.unlink(file.path)
+      } catch (unlinkError) {
+        console.warn('Failed to delete temp file:', unlinkError.message)
+      }
+    }
+
+    if (uploadedDocs.length === 0) {
+      return res.status(400).json({ message: 'No documents could be processed' })
+    }
+
+    // Regenerate combined document context
+    await regenerateDocumentContext(topicId)
+
+    res.json({
+      success: true,
+      documents: uploadedDocs,
+      message: `${uploadedDocs.length} document(s) uploaded successfully`
+    })
+
+  } catch (error) {
+    console.error('Upload topic documents error:', error)
+
+    // Clean up temp files on error
+    if (req.files) {
+      for (const file of req.files) {
+        try { await fs.unlink(file.path) } catch {}
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to upload documents'
+    })
+  }
+}
+
+/**
+ * Get all documents for a topic
+ * GET /api/reverse-tutoring/topics/:topicId/documents
+ * Protected: Teacher only
+ */
+export async function getTopicDocuments(req, res) {
+  try {
+    const { topicId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const topicCheck = await db.query(
+      `SELECT rt.id, s.teacher_id
+       FROM reverse_tutoring_topics rt
+       JOIN sessions s ON rt.session_id = s.id
+       WHERE rt.id = $1`,
+      [topicId]
+    )
+
+    if (topicCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Topic not found' })
+    }
+
+    if (topicCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    const result = await db.query(
+      `SELECT id, original_filename, file_type, file_size_bytes,
+              text_length, is_summarized, uploaded_at
+       FROM reverse_tutoring_topic_documents
+       WHERE topic_id = $1
+       ORDER BY uploaded_at DESC`,
+      [topicId]
+    )
+
+    res.json({
+      success: true,
+      documents: result.rows
+    })
+
+  } catch (error) {
+    console.error('Get topic documents error:', error)
+    res.status(500).json({ message: error.message })
+  }
+}
+
+/**
+ * Delete a document from a topic
+ * DELETE /api/reverse-tutoring/topics/:topicId/documents/:documentId
+ * Protected: Teacher only
+ */
+export async function deleteTopicDocument(req, res) {
+  try {
+    const { topicId, documentId } = req.params
+    const teacherId = req.user.userId
+
+    // Verify ownership
+    const docCheck = await db.query(
+      `SELECT d.id, d.topic_id, s.teacher_id
+       FROM reverse_tutoring_topic_documents d
+       JOIN reverse_tutoring_topics rt ON d.topic_id = rt.id
+       JOIN sessions s ON rt.session_id = s.id
+       WHERE d.id = $1 AND d.topic_id = $2`,
+      [documentId, topicId]
+    )
+
+    if (docCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Document not found' })
+    }
+
+    if (docCheck.rows[0].teacher_id !== teacherId) {
+      return res.status(403).json({ message: 'Unauthorized' })
+    }
+
+    await db.query('DELETE FROM reverse_tutoring_topic_documents WHERE id = $1', [documentId])
+
+    // Regenerate combined document context
+    await regenerateDocumentContext(topicId)
+
+    res.json({ success: true, message: 'Document deleted' })
+
+  } catch (error) {
+    console.error('Delete topic document error:', error)
+    res.status(500).json({ message: error.message })
   }
 }
 

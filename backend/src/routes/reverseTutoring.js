@@ -12,7 +12,12 @@ import {
   updateTopic,
   deleteTopic,
   unblockStudent,
-  upload
+  upload,
+  // Document upload functions
+  uploadTopicDocuments,
+  getTopicDocuments,
+  deleteTopicDocument,
+  topicDocumentUpload
 } from '../controllers/reverseTutoringController.js'
 import { authenticateToken } from '../middleware/auth.js'
 import { validateActiveSession, validateSessionFromConversation } from '../middleware/sessionStatus.js'
@@ -103,5 +108,31 @@ router.delete('/topics/:topicId', authenticateToken, deleteTopic)
  * Protected: Teacher only
  */
 router.post('/:conversationId/unblock', authenticateToken, unblockStudent)
+
+// TOPIC DOCUMENT ROUTES (Teachers)
+
+/**
+ * Upload documents to a topic
+ * POST /api/reverse-tutoring/topics/:topicId/documents
+ * Body: FormData with 'documents' field (multiple files)
+ */
+router.post(
+  '/topics/:topicId/documents',
+  authenticateToken,
+  topicDocumentUpload.array('documents', 10), // Max 10 files
+  uploadTopicDocuments
+)
+
+/**
+ * Get all documents for a topic
+ * GET /api/reverse-tutoring/topics/:topicId/documents
+ */
+router.get('/topics/:topicId/documents', authenticateToken, getTopicDocuments)
+
+/**
+ * Delete a document from a topic
+ * DELETE /api/reverse-tutoring/topics/:topicId/documents/:documentId
+ */
+router.delete('/topics/:topicId/documents/:documentId', authenticateToken, deleteTopicDocument)
 
 export default router
