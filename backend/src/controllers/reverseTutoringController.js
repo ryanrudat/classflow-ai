@@ -515,7 +515,12 @@ export async function createTopic(req, res) {
       collaborationMode = 'pass_the_mic',
       maxCollaborators = 2,
       // Standards (will be linked separately)
-      standardIds = []
+      standardIds = [],
+      // Lesson context for ALEX
+      conceptsCovered = [],
+      expectedExplanations = [],
+      criticalThinkingTopics = [],
+      criticalThinkingDepth = 'none'
     } = req.body
 
     // Validation
@@ -572,15 +577,22 @@ export async function createTopic(req, res) {
       }
     }
 
+    // Ensure lesson context arrays are valid
+    const conceptsArray = Array.isArray(conceptsCovered) ? conceptsCovered.filter(c => c && c.trim()) : []
+    const explanationsArray = Array.isArray(expectedExplanations) ? expectedExplanations.filter(e => e && e.trim()) : []
+    const ctTopicsArray = Array.isArray(criticalThinkingTopics) ? criticalThinkingTopics.filter(t => t && t.trim()) : []
+    const ctDepth = ['none', 'light', 'moderate'].includes(criticalThinkingDepth) ? criticalThinkingDepth : 'none'
+
     // Create topic
     const result = await db.query(
       `INSERT INTO reverse_tutoring_topics (
         session_id, topic, subject, subject_id, subject_path, grade_level, key_vocabulary,
         language_complexity, response_length, max_student_responses, enforce_topic_focus,
         assigned_student_ids, allow_collaboration, collaboration_mode, max_collaborators,
+        concepts_covered, expected_explanations, critical_thinking_topics, critical_thinking_depth,
         created_by
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16::jsonb, $17::jsonb, $18::jsonb, $19, $20)
       RETURNING *`,
       [
         sessionId,
@@ -598,6 +610,10 @@ export async function createTopic(req, res) {
         allowCollaboration,
         collaborationMode,
         maxCollaborators,
+        JSON.stringify(conceptsArray),
+        JSON.stringify(explanationsArray),
+        JSON.stringify(ctTopicsArray),
+        ctDepth,
         teacherId
       ]
     )
@@ -624,6 +640,17 @@ export async function createTopic(req, res) {
       }
     }
 
+    // Parse new JSONB fields
+    const parsedConceptsCovered = typeof newTopic.concepts_covered === 'string'
+      ? JSON.parse(newTopic.concepts_covered)
+      : newTopic.concepts_covered || []
+    const parsedExpectedExplanations = typeof newTopic.expected_explanations === 'string'
+      ? JSON.parse(newTopic.expected_explanations)
+      : newTopic.expected_explanations || []
+    const parsedCriticalThinkingTopics = typeof newTopic.critical_thinking_topics === 'string'
+      ? JSON.parse(newTopic.critical_thinking_topics)
+      : newTopic.critical_thinking_topics || []
+
     res.json({
       message: 'Topic created successfully',
       topic: {
@@ -643,6 +670,10 @@ export async function createTopic(req, res) {
         allowCollaboration: newTopic.allow_collaboration,
         collaborationMode: newTopic.collaboration_mode,
         maxCollaborators: newTopic.max_collaborators,
+        conceptsCovered: parsedConceptsCovered,
+        expectedExplanations: parsedExpectedExplanations,
+        criticalThinkingTopics: parsedCriticalThinkingTopics,
+        criticalThinkingDepth: newTopic.critical_thinking_depth || 'none',
         linkedStandardsCount: standardIds.length,
         createdAt: newTopic.created_at
       }
@@ -671,7 +702,8 @@ export async function getSessionTopics(req, res) {
         id, session_id, topic, subject, subject_id, subject_path, grade_level,
         key_vocabulary, assigned_student_ids, is_active, created_at,
         language_complexity, response_length, max_student_responses, enforce_topic_focus,
-        allow_collaboration, collaboration_mode, max_collaborators
+        allow_collaboration, collaboration_mode, max_collaborators,
+        concepts_covered, expected_explanations, critical_thinking_topics, critical_thinking_depth
       FROM reverse_tutoring_topics
       WHERE session_id = $1 AND is_active = true
       ORDER BY created_at ASC
@@ -708,6 +740,29 @@ export async function getSessionTopics(req, res) {
         assignedStudentIds = []
       }
 
+      // Safely parse lesson context fields
+      let conceptsCovered = []
+      let expectedExplanations = []
+      let criticalThinkingTopics = []
+
+      try {
+        conceptsCovered = typeof row.concepts_covered === 'string'
+          ? JSON.parse(row.concepts_covered)
+          : (Array.isArray(row.concepts_covered) ? row.concepts_covered : [])
+      } catch (e) { conceptsCovered = [] }
+
+      try {
+        expectedExplanations = typeof row.expected_explanations === 'string'
+          ? JSON.parse(row.expected_explanations)
+          : (Array.isArray(row.expected_explanations) ? row.expected_explanations : [])
+      } catch (e) { expectedExplanations = [] }
+
+      try {
+        criticalThinkingTopics = typeof row.critical_thinking_topics === 'string'
+          ? JSON.parse(row.critical_thinking_topics)
+          : (Array.isArray(row.critical_thinking_topics) ? row.critical_thinking_topics : [])
+      } catch (e) { criticalThinkingTopics = [] }
+
       return {
         id: row.id,
         sessionId: row.session_id,
@@ -726,7 +781,11 @@ export async function getSessionTopics(req, res) {
         enforceTopicFocus: row.enforce_topic_focus !== false,
         allowCollaboration: row.allow_collaboration || false,
         collaborationMode: row.collaboration_mode || 'pass_the_mic',
-        maxCollaborators: row.max_collaborators || 2
+        maxCollaborators: row.max_collaborators || 2,
+        conceptsCovered,
+        expectedExplanations,
+        criticalThinkingTopics,
+        criticalThinkingDepth: row.critical_thinking_depth || 'none'
       }
     })
 
@@ -778,7 +837,12 @@ export async function updateTopic(req, res) {
       // Collaboration settings
       allowCollaboration,
       collaborationMode,
-      maxCollaborators
+      maxCollaborators,
+      // Lesson context for ALEX
+      conceptsCovered,
+      expectedExplanations,
+      criticalThinkingTopics,
+      criticalThinkingDepth
     } = req.body
 
     // Verify teacher owns this topic's session
@@ -872,6 +936,27 @@ export async function updateTopic(req, res) {
       updates.push(`subject_path = $${paramCount++}`)
       values.push(subjectPath)
     }
+    // Lesson context for ALEX
+    if (conceptsCovered !== undefined) {
+      updates.push(`concepts_covered = $${paramCount++}`)
+      const conceptsArray = Array.isArray(conceptsCovered) ? conceptsCovered.filter(c => c && c.trim()) : []
+      values.push(JSON.stringify(conceptsArray))
+    }
+    if (expectedExplanations !== undefined) {
+      updates.push(`expected_explanations = $${paramCount++}`)
+      const explanationsArray = Array.isArray(expectedExplanations) ? expectedExplanations.filter(e => e && e.trim()) : []
+      values.push(JSON.stringify(explanationsArray))
+    }
+    if (criticalThinkingTopics !== undefined) {
+      updates.push(`critical_thinking_topics = $${paramCount++}`)
+      const ctTopicsArray = Array.isArray(criticalThinkingTopics) ? criticalThinkingTopics.filter(t => t && t.trim()) : []
+      values.push(JSON.stringify(ctTopicsArray))
+    }
+    if (criticalThinkingDepth !== undefined) {
+      updates.push(`critical_thinking_depth = $${paramCount++}`)
+      const ctDepth = ['none', 'light', 'moderate'].includes(criticalThinkingDepth) ? criticalThinkingDepth : 'none'
+      values.push(ctDepth)
+    }
 
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No updates provided' })
@@ -896,6 +981,16 @@ export async function updateTopic(req, res) {
     const parsedAssignedStudentIds = typeof updatedTopic.assigned_student_ids === 'string'
       ? JSON.parse(updatedTopic.assigned_student_ids)
       : updatedTopic.assigned_student_ids
+    // Parse new JSONB fields
+    const parsedConceptsCovered = typeof updatedTopic.concepts_covered === 'string'
+      ? JSON.parse(updatedTopic.concepts_covered)
+      : updatedTopic.concepts_covered || []
+    const parsedExpectedExplanations = typeof updatedTopic.expected_explanations === 'string'
+      ? JSON.parse(updatedTopic.expected_explanations)
+      : updatedTopic.expected_explanations || []
+    const parsedCriticalThinkingTopics = typeof updatedTopic.critical_thinking_topics === 'string'
+      ? JSON.parse(updatedTopic.critical_thinking_topics)
+      : updatedTopic.critical_thinking_topics || []
 
     res.json({
       message: 'Topic updated successfully',
@@ -916,7 +1011,11 @@ export async function updateTopic(req, res) {
         isActive: updatedTopic.is_active,
         allowCollaboration: updatedTopic.allow_collaboration,
         collaborationMode: updatedTopic.collaboration_mode,
-        maxCollaborators: updatedTopic.max_collaborators
+        maxCollaborators: updatedTopic.max_collaborators,
+        conceptsCovered: parsedConceptsCovered,
+        expectedExplanations: parsedExpectedExplanations,
+        criticalThinkingTopics: parsedCriticalThinkingTopics,
+        criticalThinkingDepth: updatedTopic.critical_thinking_depth || 'none'
       }
     })
 

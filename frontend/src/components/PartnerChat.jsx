@@ -184,7 +184,7 @@ export default function PartnerChat({
     return (
       <button
         onClick={() => setIsCollapsed(false)}
-        className="fixed right-4 bottom-4 w-14 h-14 bg-indigo-600 rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 transition-colors z-40"
+        className="fixed right-4 bottom-4 w-12 h-12 md:w-14 md:h-14 min-w-[48px] min-h-[48px] bg-indigo-600 rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 transition-colors z-40"
       >
         <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -199,7 +199,7 @@ export default function PartnerChat({
   }
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div className="w-full lg:w-80 xl:w-96 fixed lg:relative inset-x-0 bottom-0 lg:inset-auto lg:bottom-auto bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col h-[50vh] lg:h-full z-30 shadow-lg lg:shadow-none rounded-t-xl lg:rounded-none">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
         <div className="flex items-center justify-between">
@@ -293,7 +293,7 @@ export default function PartnerChat({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-gray-200 bg-white">
+      <div className="p-3 md:p-4 border-t border-gray-200 bg-white rounded-t-xl lg:rounded-none">
         <div className="flex gap-2">
           <input
             type="text"
@@ -301,12 +301,12 @@ export default function PartnerChat({
             onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder="Message your partner..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            className="flex-1 px-3 md:px-4 py-2.5 md:py-2 border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm min-h-[44px]"
           />
           <button
             onClick={sendMessage}
             disabled={!inputText.trim()}
-            className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 disabled:bg-gray-300 transition-colors"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] bg-indigo-600 text-white rounded-full flex items-center justify-center hover:bg-indigo-700 disabled:bg-gray-300 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

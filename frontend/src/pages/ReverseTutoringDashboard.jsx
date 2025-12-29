@@ -41,7 +41,12 @@ export default function ReverseTutoringDashboard() {
     allowCollaboration: false,
     collaborationMode: 'tag_team', // 'tag_team' only for now
     maxCollaborators: 2,
-    selectedStandardIds: []
+    selectedStandardIds: [],
+    // Lesson context for ALEX
+    conceptsCovered: [],
+    expectedExplanations: [],
+    criticalThinkingTopics: [],
+    criticalThinkingDepth: 'none' // 'none', 'light', 'moderate'
   })
   const [sessionStudents, setSessionStudents] = useState([])
 
@@ -239,13 +244,18 @@ export default function ReverseTutoringDashboard() {
         maxStudentResponses: topicForm.maxStudentResponses,
         enforceTopicFocus: topicForm.enforceTopicFocus,
         assignedStudentIds: topicForm.assignedStudentIds,
-        // New fields
+        // Subject hierarchy fields
         subjectId: selectedFocusSubject || selectedSubSubject || selectedMainSubject,
         subjectPath,
         allowCollaboration: topicForm.allowCollaboration,
         collaborationMode: topicForm.collaborationMode,
         maxCollaborators: topicForm.maxCollaborators,
-        standardIds: topicForm.selectedStandardIds
+        standardIds: topicForm.selectedStandardIds,
+        // Lesson context for ALEX
+        conceptsCovered: topicForm.conceptsCovered,
+        expectedExplanations: topicForm.expectedExplanations,
+        criticalThinkingTopics: topicForm.criticalThinkingTopics,
+        criticalThinkingDepth: topicForm.criticalThinkingDepth
       }
 
       if (editingTopic) {
@@ -284,7 +294,11 @@ export default function ReverseTutoringDashboard() {
         allowCollaboration: false,
         collaborationMode: 'tag_team',
         maxCollaborators: 2,
-        selectedStandardIds: []
+        selectedStandardIds: [],
+        conceptsCovered: [],
+        expectedExplanations: [],
+        criticalThinkingTopics: [],
+        criticalThinkingDepth: 'none'
       })
       // Reset subject selections
       setSelectedMainSubject(null)
@@ -341,7 +355,12 @@ export default function ReverseTutoringDashboard() {
       responseLength: topic.responseLength || 'medium',
       maxStudentResponses: topic.maxStudentResponses || 10,
       enforceTopicFocus: topic.enforceTopicFocus !== false, // Default true if not set
-      assignedStudentIds: topic.assignedStudentIds
+      assignedStudentIds: topic.assignedStudentIds,
+      // Lesson context fields
+      conceptsCovered: topic.conceptsCovered || [],
+      expectedExplanations: topic.expectedExplanations || [],
+      criticalThinkingTopics: topic.criticalThinkingTopics || [],
+      criticalThinkingDepth: topic.criticalThinkingDepth || 'none'
     })
     setShowTopicForm(true)
   }
@@ -826,6 +845,266 @@ export default function ReverseTutoringDashboard() {
                         <p className="text-xs text-gray-500 mt-1">
                           The AI will listen for these terms and acknowledge when students use them correctly
                         </p>
+                      </div>
+
+                      {/* Lesson Context Section */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                          </svg>
+                          Lesson Context (helps Alex understand what students learned)
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Concepts Covered */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              What students learned in class
+                            </label>
+                            <p className="text-xs text-gray-500 mb-2">
+                              Enter key concepts students should already understand
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {topicForm.conceptsCovered.map((concept, index) => (
+                                <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                                  {concept}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newConcepts = topicForm.conceptsCovered.filter((_, i) => i !== index)
+                                      setTopicForm({ ...topicForm, conceptsCovered: newConcepts })
+                                    }}
+                                    className="hover:text-blue-600 ml-1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="e.g., Plants use sunlight to make food"
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && e.target.value.trim()) {
+                                    e.preventDefault()
+                                    setTopicForm({
+                                      ...topicForm,
+                                      conceptsCovered: [...topicForm.conceptsCovered, e.target.value.trim()]
+                                    })
+                                    e.target.value = ''
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  const input = e.target.parentElement.querySelector('input')
+                                  if (input.value.trim()) {
+                                    setTopicForm({
+                                      ...topicForm,
+                                      conceptsCovered: [...topicForm.conceptsCovered, input.value.trim()]
+                                    })
+                                    input.value = ''
+                                  }
+                                }}
+                                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expected Explanations */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              What Alex should expect to hear
+                            </label>
+                            <p className="text-xs text-gray-500 mb-2">
+                              Explanations that demonstrate understanding
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {topicForm.expectedExplanations.map((explanation, index) => (
+                                <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                                  {explanation}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newExplanations = topicForm.expectedExplanations.filter((_, i) => i !== index)
+                                      setTopicForm({ ...topicForm, expectedExplanations: newExplanations })
+                                    }}
+                                    className="hover:text-green-600 ml-1"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="e.g., Photosynthesis converts light energy to chemical energy"
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter' && e.target.value.trim()) {
+                                    e.preventDefault()
+                                    setTopicForm({
+                                      ...topicForm,
+                                      expectedExplanations: [...topicForm.expectedExplanations, e.target.value.trim()]
+                                    })
+                                    e.target.value = ''
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  const input = e.target.parentElement.querySelector('input')
+                                  if (input.value.trim()) {
+                                    setTopicForm({
+                                      ...topicForm,
+                                      expectedExplanations: [...topicForm.expectedExplanations, input.value.trim()]
+                                    })
+                                    input.value = ''
+                                  }
+                                }}
+                                className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Critical Thinking Section */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                          </svg>
+                          Critical Thinking (optional extension questions)
+                        </h3>
+
+                        <div className="space-y-4">
+                          {/* Critical Thinking Depth Slider */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Critical Thinking Depth
+                            </label>
+                            <div className="flex items-center gap-4">
+                              <input
+                                type="range"
+                                min="0"
+                                max="2"
+                                value={['none', 'light', 'moderate'].indexOf(topicForm.criticalThinkingDepth)}
+                                onChange={(e) => {
+                                  const values = ['none', 'light', 'moderate']
+                                  setTopicForm({ ...topicForm, criticalThinkingDepth: values[e.target.value] })
+                                }}
+                                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                              />
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium min-w-[100px] text-center ${
+                                topicForm.criticalThinkingDepth === 'none'
+                                  ? 'bg-gray-100 text-gray-700'
+                                  : topicForm.criticalThinkingDepth === 'light'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-amber-200 text-amber-800'
+                              }`}>
+                                {topicForm.criticalThinkingDepth === 'none' && 'None'}
+                                {topicForm.criticalThinkingDepth === 'light' && 'Light'}
+                                {topicForm.criticalThinkingDepth === 'moderate' && 'Moderate'}
+                              </span>
+                            </div>
+
+                            {/* Depth Description */}
+                            <div className={`mt-3 p-3 rounded-lg text-sm ${
+                              topicForm.criticalThinkingDepth === 'none'
+                                ? 'bg-gray-50 text-gray-600'
+                                : 'bg-amber-50 text-amber-800'
+                            }`}>
+                              {topicForm.criticalThinkingDepth === 'none' && (
+                                <p>Alex will only confirm basic understanding without probing deeper.</p>
+                              )}
+                              {topicForm.criticalThinkingDepth === 'light' && (
+                                <p>Alex may ask <strong>1 gentle extension question</strong> when the student shows confidence. Questions stay connected to what they explained.</p>
+                              )}
+                              {topicForm.criticalThinkingDepth === 'moderate' && (
+                                <p>Alex will ask <strong>2-3 deeper questions</strong> throughout the conversation using Socratic questioning. Scaffolds provided if student struggles.</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Extension Topics (only show if depth > none) */}
+                          {topicForm.criticalThinkingDepth !== 'none' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Extension Topics for Alex to Explore
+                              </label>
+                              <p className="text-xs text-gray-500 mb-2">
+                                Optional deeper questions Alex can ask confident students
+                              </p>
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {topicForm.criticalThinkingTopics.map((topic, index) => (
+                                  <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
+                                    {topic}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newTopics = topicForm.criticalThinkingTopics.filter((_, i) => i !== index)
+                                        setTopicForm({ ...topicForm, criticalThinkingTopics: newTopics })
+                                      }}
+                                      className="hover:text-amber-600 ml-1"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="e.g., Why do plants at different ocean depths have different pigments?"
+                                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && e.target.value.trim()) {
+                                      e.preventDefault()
+                                      setTopicForm({
+                                        ...topicForm,
+                                        criticalThinkingTopics: [...topicForm.criticalThinkingTopics, e.target.value.trim()]
+                                      })
+                                      e.target.value = ''
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    const input = e.target.parentElement.querySelector('input')
+                                    if (input.value.trim()) {
+                                      setTopicForm({
+                                        ...topicForm,
+                                        criticalThinkingTopics: [...topicForm.criticalThinkingTopics, input.value.trim()]
+                                      })
+                                      input.value = ''
+                                    }
+                                  }}
+                                  className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-300"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* AI Response Settings */}

@@ -119,6 +119,94 @@ function validateAIResponse(response, expectedLength, expectedComplexity) {
 }
 
 /**
+ * Generate critical thinking prompt based on teacher's depth setting
+ * @param {string} depth - 'none', 'light', or 'moderate'
+ * @param {array} topics - Critical thinking extension topics
+ * @param {string} topic - The main lesson topic
+ * @returns {string} Prompt section for critical thinking behavior
+ */
+function getCriticalThinkingPrompt(depth, topics, topic) {
+  if (depth === 'none' || !topics || topics.length === 0) {
+    return `
+CRITICAL THINKING APPROACH - NONE:
+Focus only on confirming basic understanding of ${topic}. Do NOT probe beyond what the student is explaining.
+Stick to clarifying questions about what they've said. Do not ask "what if" or extension questions.
+Your goal is simply to understand what they're teaching you, not to push them further.
+`
+  }
+
+  if (depth === 'light') {
+    const topicHints = topics.slice(0, 2).join(', ')
+    return `
+CRITICAL THINKING APPROACH - LIGHT:
+After the student demonstrates SOLID understanding of the basics, you may ask ONE gentle extension question during the ENTIRE conversation:
+- Only ask if they seem confident and have explained the core concept well
+- Keep the question directly connected to what they just explained
+- Use simple extensions like: "What do you think would happen if...?" or "Can you think of another example of...?"
+- Possible extension areas (choose only one that connects to what they said): ${topicHints}
+- If they struggle with your extension question, immediately back off: "That's okay, what you explained already really helped me understand!"
+- MAXIMUM 1 extension question per conversation - this is a HARD LIMIT
+- Count your extension questions - once you've asked one, do not ask any more
+`
+  }
+
+  if (depth === 'moderate') {
+    const topicHints = topics.join(', ')
+    return `
+CRITICAL THINKING APPROACH - MODERATE:
+After the student demonstrates understanding, you may ask 2-3 deeper questions spread throughout the conversation:
+- Only probe when they show clear mastery of a concept (not when they're struggling)
+- Keep questions directly connected to what they just explained
+- Use Socratic questioning: "Why do you think that works?" or "How might this connect to...?"
+- Extension topics to explore: ${topicHints}
+- If they struggle with an extension, provide a scaffold: "What if I told you that..." or "Here's a hint..."
+- Always validate their thinking even if incomplete: "That's an interesting way to think about it!"
+- Space your extension questions - don't ask them back-to-back
+- MAXIMUM 3 extension questions per conversation
+- Track your count and stop asking extensions after 3
+`
+  }
+
+  return '' // Default fallback
+}
+
+/**
+ * Generate lesson context prompt based on teacher-provided materials
+ * @param {array} conceptsCovered - Concepts students learned in class
+ * @param {array} expectedExplanations - What ALEX should expect to hear
+ * @param {string} topic - The lesson topic
+ * @returns {string} Prompt section for lesson context
+ */
+function getLessonContextPrompt(conceptsCovered, expectedExplanations, topic) {
+  let prompt = ''
+
+  if (conceptsCovered && conceptsCovered.length > 0) {
+    prompt += `
+LESSON CONTEXT - What Students Learned in Class:
+The student recently covered these concepts about ${topic}:
+${conceptsCovered.map((c, i) => `${i + 1}. ${c}`).join('\n')}
+
+Use this context to understand their background knowledge. They should be able to explain these concepts in their own words.
+Do NOT expect them to use exactly these words, but listen for the core ideas.
+`
+  }
+
+  if (expectedExplanations && expectedExplanations.length > 0) {
+    prompt += `
+WHAT YOU SHOULD EXPECT TO HEAR:
+A student who truly understands ${topic} should be able to explain ideas like:
+${expectedExplanations.map((e, i) => `- ${e}`).join('\n')}
+
+Listen for these explanations or similar ideas expressed in their own words.
+If they miss key points, ask clarifying questions to see if they understand but just forgot to mention it.
+Don't correct them or give away answers - just ask questions that reveal their understanding.
+`
+  }
+
+  return prompt
+}
+
+/**
  * Transcribe audio to text using OpenAI Whisper
  * Whisper is much better than browser API for:
  * - Accents (90-95% accuracy vs 70-75%)
@@ -180,7 +268,12 @@ export async function startReverseTutoringConversation(sessionId, studentId, les
     languageComplexity = 'standard',
     responseLength = 'medium',
     maxStudentResponses = 10,
-    enforceTopicFocus = true
+    enforceTopicFocus = true,
+    // Lesson context for ALEX
+    conceptsCovered = [],
+    expectedExplanations = [],
+    criticalThinkingTopics = [],
+    criticalThinkingDepth = 'none'
   } = lessonInfo
 
   try {
@@ -228,11 +321,14 @@ STRICT TOPIC BOUNDARIES:
 Your educational role:
 - You're genuinely confused and need the student to TEACH you about ${topic}
 - Ask simple, honest questions that reveal whether the student understands
-- If they explain something well, ask ONE follow-up question that goes slightly deeper
 - If they struggle, ask an easier question or rephrase
 - Be encouraging and patient
 - Use natural, friendly language (not overly formal)
 - Occasionally make common student mistakes to see if they catch it
+
+${getLessonContextPrompt(conceptsCovered, expectedExplanations, topic)}
+
+${getCriticalThinkingPrompt(criticalThinkingDepth, criticalThinkingTopics, topic)}
 
 Key vocabulary to listen for: ${keyVocabulary.join(', ')}
 
@@ -348,11 +444,15 @@ export async function continueConversation(conversationId, studentMessage, metad
   } = metadata
 
   try {
-    // Get conversation history and topic settings
+    // Get conversation history and topic settings (including lesson context)
     const conversationResult = await db.query(
       `SELECT rtc.*,
               COALESCE(rtt.language_complexity, 'standard') as language_complexity,
-              COALESCE(rtt.response_length, 'medium') as response_length
+              COALESCE(rtt.response_length, 'medium') as response_length,
+              COALESCE(rtt.concepts_covered, '[]'::jsonb) as concepts_covered,
+              COALESCE(rtt.expected_explanations, '[]'::jsonb) as expected_explanations,
+              COALESCE(rtt.critical_thinking_topics, '[]'::jsonb) as critical_thinking_topics,
+              COALESCE(rtt.critical_thinking_depth, 'none') as critical_thinking_depth
        FROM reverse_tutoring_conversations rtc
        LEFT JOIN reverse_tutoring_topics rtt
          ON rtc.session_id = rtt.session_id
@@ -422,6 +522,18 @@ export async function continueConversation(conversationId, studentMessage, metad
     const enforceTopicFocus = conversation.enforce_topic_focus !== false
     const offTopicWarnings = conversation.off_topic_warnings || 0
 
+    // Parse lesson context fields
+    const conceptsCovered = typeof conversation.concepts_covered === 'string'
+      ? JSON.parse(conversation.concepts_covered)
+      : (conversation.concepts_covered || [])
+    const expectedExplanations = typeof conversation.expected_explanations === 'string'
+      ? JSON.parse(conversation.expected_explanations)
+      : (conversation.expected_explanations || [])
+    const criticalThinkingTopics = typeof conversation.critical_thinking_topics === 'string'
+      ? JSON.parse(conversation.critical_thinking_topics)
+      : (conversation.critical_thinking_topics || [])
+    const criticalThinkingDepth = conversation.critical_thinking_depth || 'none'
+
     // Calculate current and remaining student responses
     const currentStudentResponses = studentResponseCount + 1 // +1 for the current message
     const remainingResponses = maxResponses - currentStudentResponses
@@ -477,11 +589,14 @@ ${enforceTopicFocus ? `OFF-TOPIC DETECTION (TEACHER ENABLED):
 Your educational role:
 - You're genuinely confused and need the student to TEACH you about ${conversation.topic}
 - Ask simple, honest questions that reveal whether the student understands
-- If they explain something well, ask ONE follow-up question that goes slightly deeper
 - If they struggle, ask an easier question or rephrase
 - Be encouraging and patient
 - Use natural, friendly language (not overly formal)
 - Occasionally make common student mistakes to see if they catch it
+
+${getLessonContextPrompt(conceptsCovered, expectedExplanations, conversation.topic)}
+
+${getCriticalThinkingPrompt(criticalThinkingDepth, criticalThinkingTopics, conversation.topic)}
 
 Key vocabulary to listen for: ${keyVocabulary.join(', ')}
 

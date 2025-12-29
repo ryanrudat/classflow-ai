@@ -867,24 +867,24 @@ export default function ReverseTutoring() {
 
   // Conversation View (with optional PartnerChat sidebar for collaborative mode)
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex flex-col lg:flex-row">
       {/* Main Conversation Area */}
-      <div className={`flex-1 p-4 ${isCollaborative ? 'pr-2' : ''}`}>
+      <div className={`flex-1 p-3 md:p-4 ${isCollaborative ? 'lg:pr-2' : ''}`}>
       {/* Header */}
-      <div className="max-w-6xl mx-auto mb-6">
-        <div className="bg-white rounded-2xl shadow-lg p-4 md:p-6">
-          <div className="flex items-start justify-between gap-4">
+      <div className="max-w-6xl mx-auto mb-4 md:mb-6">
+        <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 lg:p-6">
+          <div className="flex items-start justify-between gap-3 md:gap-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 break-words">
+              <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900 break-words line-clamp-2">
                 Teach Alex about {selectedTopic?.topic}
               </h1>
-              <p className="text-sm md:text-base text-gray-600 mt-1">
-                Alex is a {selectedTopic?.gradeLevel} student who needs your help understanding this concept
+              <p className="text-xs md:text-sm lg:text-base text-gray-600 mt-1 hidden sm:block">
+                Alex is a {selectedTopic?.gradeLevel} student who needs your help
               </p>
             </div>
             <button
               onClick={() => setView('topics')}
-              className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2"
+              className="flex-shrink-0 text-gray-500 hover:text-gray-700 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
               aria-label="Close and return to topics"
             >
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -906,7 +906,7 @@ export default function ReverseTutoring() {
           {isTranscribing && 'Transcribing your speech...'}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-lg flex flex-col" style={{ height: '75vh', minHeight: '600px', maxHeight: 'calc(100vh - 200px)' }}>
+        <div className="bg-white rounded-xl md:rounded-2xl shadow-lg flex flex-col h-[calc(100vh-280px)] min-h-[400px] md:min-h-[450px] lg:min-h-[500px] max-h-[calc(100vh-180px)]">
           {/* Off-Topic Warning Banner */}
           {(() => {
             console.log('🎨 Rendering warning banner check. offTopicWarning:', offTopicWarning)
