@@ -871,7 +871,7 @@ export default function ReverseTutoringDashboard() {
                               Enter key concepts students should already understand
                             </p>
                             <div className="flex flex-wrap gap-2 mb-2">
-                              {topicForm.conceptsCovered.map((concept, index) => (
+                              {(topicForm.conceptsCovered || []).map((concept, index) => (
                                 <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
                                   {concept}
                                   <button
@@ -933,7 +933,7 @@ export default function ReverseTutoringDashboard() {
                               Explanations that demonstrate understanding
                             </p>
                             <div className="flex flex-wrap gap-2 mb-2">
-                              {topicForm.expectedExplanations.map((explanation, index) => (
+                              {(topicForm.expectedExplanations || []).map((explanation, index) => (
                                 <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                                   {explanation}
                                   <button
@@ -1056,7 +1056,7 @@ export default function ReverseTutoringDashboard() {
                                 Optional deeper questions Alex can ask confident students
                               </p>
                               <div className="flex flex-wrap gap-2 mb-2">
-                                {topicForm.criticalThinkingTopics.map((topic, index) => (
+                                {(topicForm.criticalThinkingTopics || []).map((topic, index) => (
                                   <span key={index} className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
                                     {topic}
                                     <button
