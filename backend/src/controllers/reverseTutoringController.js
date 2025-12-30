@@ -732,14 +732,20 @@ export async function getSessionTopics(req, res) {
 
     let query = `
       SELECT
-        id, session_id, topic, subject, subject_id, subject_path, grade_level,
-        key_vocabulary, assigned_student_ids, is_active, created_at,
-        language_complexity, response_length, max_student_responses, enforce_topic_focus,
-        allow_collaboration, collaboration_mode, max_collaborators,
-        concepts_covered, expected_explanations, critical_thinking_topics, critical_thinking_depth
-      FROM reverse_tutoring_topics
-      WHERE session_id = $1 AND is_active = true
-      ORDER BY created_at ASC
+        rtt.id, rtt.session_id, rtt.topic, rtt.subject, rtt.subject_id, rtt.subject_path, rtt.grade_level,
+        rtt.key_vocabulary, rtt.assigned_student_ids, rtt.is_active, rtt.created_at,
+        rtt.language_complexity, rtt.response_length, rtt.max_student_responses, rtt.enforce_topic_focus,
+        rtt.allow_collaboration, rtt.collaboration_mode, rtt.max_collaborators,
+        rtt.concepts_covered, rtt.expected_explanations, rtt.critical_thinking_topics, rtt.critical_thinking_depth,
+        COALESCE(doc_counts.document_count, 0) as document_count
+      FROM reverse_tutoring_topics rtt
+      LEFT JOIN (
+        SELECT topic_id, COUNT(*) as document_count
+        FROM reverse_tutoring_topic_documents
+        GROUP BY topic_id
+      ) doc_counts ON doc_counts.topic_id = rtt.id
+      WHERE rtt.session_id = $1 AND rtt.is_active = true
+      ORDER BY rtt.created_at ASC
     `
 
     const result = await db.query(query, [sessionId])
@@ -818,7 +824,8 @@ export async function getSessionTopics(req, res) {
         conceptsCovered,
         expectedExplanations,
         criticalThinkingTopics,
-        criticalThinkingDepth: row.critical_thinking_depth || 'none'
+        criticalThinkingDepth: row.critical_thinking_depth || 'none',
+        documentCount: parseInt(row.document_count) || 0
       }
     })
 

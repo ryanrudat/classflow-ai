@@ -62,6 +62,8 @@ export default function ReverseTutoringDashboard() {
 
   // Document upload state
   const [documentRefresh, setDocumentRefresh] = useState(0)
+  const [pendingDocuments, setPendingDocuments] = useState([]) // Files staged during topic creation
+  const [uploadingDocuments, setUploadingDocuments] = useState(false)
 
   // Conversation monitoring state
   const [conversations, setConversations] = useState([])
@@ -273,17 +275,41 @@ export default function ReverseTutoringDashboard() {
         toast.success('Success', 'Topic updated successfully')
       } else {
         // Create new topic
-        await axios.post(
+        const response = await axios.post(
           `${API_URL}/api/reverse-tutoring/topics`,
           payload,
           { headers: { Authorization: `Bearer ${token}` } }
         )
-        toast.success('Success', 'Topic created successfully')
+        const newTopicId = response.data.topic.id
+
+        // Upload pending documents if any
+        if (pendingDocuments.length > 0) {
+          setUploadingDocuments(true)
+          try {
+            const formData = new FormData()
+            pendingDocuments.forEach(file => formData.append('documents', file))
+
+            await axios.post(
+              `${API_URL}/api/reverse-tutoring/topics/${newTopicId}/documents`,
+              formData,
+              { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
+            )
+            toast.success('Success', `Topic created with ${pendingDocuments.length} document(s) uploaded`)
+          } catch (uploadError) {
+            console.error('Document upload error:', uploadError)
+            toast.warning('Partial Success', 'Topic created but some documents failed to upload. You can add them by editing the topic.')
+          } finally {
+            setUploadingDocuments(false)
+          }
+        } else {
+          toast.success('Success', 'Topic created successfully')
+        }
       }
 
       // Reset form and reload
       setShowTopicForm(false)
       setEditingTopic(null)
+      setPendingDocuments([])
       setTopicForm({
         topic: '',
         subject: 'Science',
@@ -1112,32 +1138,142 @@ export default function ReverseTutoringDashboard() {
                         </div>
                       </div>
 
-                      {/* Reference Documents Section - Only show when editing existing topic */}
-                      {editingTopic && (
-                        <div className="border-t pt-4">
-                          <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Reference Documents
-                          </h3>
-                          <p className="text-sm text-gray-500 mb-4">
-                            Upload lesson materials, slides, or readings. Alex will use these to better understand and verify student explanations.
-                          </p>
+                      {/* Reference Documents Section - Available for both creating and editing */}
+                      <div className="border-t pt-4">
+                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Reference Documents
+                          {!editingTopic && pendingDocuments.length > 0 && (
+                            <span className="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 text-xs rounded-full">
+                              {pendingDocuments.length} staged
+                            </span>
+                          )}
+                        </h3>
 
-                          <TopicDocumentList
-                            topicId={editingTopic.id}
-                            refreshTrigger={documentRefresh}
-                          />
-
-                          <div className="mt-3">
-                            <TopicDocumentUpload
-                              topicId={editingTopic.id}
-                              onDocumentsChange={() => setDocumentRefresh(prev => prev + 1)}
-                            />
+                        {/* Prominent callout about document feature */}
+                        <div className="mb-4 p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-indigo-100 rounded-lg">
+                              <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-indigo-900">Enhance Alex with your lesson materials</p>
+                              <p className="text-xs text-indigo-700 mt-1">
+                                Upload slides, readings, or worksheets so Alex can verify student explanations against your actual lesson content.
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      )}
+
+                        {editingTopic ? (
+                          <>
+                            {/* Show existing documents when editing */}
+                            <TopicDocumentList
+                              topicId={editingTopic.id}
+                              refreshTrigger={documentRefresh}
+                            />
+                            <div className="mt-3">
+                              <TopicDocumentUpload
+                                topicId={editingTopic.id}
+                                onDocumentsChange={() => setDocumentRefresh(prev => prev + 1)}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Staged documents for new topic */}
+                            <div
+                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+                                'border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'
+                              }`}
+                              onClick={() => document.getElementById('staged-doc-input').click()}
+                              onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                const files = Array.from(e.dataTransfer.files).filter(file => {
+                                  const ext = file.name.toLowerCase().split('.').pop()
+                                  return ['pdf', 'docx', 'doc', 'pptx', 'txt', 'md'].includes(ext) && file.size <= 25 * 1024 * 1024
+                                })
+                                if (files.length > 0) setPendingDocuments(prev => [...prev, ...files])
+                              }}
+                            >
+                              <svg className="w-10 h-10 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                              </svg>
+                              <p className="text-gray-600 mb-2">Drag documents here or click to browse</p>
+                              <p className="text-xs text-gray-500">
+                                PDF, Word, PowerPoint, or Text files (max 25MB each)
+                              </p>
+                              <input
+                                id="staged-doc-input"
+                                type="file"
+                                multiple
+                                className="hidden"
+                                accept=".pdf,.docx,.doc,.txt,.md,.pptx"
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files).filter(file => {
+                                    const ext = file.name.toLowerCase().split('.').pop()
+                                    return ['pdf', 'docx', 'doc', 'pptx', 'txt', 'md'].includes(ext) && file.size <= 25 * 1024 * 1024
+                                  })
+                                  if (files.length > 0) setPendingDocuments(prev => [...prev, ...files])
+                                  e.target.value = '' // Reset input
+                                }}
+                              />
+                            </div>
+
+                            {/* List of staged files */}
+                            {pendingDocuments.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                <p className="text-xs text-gray-500 flex items-center gap-1">
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Files will be uploaded when you create the topic
+                                </p>
+                                {pendingDocuments.map((file, i) => {
+                                  const ext = file.name.toLowerCase().split('.').pop()
+                                  const icons = {
+                                    pdf: { bg: 'bg-red-100', color: 'text-red-600', label: 'PDF' },
+                                    docx: { bg: 'bg-blue-100', color: 'text-blue-600', label: 'DOC' },
+                                    doc: { bg: 'bg-blue-100', color: 'text-blue-600', label: 'DOC' },
+                                    pptx: { bg: 'bg-orange-100', color: 'text-orange-600', label: 'PPT' },
+                                    txt: { bg: 'bg-gray-100', color: 'text-gray-600', label: 'TXT' },
+                                    md: { bg: 'bg-purple-100', color: 'text-purple-600', label: 'MD' }
+                                  }
+                                  const icon = icons[ext] || icons.txt
+                                  return (
+                                    <div key={i} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                                      <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 ${icon.bg} ${icon.color} rounded flex items-center justify-center text-xs font-bold`}>
+                                          {icon.label}
+                                        </div>
+                                        <div>
+                                          <p className="font-medium text-gray-900 text-sm truncate max-w-[200px]">{file.name}</p>
+                                          <p className="text-xs text-gray-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPendingDocuments(prev => prev.filter((_, idx) => idx !== i))}
+                                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                      >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
 
                       {/* AI Response Settings */}
                       <div className="border-t pt-4">
@@ -1407,15 +1543,30 @@ export default function ReverseTutoringDashboard() {
                     <div className="flex gap-3 mt-6">
                       <button
                         onClick={saveTopic}
-                        disabled={!topicForm.topic.trim()}
-                        className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                        disabled={!topicForm.topic.trim() || uploadingDocuments}
+                        className="flex-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2"
                       >
-                        {editingTopic ? 'Update Topic' : 'Create Topic'}
+                        {uploadingDocuments ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Uploading documents...
+                          </>
+                        ) : editingTopic ? (
+                          'Update Topic'
+                        ) : pendingDocuments.length > 0 ? (
+                          `Create Topic & Upload ${pendingDocuments.length} Doc${pendingDocuments.length > 1 ? 's' : ''}`
+                        ) : (
+                          'Create Topic'
+                        )}
                       </button>
                       <button
                         onClick={() => {
                           setShowTopicForm(false)
                           setEditingTopic(null)
+                          setPendingDocuments([])
                         }}
                         className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium"
                       >
@@ -1507,6 +1658,14 @@ export default function ReverseTutoringDashboard() {
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                                 All students
+                              </span>
+                            )}
+                            {topic.documentCount > 0 && (
+                              <span className="flex items-center gap-1 text-indigo-600">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                {topic.documentCount} doc{topic.documentCount > 1 ? 's' : ''}
                               </span>
                             )}
                           </div>
