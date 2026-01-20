@@ -57,8 +57,13 @@ export function useAudioManager() {
     }
 
     Object.entries(effects).forEach(([name, path]) => {
-      const audio = new Audio(path)
+      const audio = new Audio()
       audio.preload = 'auto'
+      // Handle missing audio files gracefully
+      audio.onerror = () => {
+        soundEffects.current[name] = null // Mark as unavailable
+      }
+      audio.src = path
       soundEffects.current[name] = audio
     })
 
@@ -152,11 +157,11 @@ export function useAudioManager() {
     if (!audioEnabled) return
 
     const effect = soundEffects.current[effectName]
-    if (effect) {
+    if (effect && effect.readyState >= 2) { // HAVE_CURRENT_DATA or better
       effect.currentTime = 0
       effect.volume = volumeLevel / 100
-      effect.play().catch(err => {
-        console.error('Effect playback error:', err)
+      effect.play().catch(() => {
+        // Silently ignore - audio file may not exist
       })
     }
   }, [audioEnabled, volumeLevel])

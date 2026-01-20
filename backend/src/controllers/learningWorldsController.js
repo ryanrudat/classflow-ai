@@ -1,5 +1,6 @@
 import db from '../database/db.js'
 import { getIO } from '../services/ioInstance.js'
+import { generateJoinCode } from '../utils/generateCode.js'
 
 // ============================================================================
 // LEARNING WORLDS CRUD
@@ -856,19 +857,40 @@ export async function startWorldSession(req, res) {
       return res.status(404).json({ message: 'Learning world not found' })
     }
 
+    // Generate unique join code
+    let joinCode
+    let attempts = 0
+    const maxAttempts = 10
+
+    while (attempts < maxAttempts) {
+      joinCode = generateJoinCode()
+      const existing = await db.query(
+        'SELECT id FROM sessions WHERE join_code = $1 AND status = $2',
+        [joinCode, 'active']
+      )
+      if (existing.rows.length === 0) break
+      attempts++
+    }
+
+    if (attempts >= maxAttempts) {
+      return res.status(500).json({ message: 'Failed to generate unique join code' })
+    }
+
     // Create a session in the main sessions table for join codes
     const sessionResult = await db.query(
-      `INSERT INTO sessions (teacher_id, name, subject, grade_level)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO sessions (teacher_id, title, subject, join_code, status)
+       VALUES ($1, $2, $3, $4, 'active')
        RETURNING *`,
-      [userId, `Learning World: ${worldCheck.rows[0].name}`, 'Learning Worlds', 'K-5']
+      [userId, `Learning World: ${worldCheck.rows[0].name}`, 'English', joinCode]
     )
 
     const session = sessionResult.rows[0]
 
-    // Create a session instance to get a join code
+    // Create a session instance
     const instanceResult = await db.query(
-      `INSERT INTO session_instances (session_id, status) VALUES ($1, 'active') RETURNING *`,
+      `INSERT INTO session_instances (session_id, instance_number, label, is_current)
+       VALUES ($1, 1, 'Learning World Session', true)
+       RETURNING *`,
       [session.id]
     )
 
@@ -891,7 +913,7 @@ export async function startWorldSession(req, res) {
       worldSession: worldSessionResult.rows[0],
       session,
       sessionInstance: instanceResult.rows[0],
-      joinCode: instanceResult.rows[0].join_code
+      joinCode: session.join_code
     })
   } catch (error) {
     console.error('Start world session error:', error)
