@@ -11,6 +11,8 @@ import StudentView from './pages/StudentView'
 import ReverseTutoring from './pages/ReverseTutoring'
 import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
 import LibraryBrowser from './pages/LibraryBrowser'
+import LearningWorldsHub from './pages/LearningWorldsHub'
+import LearningWorldPlayer from './pages/LearningWorldPlayer'
 
 function App() {
   const { user } = useAuthStore()
@@ -48,6 +50,20 @@ function App() {
             <Route
               path="/reverse-tutoring/dashboard/:sessionId"
               element={user ? <ReverseTutoringDashboard /> : <Navigate to="/login" />}
+            />
+
+            {/* Learning Worlds routes */}
+            <Route
+              path="/worlds"
+              element={user ? <LearningWorldsHub /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/worlds/:worldId/edit"
+              element={user ? <LearningWorldsHub /> : <Navigate to="/login" />}
+            />
+            <Route
+              path="/worlds/:worldId/play"
+              element={user ? <LearningWorldPlayer /> : <Navigate to="/login" />}
             />
 
             {/* Default route */}

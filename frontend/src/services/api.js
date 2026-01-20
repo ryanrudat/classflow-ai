@@ -386,6 +386,143 @@ export const standardsAPI = {
   }
 }
 
+// Learning Worlds API
+export const learningWorldsAPI = {
+  // Worlds CRUD
+  createWorld: async (data) => {
+    const response = await api.post('/learning-worlds', data)
+    return response.data
+  },
+
+  getWorlds: async () => {
+    const response = await api.get('/learning-worlds')
+    return response.data
+  },
+
+  getWorld: async (worldId) => {
+    const response = await api.get(`/learning-worlds/${worldId}`)
+    return response.data
+  },
+
+  updateWorld: async (worldId, data) => {
+    const response = await api.put(`/learning-worlds/${worldId}`, data)
+    return response.data
+  },
+
+  deleteWorld: async (worldId) => {
+    const response = await api.delete(`/learning-worlds/${worldId}`)
+    return response.data
+  },
+
+  // Characters
+  createCharacter: async (worldId, data) => {
+    const response = await api.post(`/learning-worlds/${worldId}/characters`, data)
+    return response.data
+  },
+
+  updateCharacter: async (characterId, data) => {
+    const response = await api.put(`/characters/${characterId}`, data)
+    return response.data
+  },
+
+  // Lands CRUD
+  createLand: async (worldId, data) => {
+    const response = await api.post(`/learning-worlds/${worldId}/lands`, data)
+    return response.data
+  },
+
+  getLand: async (landId) => {
+    const response = await api.get(`/lands/${landId}`)
+    return response.data
+  },
+
+  updateLand: async (landId, data) => {
+    const response = await api.put(`/lands/${landId}`, data)
+    return response.data
+  },
+
+  deleteLand: async (landId) => {
+    const response = await api.delete(`/lands/${landId}`)
+    return response.data
+  },
+
+  // Activities
+  createActivity: async (landId, data) => {
+    const response = await api.post(`/lands/${landId}/activities`, data)
+    return response.data
+  },
+
+  updateActivity: async (activityId, data) => {
+    const response = await api.put(`/activities/${activityId}/world`, data)
+    return response.data
+  },
+
+  deleteActivity: async (activityId) => {
+    const response = await api.delete(`/activities/${activityId}/world`)
+    return response.data
+  },
+
+  // Vocabulary
+  addVocabulary: async (worldId, data) => {
+    const response = await api.post(`/learning-worlds/${worldId}/vocabulary`, data)
+    return response.data
+  },
+
+  getWorldVocabulary: async (worldId, filters = {}) => {
+    const params = new URLSearchParams(filters).toString()
+    const response = await api.get(`/learning-worlds/${worldId}/vocabulary${params ? `?${params}` : ''}`)
+    return response.data
+  },
+
+  bulkAddVocabulary: async (worldId, vocabulary, landId = null) => {
+    const response = await api.post(`/learning-worlds/${worldId}/vocabulary/bulk`, { vocabulary, landId })
+    return response.data
+  },
+
+  // Sessions
+  startSession: async (worldId, options = {}) => {
+    const response = await api.post(`/learning-worlds/${worldId}/start-session`, options)
+    return response.data
+  },
+
+  getSessionState: async (sessionId) => {
+    const response = await api.get(`/world-sessions/${sessionId}/state`)
+    return response.data
+  },
+
+  navigate: async (sessionId, navigation) => {
+    const response = await api.post(`/world-sessions/${sessionId}/navigate`, navigation)
+    return response.data
+  },
+
+  setControlMode: async (sessionId, controlMode) => {
+    const response = await api.post(`/world-sessions/${sessionId}/set-control`, { controlMode })
+    return response.data
+  },
+
+  endSession: async (sessionId) => {
+    const response = await api.post(`/world-sessions/${sessionId}/end`)
+    return response.data
+  },
+
+  // Progress
+  recordActivityResponse: async (activityId, data) => {
+    const response = await api.post(`/world-activities/${activityId}/respond`, data)
+    return response.data
+  },
+
+  // Templates
+  getTemplates: async (category = null) => {
+    const response = await api.get(`/land-templates${category ? `?category=${category}` : ''}`)
+    return response.data
+  },
+
+  importTemplate: async (worldId, templateId) => {
+    const response = await api.post(`/learning-worlds/${worldId}/import-template`, { templateId })
+    return response.data
+  }
+}
+
 // Collaboration API
 export const collaborationAPI = {
   // Join waiting room for Tag-Team matching

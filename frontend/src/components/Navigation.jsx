@@ -73,6 +73,13 @@ export default function Navigation() {
               >
                 Library
               </Link>
+              <Link
+                to="/worlds"
+                className={navLinkClass('/worlds')}
+                aria-current={isActive('/worlds') ? 'page' : undefined}
+              >
+                Learning Worlds
+              </Link>
             </div>
           </div>
 

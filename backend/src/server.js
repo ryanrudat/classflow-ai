@@ -43,6 +43,7 @@ import interactiveVideoRoutes from './routes/interactiveVideo.js'
 import matchingRoutes from './routes/matching.js'
 import pollRoutes from './routes/poll.js'
 import lessonFlowRoutes from './routes/lessonFlow.js'
+import learningWorldsRoutes from './routes/learningWorlds.js'
 
 // Import socket handler
 import { setupSocketIO } from './services/socketService.js'
@@ -171,6 +172,7 @@ app.use('/api', interactiveVideoRoutes)
 app.use('/api', matchingRoutes)
 app.use('/api', pollRoutes)
 app.use('/api', lessonFlowRoutes)
+app.use('/api', learningWorldsRoutes)
 
 // Setup WebSocket
 setIO(io)
