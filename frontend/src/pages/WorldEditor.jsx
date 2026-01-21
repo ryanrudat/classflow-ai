@@ -324,6 +324,7 @@ export default function WorldEditor() {
         <LandModal
           land={selectedLand}
           characters={characters}
+          existingLands={lands}
           onSave={selectedLand ? (data) => handleUpdateLand(selectedLand.id, data) : handleCreateLand}
           onClose={() => {
             setShowLandModal(false)
@@ -700,16 +701,65 @@ function LandEditor({ land, characters, onUpdate, onAddActivity, onRefresh }) {
 }
 
 /**
+ * Calculate non-overlapping position for a new land
+ * Uses preset positions in a pleasing arrangement
+ */
+function calculateLandPosition(existingLands) {
+  // Preset positions that don't overlap (max 8 lands)
+  const presetPositions = [
+    { x: 50, y: 45 },  // Center
+    { x: 25, y: 35 },  // Top left
+    { x: 75, y: 35 },  // Top right
+    { x: 25, y: 60 },  // Bottom left
+    { x: 75, y: 60 },  // Bottom right
+    { x: 50, y: 25 },  // Top center
+    { x: 15, y: 50 },  // Left center
+    { x: 85, y: 50 },  // Right center
+  ]
+
+  // Find first unused position
+  const usedPositions = existingLands.map(l => ({
+    x: l.map_position_x,
+    y: l.map_position_y
+  }))
+
+  for (const pos of presetPositions) {
+    const isUsed = usedPositions.some(used =>
+      Math.abs(used.x - pos.x) < 15 && Math.abs(used.y - pos.y) < 15
+    )
+    if (!isUsed) {
+      return pos
+    }
+  }
+
+  // If all preset positions used, find a random free spot
+  for (let i = 0; i < 20; i++) {
+    const x = 20 + Math.random() * 60
+    const y = 25 + Math.random() * 45
+    const isFree = !usedPositions.some(used =>
+      Math.abs(used.x - x) < 18 && Math.abs(used.y - y) < 18
+    )
+    if (isFree) return { x, y }
+  }
+
+  // Fallback
+  return { x: 50, y: 45 }
+}
+
+/**
  * Land Creation/Edit Modal
  */
-function LandModal({ land, characters, onSave, onClose }) {
+function LandModal({ land, characters, existingLands = [], onSave, onClose }) {
+  // Calculate auto position for new lands
+  const autoPosition = !land ? calculateLandPosition(existingLands) : null
+
   const [name, setName] = useState(land?.name || '')
   const [slug, setSlug] = useState(land?.slug || '')
   const [description, setDescription] = useState(land?.description || '')
   const [introStory, setIntroStory] = useState(land?.intro_story || '')
   const [characterId, setCharacterId] = useState(land?.mascot_character_id || '')
-  const [posX, setPosX] = useState(land?.map_position_x || 50)
-  const [posY, setPosY] = useState(land?.map_position_y || 50)
+  const [posX, setPosX] = useState(land?.map_position_x || autoPosition?.x || 50)
+  const [posY, setPosY] = useState(land?.map_position_y || autoPosition?.y || 45)
   const [saving, setSaving] = useState(false)
 
   // Auto-generate slug from name
@@ -806,30 +856,42 @@ function LandModal({ land, characters, onSave, onClose }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Position X (%)</label>
-              <input
-                type="number"
-                value={posX}
-                onChange={(e) => setPosX(Number(e.target.value))}
-                min={10}
-                max={90}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+          {/* Position controls - only show when editing existing land */}
+          {land && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Position X (%)</label>
+                <input
+                  type="number"
+                  value={posX}
+                  onChange={(e) => setPosX(Number(e.target.value))}
+                  min={10}
+                  max={90}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Position Y (%)</label>
+                <input
+                  type="number"
+                  value={posY}
+                  onChange={(e) => setPosY(Number(e.target.value))}
+                  min={20}
+                  max={80}
+                  className="w-full px-3 py-2 border rounded-lg"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Position Y (%)</label>
-              <input
-                type="number"
-                value={posY}
-                onChange={(e) => setPosY(Number(e.target.value))}
-                min={20}
-                max={80}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+          )}
+
+          {/* Show auto-position info for new lands */}
+          {!land && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-700">
+                <span className="font-medium">Position:</span> Will be auto-placed on the map to avoid overlapping
+              </p>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button
