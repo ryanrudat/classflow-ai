@@ -13,6 +13,7 @@ import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
 import LibraryBrowser from './pages/LibraryBrowser'
 import LearningWorldsHub from './pages/LearningWorldsHub'
 import LearningWorldPlayer from './pages/LearningWorldPlayer'
+import WorldEditor from './pages/WorldEditor'
 
 function App() {
   const { user } = useAuthStore()
@@ -59,7 +60,7 @@ function App() {
             />
             <Route
               path="/worlds/:worldId/edit"
-              element={user ? <LearningWorldsHub /> : <Navigate to="/login" />}
+              element={user ? <WorldEditor /> : <Navigate to="/login" />}
             />
             <Route
               path="/worlds/:worldId/play"

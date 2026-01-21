@@ -141,9 +141,9 @@ export default function LearningWorldPlayer() {
   }
 
   return (
-    <div className="min-h-screen bg-sky-100 relative overflow-hidden">
-      {/* Main Content Area */}
-      <div className="w-full h-screen">
+    <div className="fixed inset-0 top-16 bg-sky-100 overflow-hidden">
+      {/* Main Content Area - accounts for navigation */}
+      <div className="w-full h-full">
         {currentView === 'world_map' && currentWorld && (
           <WorldMapView
             world={currentWorld}

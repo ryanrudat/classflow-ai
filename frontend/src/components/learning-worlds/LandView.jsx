@@ -109,7 +109,7 @@ export default function LandView({ land, onSelectActivity, onBack, ageLevel = 2 
 
   return (
     <div
-      className={`w-full h-screen overflow-hidden relative transition-opacity duration-500 ${isEntering ? 'opacity-0' : 'opacity-100'}`}
+      className={`w-full h-full overflow-hidden relative transition-opacity duration-500 ${isEntering ? 'opacity-0' : 'opacity-100'}`}
     >
       {/* Animated Sky Background */}
       <div

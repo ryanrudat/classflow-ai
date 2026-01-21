@@ -102,7 +102,7 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
   }
 
   return (
-    <div className="w-full h-screen overflow-hidden relative">
+    <div className="w-full h-full overflow-hidden relative">
       {/* Gradient Sky Background */}
       <div
         className="absolute inset-0"
