@@ -83,9 +83,22 @@ export default function WorldEditor() {
 
   async function handleUpdateLand(landId, updates) {
     try {
-      await learningWorldsAPI.updateLand(landId, updates)
-      setLands(lands.map(l => l.id === landId ? { ...l, ...updates } : l))
-      notifySuccess('Land updated')
+      const response = await learningWorldsAPI.updateLand(landId, updates)
+      // Use the returned land from API (has snake_case properties)
+      // Or convert camelCase to snake_case for local state
+      const snakeCaseUpdates = {}
+      if (updates.mapPositionX !== undefined) snakeCaseUpdates.map_position_x = updates.mapPositionX
+      if (updates.mapPositionY !== undefined) snakeCaseUpdates.map_position_y = updates.mapPositionY
+      if (updates.name !== undefined) snakeCaseUpdates.name = updates.name
+      if (updates.description !== undefined) snakeCaseUpdates.description = updates.description
+      if (updates.introStory !== undefined) snakeCaseUpdates.intro_story = updates.introStory
+      if (updates.mascotCharacterId !== undefined) snakeCaseUpdates.mascot_character_id = updates.mascotCharacterId
+
+      setLands(lands.map(l => l.id === landId ? { ...l, ...snakeCaseUpdates } : l))
+      // Don't show notification for position updates (too noisy during drag)
+      if (!updates.mapPositionX) {
+        notifySuccess('Land updated')
+      }
     } catch (error) {
       notifyError('Failed to update land')
     }
