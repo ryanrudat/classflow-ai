@@ -523,6 +523,14 @@ export async function createActivity(req, res) {
   } = req.body
   const userId = req.user.userId
 
+  // Validate required fields
+  if (!title || !title.trim()) {
+    return res.status(400).json({ message: 'Title is required' })
+  }
+  if (!activityType || !activityType.trim()) {
+    return res.status(400).json({ message: 'Activity type is required' })
+  }
+
   try {
     // Verify land ownership through world
     const check = await db.query(

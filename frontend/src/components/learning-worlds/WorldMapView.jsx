@@ -267,88 +267,145 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
 }
 
 /**
- * Cloud Transition - Full screen cloud animation when entering a land
+ * Cloud Transition - Smooth fog/mist transition when entering a land
  */
 function CloudTransition({ landName }) {
   return (
     <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
-      {/* Clouds coming from all sides */}
-      <div className="absolute inset-0 animate-cloud-transition">
-        {/* Left clouds */}
-        <div className="absolute left-0 top-0 bottom-0 w-1/2 flex flex-col justify-around animate-cloud-left">
-          {[...Array(5)].map((_, i) => (
-            <Cloud key={`left-${i}`} scale={1.5 + Math.random()} />
-          ))}
+      {/* Layered fog effect */}
+      <div className="absolute inset-0">
+        {/* Base white fog layer */}
+        <div className="absolute inset-0 bg-white fog-layer-1" />
+
+        {/* Soft cloud shapes using radial gradients */}
+        <div className="absolute inset-0 fog-layer-2">
+          <div className="fog-blob fog-blob-1" />
+          <div className="fog-blob fog-blob-2" />
+          <div className="fog-blob fog-blob-3" />
+          <div className="fog-blob fog-blob-4" />
+          <div className="fog-blob fog-blob-5" />
+          <div className="fog-blob fog-blob-6" />
         </div>
 
-        {/* Right clouds */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 flex flex-col justify-around animate-cloud-right">
-          {[...Array(5)].map((_, i) => (
-            <Cloud key={`right-${i}`} scale={1.5 + Math.random()} />
-          ))}
-        </div>
-
-        {/* Top clouds */}
-        <div className="absolute top-0 left-0 right-0 h-1/3 flex justify-around animate-cloud-top">
-          {[...Array(4)].map((_, i) => (
-            <Cloud key={`top-${i}`} scale={1.2 + Math.random()} />
-          ))}
-        </div>
-
-        {/* Bottom clouds */}
-        <div className="absolute bottom-0 left-0 right-0 h-1/3 flex justify-around animate-cloud-bottom">
-          {[...Array(4)].map((_, i) => (
-            <Cloud key={`bottom-${i}`} scale={1.2 + Math.random()} />
-          ))}
-        </div>
+        {/* Soft overlay for depth */}
+        <div className="absolute inset-0 fog-layer-3" />
       </div>
 
       {/* Center content - "Flying to..." message */}
-      <div className="absolute inset-0 flex items-center justify-center animate-fade-in-out">
-        <div className="bg-white/90 backdrop-blur-md rounded-3xl px-12 py-8 shadow-2xl text-center">
-          <div className="text-5xl mb-4 animate-bounce">✨</div>
-          <p className="text-2xl font-bold text-gray-800">Flying to...</p>
-          <p className="text-3xl font-bold text-purple-600 mt-2">{landName || 'Adventure'}</p>
+      <div className="absolute inset-0 flex items-center justify-center z-10 fog-message">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl px-10 py-6 shadow-2xl text-center border border-white/50">
+          <div className="text-4xl mb-3">✨</div>
+          <p className="text-xl font-bold text-gray-700">Flying to...</p>
+          <p className="text-2xl font-bold text-purple-600 mt-1">{landName || 'Adventure'}</p>
         </div>
       </div>
 
       <style>{`
-        @keyframes cloud-left {
-          0% { transform: translateX(-100%); }
-          50%, 100% { transform: translateX(50%); }
+        .fog-layer-1 {
+          animation: fog-fade-in 0.4s ease-out forwards;
         }
-        @keyframes cloud-right {
-          0% { transform: translateX(100%); }
-          50%, 100% { transform: translateX(-50%); }
+
+        .fog-layer-2 {
+          animation: fog-fade-in 0.3s ease-out forwards;
         }
-        @keyframes cloud-top {
-          0% { transform: translateY(-100%); }
-          50%, 100% { transform: translateY(100%); }
+
+        .fog-layer-3 {
+          background: radial-gradient(ellipse at center, transparent 0%, rgba(255,255,255,0.5) 100%);
+          animation: fog-fade-in 0.5s ease-out forwards;
         }
-        @keyframes cloud-bottom {
-          0% { transform: translateY(100%); }
-          50%, 100% { transform: translateY(-100%); }
+
+        .fog-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(60px);
+          opacity: 0;
+          animation: fog-blob-appear 0.6s ease-out forwards;
         }
-        @keyframes fade-in-out {
-          0% { opacity: 0; transform: scale(0.8); }
-          30% { opacity: 1; transform: scale(1); }
-          70% { opacity: 1; transform: scale(1); }
-          100% { opacity: 0; transform: scale(1.1); }
+
+        .fog-blob-1 {
+          width: 60vw;
+          height: 60vh;
+          top: -20%;
+          left: -10%;
+          background: radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, transparent 70%);
+          animation-delay: 0s;
         }
-        .animate-cloud-left {
-          animation: cloud-left 1.5s ease-in-out forwards;
+
+        .fog-blob-2 {
+          width: 50vw;
+          height: 50vh;
+          top: 10%;
+          right: -15%;
+          background: radial-gradient(ellipse, rgba(240,240,255,0.85) 0%, transparent 70%);
+          animation-delay: 0.05s;
         }
-        .animate-cloud-right {
-          animation: cloud-right 1.5s ease-in-out forwards;
+
+        .fog-blob-3 {
+          width: 70vw;
+          height: 40vh;
+          bottom: -10%;
+          left: 20%;
+          background: radial-gradient(ellipse, rgba(255,255,255,0.9) 0%, transparent 70%);
+          animation-delay: 0.1s;
         }
-        .animate-cloud-top {
-          animation: cloud-top 1.5s ease-in-out forwards;
+
+        .fog-blob-4 {
+          width: 40vw;
+          height: 40vh;
+          top: 30%;
+          left: -5%;
+          background: radial-gradient(ellipse, rgba(245,245,255,0.8) 0%, transparent 70%);
+          animation-delay: 0.08s;
         }
-        .animate-cloud-bottom {
-          animation: cloud-bottom 1.5s ease-in-out forwards;
+
+        .fog-blob-5 {
+          width: 45vw;
+          height: 45vh;
+          bottom: 10%;
+          right: -10%;
+          background: radial-gradient(ellipse, rgba(255,255,255,0.85) 0%, transparent 70%);
+          animation-delay: 0.12s;
         }
-        .animate-fade-in-out {
-          animation: fade-in-out 1.5s ease-in-out forwards;
+
+        .fog-blob-6 {
+          width: 80vw;
+          height: 30vh;
+          top: 40%;
+          left: 10%;
+          background: radial-gradient(ellipse, rgba(250,250,255,0.7) 0%, transparent 70%);
+          animation-delay: 0.15s;
+        }
+
+        .fog-message {
+          opacity: 0;
+          animation: fog-message-appear 0.5s ease-out 0.15s forwards;
+        }
+
+        @keyframes fog-fade-in {
+          0% { opacity: 0; }
+          100% { opacity: 1; }
+        }
+
+        @keyframes fog-blob-appear {
+          0% {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        @keyframes fog-message-appear {
+          0% {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
         }
       `}</style>
     </div>

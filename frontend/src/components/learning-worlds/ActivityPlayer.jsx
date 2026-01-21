@@ -143,6 +143,11 @@ function ActivityPlayerInner({
 
   const ActivityComponent = ActivityComponents[activity.activity_type]
 
+  // Debug: Log if activity_type is missing
+  if (!activity.activity_type) {
+    console.warn('Activity missing activity_type:', activity)
+  }
+
   return (
     <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-sky-200 relative overflow-hidden">
       {/* Header */}
@@ -192,11 +197,20 @@ function ActivityPlayerInner({
               <div className="bg-white rounded-2xl p-8 text-center max-w-md">
                 <div className="text-4xl mb-4">🚧</div>
                 <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                  Activity Type Not Supported
+                  {!activity.activity_type ? 'Activity Configuration Missing' : 'Activity Type Not Supported'}
                 </h2>
-                <p className="text-gray-600">
-                  The activity type "{activity.activity_type}" is not yet implemented.
+                <p className="text-gray-600 mb-4">
+                  {!activity.activity_type
+                    ? 'This activity needs to be configured. Please edit the activity in the World Editor and select an activity type.'
+                    : `The activity type "${activity.activity_type}" is not yet implemented.`
+                  }
                 </p>
+                <button
+                  onClick={onBack}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Go Back
+                </button>
               </div>
             </div>
           )}
