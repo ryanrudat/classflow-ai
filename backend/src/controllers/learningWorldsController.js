@@ -1,7 +1,7 @@
 import db from '../database/db.js'
 import { getIO } from '../services/ioInstance.js'
 import { generateJoinCode } from '../utils/generateCode.js'
-import { generateActivityContent } from '../services/aiService.js'
+import { generateActivityContent, generateImage, generateImageBatch } from '../services/aiService.js'
 
 // ============================================================================
 // LEARNING WORLDS CRUD
@@ -1457,5 +1457,88 @@ export async function saveActivityContent(req, res) {
   } catch (error) {
     console.error('Save activity content error:', error)
     res.status(500).json({ message: 'Failed to save content' })
+  }
+}
+
+/**
+ * Generate an image using DALL-E 3
+ * POST /api/generate-image
+ */
+export async function generateImageController(req, res) {
+  const { word, style, ageLevel, category } = req.body
+
+  if (!word || !word.trim()) {
+    return res.status(400).json({ message: 'Word is required' })
+  }
+
+  try {
+    console.log('🎨 Image generation request for:', word)
+
+    const result = await generateImage(word.trim(), {
+      style: style || 'cartoon',
+      ageLevel: ageLevel || 2,
+      category: category || null
+    })
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: result.error || 'Failed to generate image',
+        word: word
+      })
+    }
+
+    res.json({
+      message: 'Image generated successfully',
+      url: result.url,
+      word: result.word,
+      revisedPrompt: result.revisedPrompt
+    })
+
+  } catch (error) {
+    console.error('Image generation error:', error)
+    res.status(500).json({ message: 'Failed to generate image' })
+  }
+}
+
+/**
+ * Generate images for multiple words (batch)
+ * POST /api/generate-images-batch
+ */
+export async function generateImageBatchController(req, res) {
+  const { words, style, ageLevel, category } = req.body
+
+  if (!words || !Array.isArray(words) || words.length === 0) {
+    return res.status(400).json({ message: 'Words array is required' })
+  }
+
+  if (words.length > 10) {
+    return res.status(400).json({ message: 'Maximum 10 words per batch' })
+  }
+
+  try {
+    console.log('🎨 Batch image generation request for:', words.length, 'words')
+
+    const results = await generateImageBatch(
+      words.map(w => w.trim()).filter(Boolean),
+      {
+        style: style || 'cartoon',
+        ageLevel: ageLevel || 2,
+        category: category || null
+      }
+    )
+
+    const successful = results.filter(r => r.success)
+    const failed = results.filter(r => !r.success)
+
+    res.json({
+      message: `Generated ${successful.length}/${words.length} images`,
+      results: results,
+      successCount: successful.length,
+      failedCount: failed.length
+    })
+
+  } catch (error) {
+    console.error('Batch image generation error:', error)
+    res.status(500).json({ message: 'Failed to generate images' })
   }
 }

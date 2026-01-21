@@ -23,6 +23,10 @@ export default function ActivityContentEditor({
   const [topic, setTopic] = useState(activity.title || '')
   const [itemCount, setItemCount] = useState(6)
 
+  // Image generation state
+  const [generatingImages, setGeneratingImages] = useState(false)
+  const [generatingImageIndex, setGeneratingImageIndex] = useState(null)
+
   // Activity type configurations
   const activityConfigs = {
     vocabulary_touch: {
@@ -172,6 +176,86 @@ export default function ActivityContentEditor({
     }
   }
 
+  // Generate AI image for a single item
+  async function handleGenerateImage(index) {
+    const item = items[index]
+    const word = item.word || item.object || item.command
+
+    if (!word || !word.trim()) {
+      setError('Please enter a word first before generating an image')
+      return
+    }
+
+    setGeneratingImageIndex(index)
+    setError(null)
+
+    try {
+      const result = await learningWorldsAPI.generateImage(word, {
+        style: 'cartoon',
+        ageLevel: 2,
+        category: activity.activity_type
+      })
+
+      if (result.url) {
+        handleUpdateItem(index, 'imageUrl', result.url)
+      }
+    } catch (err) {
+      setError('Failed to generate image: ' + (err.message || 'Unknown error'))
+    } finally {
+      setGeneratingImageIndex(null)
+    }
+  }
+
+  // Generate AI images for all items without images
+  async function handleGenerateAllImages() {
+    const itemsWithoutImages = items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !item.imageUrl && (item.word || item.object || item.command))
+
+    if (itemsWithoutImages.length === 0) {
+      setError('All items already have images or are missing words')
+      return
+    }
+
+    setGeneratingImages(true)
+    setError(null)
+
+    try {
+      const words = itemsWithoutImages.map(({ item }) =>
+        item.word || item.object || item.command
+      )
+
+      const result = await learningWorldsAPI.generateImagesBatch(words, {
+        style: 'cartoon',
+        ageLevel: 2,
+        category: activity.activity_type
+      })
+
+      // Update items with generated images
+      if (result.results) {
+        const updatedItems = [...items]
+        result.results.forEach((imgResult, i) => {
+          if (imgResult.success && imgResult.url) {
+            const originalIndex = itemsWithoutImages[i].index
+            updatedItems[originalIndex] = {
+              ...updatedItems[originalIndex],
+              imageUrl: imgResult.url
+            }
+          }
+        })
+        setItems(updatedItems)
+
+        if (result.failedCount > 0) {
+          setError(`Generated ${result.successCount} images. ${result.failedCount} failed.`)
+        }
+      }
+    } catch (err) {
+      setError('Failed to generate images: ' + (err.message || 'Unknown error'))
+    } finally {
+      setGeneratingImages(false)
+    }
+  }
+
   // Field labels for display
   const fieldLabels = {
     word: 'Word',
@@ -257,6 +341,36 @@ export default function ActivityContentEditor({
               )}
             </button>
           </div>
+
+          {/* Image Generation Section */}
+          {items.length > 0 && config.supportsImages && (
+            <div className="mt-3 pt-3 border-t border-purple-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-purple-700">
+                <span className="text-lg">🎨</span>
+                <span>AI Image Generation (DALL-E)</span>
+              </div>
+              <button
+                onClick={handleGenerateAllImages}
+                disabled={generatingImages || items.every(item => item.imageUrl)}
+                className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {generatingImages ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Generating Images...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Generate All Images
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           <p className="text-xs text-purple-600 mt-2">
             AI will generate vocabulary items based on your topic. You can edit or add more manually below.
           </p>
@@ -384,20 +498,40 @@ export default function ActivityContentEditor({
                                     </div>
                                   </div>
                                 ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => fileInputRefs.current[index]?.click()}
-                                    disabled={uploadingIndex === index}
-                                    className="w-full h-12 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
-                                  >
-                                    {uploadingIndex === index ? (
-                                      <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-                                    ) : (
-                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                      </svg>
-                                    )}
-                                  </button>
+                                  <div className="flex gap-1 h-12">
+                                    {/* Upload button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => fileInputRefs.current[index]?.click()}
+                                      disabled={uploadingIndex === index || generatingImageIndex === index}
+                                      className="flex-1 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+                                      title="Upload image"
+                                    >
+                                      {uploadingIndex === index ? (
+                                        <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                    {/* AI Generate button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleGenerateImage(index)}
+                                      disabled={uploadingIndex === index || generatingImageIndex === index || !item.word && !item.object && !item.command}
+                                      className="flex-1 border-2 border-dashed border-emerald-300 rounded flex items-center justify-center text-emerald-400 hover:border-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                                      title="Generate with AI"
+                                    >
+                                      {generatingImageIndex === index ? (
+                                        <div className="w-4 h-4 border-2 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+                                      ) : (
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                        </svg>
+                                      )}
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             ) : (

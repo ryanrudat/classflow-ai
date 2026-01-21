@@ -1,10 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import crypto from 'crypto'
 import db from '../database/db.js'
 
 // Initialize Claude client
 const client = new Anthropic({
   apiKey: process.env.CLAUDE_API_KEY
+})
+
+// Initialize OpenAI client for DALL-E
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
 })
 
 /**
@@ -633,11 +639,114 @@ Return as JSON with items appropriate for the activity type. Include:
   }
 }
 
+/**
+ * Generate an image using DALL-E 3
+ * Optimized for educational content with child-friendly output
+ *
+ * @param {string} word - The word/concept to visualize
+ * @param {object} options - Generation options
+ * @returns {object} Generated image URL and metadata
+ */
+export async function generateImage(word, options = {}) {
+  const {
+    style = 'cartoon',  // cartoon, illustration, realistic
+    ageLevel = 2,       // 1 = 4-6, 2 = 7-8, 3 = 9-10
+    category = null,    // animals, food, colors, etc.
+    size = '1024x1024'  // 1024x1024, 1792x1024, 1024x1792
+  } = options
+
+  // Style descriptions for different age groups
+  const styleGuides = {
+    cartoon: 'cute cartoon style, simple shapes, bright cheerful colors, child-friendly',
+    illustration: 'educational illustration style, clean lines, colorful, suitable for textbooks',
+    realistic: 'photorealistic but appropriate for children, bright and clear'
+  }
+
+  // Build the prompt for DALL-E
+  const prompt = `A single ${word}${category ? ` (${category})` : ''}, ${styleGuides[style] || styleGuides.cartoon}, white or simple solid color background, centered composition, no text or letters, suitable for young children ages 4-10, educational content.`
+
+  try {
+    console.log('🎨 Generating DALL-E image for:', word)
+
+    const response = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: prompt,
+      n: 1,
+      size: size,
+      quality: 'standard',
+      style: 'vivid'
+    })
+
+    const imageUrl = response.data[0].url
+    const revisedPrompt = response.data[0].revised_prompt
+
+    console.log('✅ Image generated successfully')
+
+    return {
+      success: true,
+      url: imageUrl,
+      word: word,
+      prompt: prompt,
+      revisedPrompt: revisedPrompt,
+      model: 'dall-e-3'
+    }
+
+  } catch (error) {
+    console.error('DALL-E image generation error:', error)
+
+    // Handle specific OpenAI errors
+    if (error.code === 'content_policy_violation') {
+      return {
+        success: false,
+        error: 'Content policy violation - try a different word',
+        word: word
+      }
+    }
+
+    if (error.code === 'rate_limit_exceeded') {
+      return {
+        success: false,
+        error: 'Rate limit exceeded - please try again in a moment',
+        word: word
+      }
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Failed to generate image',
+      word: word
+    }
+  }
+}
+
+/**
+ * Generate multiple images for a batch of words
+ * @param {array} words - Array of words to generate images for
+ * @param {object} options - Generation options
+ * @returns {array} Array of results
+ */
+export async function generateImageBatch(words, options = {}) {
+  const results = []
+
+  // Process sequentially to avoid rate limits
+  for (const word of words) {
+    const result = await generateImage(word, options)
+    results.push(result)
+
+    // Small delay between requests to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+
+  return results
+}
+
 export default {
   generateContent,
   generateEasierVersion,
   generateHarderVersion,
   generateActivityContent,
+  generateImage,
+  generateImageBatch,
   transcribeVoicePrompt, // FUTURE
   textToSpeech          // FUTURE
 }

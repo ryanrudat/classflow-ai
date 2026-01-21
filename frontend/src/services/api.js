@@ -531,6 +531,17 @@ export const learningWorldsAPI = {
   saveActivityContent: async (activityId, content) => {
     const response = await api.put(`/world-activities/${activityId}/content`, { content })
     return response.data
+  },
+
+  // DALL-E Image Generation
+  generateImage: async (word, options = {}) => {
+    const response = await api.post('/generate-image', { word, ...options })
+    return response.data
+  },
+
+  generateImagesBatch: async (words, options = {}) => {
+    const response = await api.post('/generate-images-batch', { words, ...options })
+    return response.data
   }
 }
 

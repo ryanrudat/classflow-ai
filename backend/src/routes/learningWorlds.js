@@ -44,7 +44,11 @@ import {
 
   // AI Content Generation
   generateAIActivityContent,
-  saveActivityContent
+  saveActivityContent,
+
+  // Image Generation
+  generateImageController,
+  generateImageBatchController
 } from '../controllers/learningWorldsController.js'
 
 const router = express.Router()
@@ -97,5 +101,9 @@ router.post('/learning-worlds/:worldId/import-template', authenticateToken, impo
 // AI Content Generation (teacher only) - uses /world-activities to avoid conflict with general /activities routes
 router.post('/world-activities/:activityId/generate-content', authenticateToken, generateAIActivityContent)
 router.put('/world-activities/:activityId/content', authenticateToken, saveActivityContent)
+
+// DALL-E Image Generation (teacher only)
+router.post('/generate-image', authenticateToken, generateImageController)
+router.post('/generate-images-batch', authenticateToken, generateImageBatchController)
 
 export default router
