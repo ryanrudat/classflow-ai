@@ -454,11 +454,15 @@ function WorldSettingsCard({ world, onSave, saving }) {
 
 /**
  * Map Preview with draggable land positions
+ * Supports two interaction modes:
+ * 1. Drag: Click and drag directly on a land marker to move it
+ * 2. Click to place: Select a land from the list, then click anywhere on the map to move it
  */
 function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosition }) {
   const containerRef = useRef(null)
-  const [dragging, setDragging] = useState(null) // { landId, startX, startY }
+  const [dragging, setDragging] = useState(null) // { landId, landName }
   const [dragPosition, setDragPosition] = useState(null) // { x, y } in percentage
+  const [placementMode, setPlacementMode] = useState(false) // When true, clicking map places selected land
 
   const themes = {
     fantasy: { bg: 'from-indigo-900 via-purple-600 to-orange-300', ground: '#2d5a27' },
@@ -536,6 +540,20 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
     }
   }, [dragging, handleDragMove, handleDragEnd])
 
+  // Handle click on map background to place selected land
+  const handleMapClick = useCallback(async (e) => {
+    // Only handle if we have a selected land and clicked on the background (not a land marker)
+    if (!selectedLand) return
+    if (e.target !== containerRef.current && !e.target.classList.contains('map-background')) return
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const pos = pixelToPercent(clientX, clientY)
+
+    // Save the new position
+    await onUpdateLandPosition(selectedLand.id, pos.x, pos.y)
+  }, [selectedLand, pixelToPercent, onUpdateLandPosition])
+
   // Get position for a land (use drag position if currently dragging this land)
   const getLandPosition = (land) => {
     if (dragging?.landId === land.id && dragPosition) {
@@ -550,19 +568,36 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
   return (
     <div
       ref={containerRef}
-      className={`relative h-64 bg-gradient-to-b ${theme.bg} select-none`}
-      style={{ minHeight: 256, cursor: dragging ? 'grabbing' : 'default' }}
+      className={`relative h-64 bg-gradient-to-b ${theme.bg} select-none map-background`}
+      style={{
+        minHeight: 256,
+        cursor: dragging ? 'grabbing' : selectedLand ? 'crosshair' : 'default'
+      }}
+      onClick={handleMapClick}
+      onTouchEnd={(e) => {
+        // Handle touch placement on map background
+        if (selectedLand && (e.target === containerRef.current || e.target.classList.contains('map-background'))) {
+          const touch = e.changedTouches[0]
+          if (touch) {
+            const pos = pixelToPercent(touch.clientX, touch.clientY)
+            onUpdateLandPosition(selectedLand.id, pos.x, pos.y)
+          }
+        }
+      }}
     >
-      {/* Ground */}
+      {/* Ground - also clickable for placement */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-16"
+        className="absolute bottom-0 left-0 right-0 h-16 map-background"
         style={{ backgroundColor: theme.ground, opacity: 0.8 }}
       />
 
-      {/* Drag instruction hint */}
+      {/* Instruction hint */}
       {lands.length > 0 && !dragging && (
         <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-black/40 text-white text-xs px-3 py-1 rounded-full">
-          Drag lands to reposition
+          {selectedLand
+            ? `Click anywhere to move "${selectedLand.name}" or drag it directly`
+            : 'Select a land to reposition, or drag lands directly'
+          }
         </div>
       )}
 
@@ -623,11 +658,18 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
 
       {/* Empty state */}
       {lands.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-white text-center">
             <p className="text-lg font-medium">No lands yet</p>
             <p className="text-sm opacity-80">Add lands to see them on the map</p>
           </div>
+        </div>
+      )}
+
+      {/* Selected land indicator (shows on hover position) */}
+      {selectedLand && !dragging && (
+        <div className="absolute bottom-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded shadow">
+          Selected: {selectedLand.name}
         </div>
       )}
     </div>
