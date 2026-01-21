@@ -151,8 +151,14 @@ export const useLearningWorldStore = create(
         set({ loading: true, error: null })
         try {
           const data = await learningWorldsAPI.getLand(landId)
+          // Merge activities and vocabulary into the land object for easy access
+          const landWithData = {
+            ...data.land,
+            activities: data.activities || [],
+            vocabulary: data.vocabulary || []
+          }
           set({
-            currentLand: data.land,
+            currentLand: landWithData,
             loading: false
           })
           return { success: true, data }
