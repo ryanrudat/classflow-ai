@@ -544,7 +544,22 @@ export const useLearningWorldStore = create(
     }),
     {
       name: 'learning-world-storage',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => {
+        // Safely access sessionStorage with fallback
+        try {
+          if (typeof window !== 'undefined' && window.sessionStorage) {
+            return sessionStorage
+          }
+        } catch (e) {
+          console.warn('sessionStorage not available:', e)
+        }
+        // Return a no-op storage if sessionStorage is not available
+        return {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {}
+        }
+      }),
       partialize: (state) => ({
         // Only persist session-related state
         worldSession: state.worldSession,

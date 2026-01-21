@@ -16,11 +16,17 @@ export default function ColoringActivity({
   controlMode,
   onComplete
 }) {
-  const { playTap, playSuccess, playWord } = useAudioManager()
+  const audioManager = useAudioManager()
+  const playTap = audioManager?.playTap
+  const playSuccess = audioManager?.playSuccess
+  const playWord = audioManager?.playWord
 
-  // Extract coloring data from content
-  const sections = content.sections || []
-  const availableColors = content.colors || [
+  // Safely extract coloring data from content
+  const safeContent = content || {}
+  const sections = Array.isArray(safeContent.sections) ? safeContent.sections
+    : Array.isArray(safeContent.items) ? safeContent.items
+    : []
+  const availableColors = safeContent.colors || [
     { name: 'red', hex: '#ef4444' },
     { name: 'blue', hex: '#3b82f6' },
     { name: 'yellow', hex: '#eab308' },
@@ -35,19 +41,19 @@ export default function ColoringActivity({
   const [coloredSections, setColoredSections] = useState({})
 
   function handleColorSelect(color) {
-    playTap()
+    playTap?.()
     setSelectedColor(color)
 
     // Play color word audio
     if (color.audioUrl) {
-      playWord(color.audioUrl)
+      playWord?.(color.audioUrl)
     }
   }
 
   function handleSectionClick(sectionId) {
     if (controlMode === 'teacher') return
 
-    playTap()
+    playTap?.()
     setColoredSections(prev => ({
       ...prev,
       [sectionId]: selectedColor.hex
@@ -58,8 +64,8 @@ export default function ColoringActivity({
   useEffect(() => {
     if (Object.keys(coloredSections).length === sections.length && sections.length > 0) {
       setTimeout(() => {
-        playSuccess()
-        onComplete({
+        playSuccess?.()
+        onComplete?.({
           score: sections.length,
           maxScore: sections.length,
           starsEarned: 3,
@@ -67,7 +73,7 @@ export default function ColoringActivity({
         })
       }, 1000)
     }
-  }, [coloredSections, sections.length])
+  }, [coloredSections, sections.length, playSuccess, onComplete])
 
   const colorButtonSize = ageLevel === 1 ? 'w-16 h-16' : ageLevel === 2 ? 'w-14 h-14' : 'w-12 h-12'
 
@@ -76,7 +82,7 @@ export default function ColoringActivity({
       {/* Instructions */}
       <div className="mb-4 text-center">
         <p className={`text-gray-700 font-medium ${ageLevel === 1 ? 'text-xl' : 'text-lg'}`}>
-          {content.instructions || 'Touch a color, then touch to paint!'}
+          {safeContent.instructions || 'Touch a color, then touch to paint!'}
         </p>
       </div>
 
@@ -113,10 +119,10 @@ export default function ColoringActivity({
 
       {/* Coloring Canvas */}
       <div className="bg-white rounded-2xl shadow-xl p-4 max-w-2xl w-full">
-        {content.imageUrl ? (
+        {safeContent.imageUrl ? (
           // SVG-based coloring (if provided)
           <ColoringSVG
-            imageUrl={content.imageUrl}
+            imageUrl={safeContent.imageUrl}
             sections={sections}
             coloredSections={coloredSections}
             onSectionClick={handleSectionClick}

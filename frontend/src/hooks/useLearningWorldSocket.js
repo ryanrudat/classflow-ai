@@ -12,15 +12,17 @@ import { useLearningWorldStore } from '../stores/learningWorldStore'
  * - Session state changes
  */
 export function useLearningWorldSocket(sessionId) {
-  const { on, off, emit, isConnected, joinSession, leaveSession } = useSocket()
+  const socketState = useSocket() || {}
+  const { on, off, emit, isConnected, joinSession, leaveSession } = socketState
 
+  const storeState = useLearningWorldStore() || {}
   const {
-    handleNavigateEvent,
-    handleControlModeEvent,
-    handleSessionEndedEvent,
-    handleProgressEvent,
-    isTeacher
-  } = useLearningWorldStore()
+    handleNavigateEvent = () => {},
+    handleControlModeEvent = () => {},
+    handleSessionEndedEvent = () => {},
+    handleProgressEvent = () => {},
+    isTeacher = true
+  } = storeState
 
   // Join world session room
   useEffect(() => {

@@ -14,20 +14,21 @@ import { useLearningWorldStore } from '../../../stores/learningWorldStore'
  * - Session management
  */
 export default function TeacherControlPanel({ joinCode, onEndSession }) {
+  const storeState = useLearningWorldStore() || {}
   const {
-    controlMode,
-    ageLevel,
-    audioEnabled,
-    musicEnabled,
-    currentView,
-    worldSession,
-    setControlMode,
-    setAgeLevel,
-    toggleAudio,
-    toggleMusic,
-    navigateToWorldMap,
-    goBack
-  } = useLearningWorldStore()
+    controlMode = 'teacher',
+    ageLevel = 2,
+    audioEnabled = true,
+    musicEnabled = true,
+    currentView = 'world_map',
+    worldSession = null,
+    setControlMode = () => {},
+    setAgeLevel = () => {},
+    toggleAudio = () => {},
+    toggleMusic = () => {},
+    navigateToWorldMap = () => {},
+    goBack = () => {}
+  } = storeState
 
   const [isExpanded, setIsExpanded] = useState(true)
   const [isDragging, setIsDragging] = useState(false)

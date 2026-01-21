@@ -1,7 +1,43 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Component } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 import CharacterAvatar from './characters/CharacterAvatar'
 import SpeechBubble from './characters/SpeechBubble'
+
+/**
+ * Error Boundary for Land View
+ */
+class LandViewErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('LandView Error:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-full bg-sky-100 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 text-center max-w-md shadow-xl">
+            <div className="text-4xl mb-4">⚠️</div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">{this.state.error?.message || 'An error occurred while loading the land.'}</p>
+            <button onClick={this.props.onBack} className="px-6 py-2 bg-sky-500 text-white rounded-lg">
+              Go Back
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /**
  * Land View Component
@@ -12,7 +48,22 @@ import SpeechBubble from './characters/SpeechBubble'
  * - Activity cards as interactive elements
  */
 export default function LandView({ land, onSelectActivity, onBack, ageLevel = 2 }) {
-  const { playVoice, playTap } = useAudioManager()
+  return (
+    <LandViewErrorBoundary onBack={onBack}>
+      <LandViewInner
+        land={land}
+        onSelectActivity={onSelectActivity}
+        onBack={onBack}
+        ageLevel={ageLevel}
+      />
+    </LandViewErrorBoundary>
+  )
+}
+
+function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
+  const audioManager = useAudioManager() || {}
+  const playVoice = audioManager.playVoice
+  const playTap = audioManager.playTap
   const [showIntro, setShowIntro] = useState(true)
   const [characterMessage, setCharacterMessage] = useState(null)
   const [isEntering, setIsEntering] = useState(true)
@@ -98,13 +149,13 @@ export default function LandView({ land, onSelectActivity, onBack, ageLevel = 2 
   }, [land.intro_story])
 
   function handleActivityClick(activity) {
-    playTap()
-    onSelectActivity(activity.id, activity)
+    playTap?.()
+    onSelectActivity?.(activity.id, activity)
   }
 
   function handleBack() {
-    playTap()
-    onBack()
+    playTap?.()
+    onBack?.()
   }
 
   return (

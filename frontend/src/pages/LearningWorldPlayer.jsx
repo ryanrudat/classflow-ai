@@ -22,34 +22,38 @@ export default function LearningWorldPlayer() {
   const navigate = useNavigate()
   const { notifySuccess, notifyError } = useNotifications()
 
+  // Get store state with defaults to prevent destructuring errors
+  const storeState = useLearningWorldStore() || {}
   const {
-    currentWorld,
-    currentLand,
-    currentActivity,
-    currentView,
-    worldSession,
-    sessionId,
-    joinCode,
-    controlMode,
-    ageLevel,
-    isTeacher,
-    loading,
-    error,
-    fetchWorld,
-    startSession,
-    endSession,
-    navigateToWorldMap,
-    navigateToLand,
-    navigateToActivity,
-    goBack,
-    setAgeLevel
-  } = useLearningWorldStore()
+    currentWorld = null,
+    currentLand = null,
+    currentActivity = null,
+    currentView = 'world_map',
+    worldSession = null,
+    sessionId = null,
+    joinCode = null,
+    controlMode = 'teacher',
+    ageLevel = 2,
+    isTeacher = true,
+    loading = false,
+    error = null,
+    fetchWorld = async () => ({ success: false }),
+    startSession = async () => ({ success: false }),
+    endSession = async () => ({ success: false }),
+    navigateToWorldMap = () => {},
+    navigateToLand = () => {},
+    navigateToActivity = () => {},
+    goBack = () => {},
+    setAgeLevel = () => {}
+  } = storeState
 
   // Socket connection for real-time sync
-  const { isConnected } = useLearningWorldSocket(sessionId)
+  const socketState = useLearningWorldSocket(sessionId) || {}
+  const { isConnected = false } = socketState
 
   // Audio manager
-  const { playMusic, stopMusic, playSuccess } = useAudioManager()
+  const audioManager = useAudioManager() || {}
+  const { playMusic, stopMusic, playSuccess } = audioManager
 
   // Session start modal
   const [showStartModal, setShowStartModal] = useState(false)

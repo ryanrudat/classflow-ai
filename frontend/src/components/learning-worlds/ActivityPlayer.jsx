@@ -1,10 +1,46 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Component } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 import VocabularyTouchActivity from './activities/VocabularyTouchActivity'
 import MatchingGameActivity from './activities/MatchingGameActivity'
 import ListenAndPointActivity from './activities/ListenAndPointActivity'
 import TPRActionActivity from './activities/TPRActionActivity'
 import ColoringActivity from './activities/ColoringActivity'
+
+/**
+ * Error Boundary for Activity Player
+ */
+class ActivityErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('ActivityPlayer Error:', error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-sky-200 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 text-center max-w-md">
+            <div className="text-4xl mb-4">⚠️</div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">{this.state.error?.message || 'An error occurred while loading the activity.'}</p>
+            <button onClick={this.props.onBack} className="px-6 py-2 bg-sky-500 text-white rounded-lg">
+              Go Back
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 /**
  * Activity Player Component
@@ -19,7 +55,47 @@ export default function ActivityPlayer({
   onComplete,
   onBack
 }) {
-  const { playVoice, playSuccess, playCelebration } = useAudioManager()
+  return (
+    <ActivityErrorBoundary onBack={onBack}>
+      <ActivityPlayerInner
+        activity={activity}
+        ageLevel={ageLevel}
+        controlMode={controlMode}
+        onComplete={onComplete}
+        onBack={onBack}
+      />
+    </ActivityErrorBoundary>
+  )
+}
+
+function ActivityPlayerInner({
+  activity,
+  ageLevel = 2,
+  controlMode = 'teacher',
+  onComplete,
+  onBack
+}) {
+  // Use audio manager - hooks must be called unconditionally
+  const audioManager = useAudioManager() || {}
+  const playVoice = audioManager.playVoice
+  const playSuccess = audioManager.playSuccess
+  const playCelebration = audioManager.playCelebration
+
+  // Guard against missing activity
+  if (!activity) {
+    return (
+      <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-sky-200 flex items-center justify-center">
+        <div className="bg-white rounded-2xl p-8 text-center max-w-md">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Activity Not Found</h2>
+          <p className="text-gray-600 mb-4">The activity could not be loaded.</p>
+          <button onClick={onBack} className="px-6 py-2 bg-sky-500 text-white rounded-lg">
+            Go Back
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const [showIntro, setShowIntro] = useState(true)
   const [showCelebration, setShowCelebration] = useState(false)
@@ -44,12 +120,12 @@ export default function ActivityPlayer({
   function handleActivityComplete(result) {
     setActivityResult(result)
     setShowCelebration(true)
-    playCelebration()
+    playCelebration?.()
 
     // Show celebration for 3 seconds, then call onComplete
     setTimeout(() => {
-      playSuccess()
-      onComplete(activity.id, result)
+      playSuccess?.()
+      onComplete?.(activity.id, result)
     }, 3000)
   }
 

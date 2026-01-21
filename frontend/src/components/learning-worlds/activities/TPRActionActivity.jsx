@@ -16,9 +16,17 @@ export default function TPRActionActivity({
   controlMode,
   onComplete
 }) {
-  const { playVoice, playSuccess } = useAudioManager()
+  const audioManager = useAudioManager()
+  const playVoice = audioManager?.playVoice
+  const playSuccess = audioManager?.playSuccess
 
-  const prompts = content.prompts || activity.tpr_prompts || []
+  // Safely extract prompts from content - check actions (AI generated), prompts, and tpr_prompts
+  const safeContent = content || {}
+  const safeActivity = activity || {}
+  const prompts = Array.isArray(safeContent.actions) ? safeContent.actions.map(a => a.command || a)
+    : Array.isArray(safeContent.prompts) ? safeContent.prompts
+    : Array.isArray(safeActivity.tpr_prompts) ? safeActivity.tpr_prompts
+    : []
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [showDemo, setShowDemo] = useState(false)
@@ -31,8 +39,8 @@ export default function TPRActionActivity({
       setCurrentIndex(prev => prev + 1)
     } else {
       // Activity complete
-      playSuccess()
-      onComplete({
+      playSuccess?.()
+      onComplete?.({
         score: prompts.length,
         maxScore: prompts.length,
         starsEarned: 3
@@ -70,7 +78,8 @@ export default function TPRActionActivity({
   }
 
   function getEmoji(prompt) {
-    const lowerPrompt = prompt.toLowerCase()
+    if (!prompt) return '🎯'
+    const lowerPrompt = String(prompt).toLowerCase()
     for (const [key, emoji] of Object.entries(actionEmojis)) {
       if (lowerPrompt.includes(key)) return emoji
     }

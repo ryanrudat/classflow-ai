@@ -18,10 +18,16 @@ export default function VocabularyTouchActivity({
   touchTargetSize,
   onComplete
 }) {
-  const { playWord, playSuccess, playTap } = useAudioManager()
+  const audioManager = useAudioManager()
+  const playWord = audioManager?.playWord
+  const playSuccess = audioManager?.playSuccess
+  const playTap = audioManager?.playTap
 
-  // Extract vocabulary items from content
-  const items = content.items || content.vocabulary || []
+  // Safely extract vocabulary items from content
+  const safeContent = content || {}
+  const items = Array.isArray(safeContent.items) ? safeContent.items
+    : Array.isArray(safeContent.vocabulary) ? safeContent.vocabulary
+    : []
   const [touchedItems, setTouchedItems] = useState(new Set())
   const [currentItem, setCurrentItem] = useState(null)
   const [showWord, setShowWord] = useState(false)
@@ -34,13 +40,13 @@ export default function VocabularyTouchActivity({
   function handleItemTouch(item) {
     if (controlMode === 'teacher') return
 
-    playTap()
+    playTap?.()
     setCurrentItem(item)
     setShowWord(true)
 
     // Play pronunciation
     if (item.audioUrl) {
-      playWord(item.audioUrl)
+      playWord?.(item.audioUrl)
     }
 
     // Track touched items

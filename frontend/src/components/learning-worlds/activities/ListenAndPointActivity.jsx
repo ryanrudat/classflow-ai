@@ -17,9 +17,17 @@ export default function ListenAndPointActivity({
   touchTargetSize,
   onComplete
 }) {
-  const { playWord, playSuccess, playError, playTap } = useAudioManager()
+  const audioManager = useAudioManager()
+  const playWord = audioManager?.playWord
+  const playSuccess = audioManager?.playSuccess
+  const playError = audioManager?.playError
+  const playTap = audioManager?.playTap
 
-  const items = content.items || content.vocabulary || []
+  // Safely extract items from content
+  const safeContent = content || {}
+  const items = Array.isArray(safeContent.items) ? safeContent.items
+    : Array.isArray(safeContent.vocabulary) ? safeContent.vocabulary
+    : []
   const [currentIndex, setCurrentIndex] = useState(0)
   const [options, setOptions] = useState([])
   const [selected, setSelected] = useState(null)
@@ -47,28 +55,28 @@ export default function ListenAndPointActivity({
 
     // Play audio prompt after a short delay
     setTimeout(() => {
-      if (currentItem.audioUrl) {
-        playWord(currentItem.audioUrl)
+      if (currentItem?.audioUrl) {
+        playWord?.(currentItem.audioUrl)
       }
     }, 500)
-  }, [currentIndex, items])
+  }, [currentIndex, items, playWord])
 
   function handleOptionSelect(option) {
     if (controlMode === 'teacher') return
     if (showingResult) return
 
-    playTap()
+    playTap?.()
     setSelected(option)
     setShowingResult(true)
 
-    const correct = option.word === currentItem.word
+    const correct = option.word === currentItem?.word
     setIsCorrect(correct)
 
     if (correct) {
-      playSuccess()
+      playSuccess?.()
       setScore(prev => prev + 1)
     } else {
-      playError()
+      playError?.()
     }
 
     // Move to next after delay
@@ -91,7 +99,7 @@ export default function ListenAndPointActivity({
 
   function handleReplayAudio() {
     if (currentItem?.audioUrl) {
-      playWord(currentItem.audioUrl)
+      playWord?.(currentItem.audioUrl)
     }
   }
 

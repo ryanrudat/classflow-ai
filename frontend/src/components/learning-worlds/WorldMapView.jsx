@@ -1,5 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 
 /**
@@ -9,15 +8,13 @@ import { useAudioManager } from '../../hooks/useAudioManager'
  * - Illustrated backgrounds with gradients
  * - Floating clouds, birds, and sparkles
  * - Land icons as floating islands
- * - Smooth zoom transitions when selecting a land
+ * - Smooth cloud transition when entering a land
  */
 export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
-  const transformRef = useRef(null)
-  const { playTap } = useAudioManager()
+  const audioManager = useAudioManager() || {}
+  const { playTap } = audioManager
   const [selectedLand, setSelectedLand] = useState(null)
-  const [isZooming, setIsZooming] = useState(false)
-  const [isPanning, setIsPanning] = useState(false)
-  const panStartRef = useRef(null)
+  const [isTransitioning, setIsTransitioning] = useState(false)
 
   // Touch target sizes based on age level
   const touchTargetSize = ageLevel === 1 ? 120 : ageLevel === 2 ? 100 : 80
@@ -67,60 +64,31 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
   const theme = themes[world?.theme] || themes.default
 
   function handleLandClick(land) {
-    // Don't trigger click if we were just panning
-    if (isZooming || isPanning) {
-      setIsPanning(false)
-      return
-    }
+    if (isTransitioning) return
 
-    playTap?.() // Safe call in case playTap is undefined
+    playTap?.()
     setSelectedLand(land)
-    setIsZooming(true)
+    setIsTransitioning(true)
 
-    // Zoom to land position
-    if (transformRef.current) {
-      const scale = 2.5
-      // Calculate center position for the land
-      const xOffset = (land.map_position_x - 50) / 100
-      const yOffset = (land.map_position_y - 50) / 100
-
-      transformRef.current.setTransform(
-        -xOffset * window.innerWidth * scale,
-        -yOffset * window.innerHeight * scale,
-        scale,
-        1000,
-        'easeInOut'
-      )
-    }
-
-    // Navigate after zoom animation
+    // Navigate immediately - show cloud transition as overlay during navigation
+    // Reduced delay from 1500ms to 300ms for better responsiveness
     setTimeout(() => {
       if (onSelectLand) {
         onSelectLand(land.id)
       }
-      // Reset after navigation
-      setTimeout(() => {
-        if (transformRef.current) {
-          transformRef.current.resetTransform(0)
-        }
-        setSelectedLand(null)
-        setIsZooming(false)
-      }, 100)
-    }, 1100)
+    }, 300)
   }
 
-  // Track panning to prevent clicks after pan
-  function handlePanStart() {
-    setIsPanning(true)
-    panStartRef.current = Date.now()
-  }
-
-  function handlePanEnd() {
-    // Keep isPanning true briefly to catch click events that fire after pan
-    setTimeout(() => {
-      setIsPanning(false)
-    }, 100)
-  }
+  // Generate stable random positions for stars
+  const stars = useMemo(() => {
+    return [...Array(30)].map((_, i) => ({
+      width: Math.random() * 3 + 1,
+      height: Math.random() * 3 + 1,
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 40}%`,
+      delay: `${Math.random() * 3}s`
+    }))
+  }, [])
 
   return (
     <div className="w-full h-full overflow-hidden relative">
@@ -137,18 +105,18 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         }}
       />
 
-      {/* Twinkling Stars (visible in darker themes) */}
+      {/* Twinkling Stars */}
       <div className="absolute inset-0 pointer-events-none">
-        {[...Array(30)].map((_, i) => (
+        {stars.map((star, i) => (
           <div
             key={`star-${i}`}
             className="absolute bg-white rounded-full animate-twinkle"
             style={{
-              width: Math.random() * 3 + 1,
-              height: Math.random() * 3 + 1,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 40}%`,
-              animationDelay: `${Math.random() * 3}s`,
+              width: star.width,
+              height: star.height,
+              left: star.left,
+              top: star.top,
+              animationDelay: star.delay,
               opacity: 0.6
             }}
           />
@@ -166,7 +134,7 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         />
       </div>
 
-      {/* Animated Clouds - Multiple Layers for Depth */}
+      {/* Animated Clouds */}
       <CloudLayer />
 
       {/* Flying Birds */}
@@ -191,7 +159,7 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         </svg>
       </div>
 
-      {/* World Title with Fancy Styling */}
+      {/* World Title */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
         <div className="relative">
           <h1
@@ -203,7 +171,6 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
           >
             {world?.name || 'Learning World'}
           </h1>
-          {/* Decorative underline */}
           <div
             className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 h-1 rounded-full"
             style={{
@@ -214,54 +181,38 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         </div>
       </div>
 
-      {/* Zoomable Map Container */}
-      <TransformWrapper
-        ref={transformRef}
-        initialScale={1}
-        minScale={0.8}
-        maxScale={3}
-        centerOnInit
-        limitToBounds={false}
-        disabled={isZooming}
-        panning={{ disabled: isZooming }}
-        onPanningStart={handlePanStart}
-        onPanningStop={handlePanEnd}
-      >
-        <TransformComponent
-          wrapperStyle={{ width: '100%', height: '100%' }}
-          contentStyle={{ width: '100%', height: '100%', position: 'relative' }}
-        >
-          {/* Land Icons */}
-          {lands.map((land, index) => (
-            <FloatingIsland
-              key={land.id}
-              land={land}
-              size={touchTargetSize}
-              onClick={() => handleLandClick(land)}
-              isSelected={selectedLand?.id === land.id}
-              ageLevel={ageLevel}
-              delay={index * 0.5}
-              accentColor={theme.accent}
-            />
-          ))}
+      {/* Land Icons */}
+      <div className="absolute inset-0">
+        {lands.map((land, index) => (
+          <FloatingIsland
+            key={land.id}
+            land={land}
+            size={touchTargetSize}
+            onClick={() => handleLandClick(land)}
+            isSelected={selectedLand?.id === land.id}
+            ageLevel={ageLevel}
+            delay={index * 0.5}
+            accentColor={theme.accent}
+            disabled={isTransitioning}
+          />
+        ))}
 
-          {/* No lands message */}
-          {lands.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 text-center max-w-md shadow-2xl border-4 border-white/50">
-                <div className="text-6xl mb-4">🌍</div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">No Lands Yet</h2>
-                <p className="text-gray-600">
-                  This world is waiting for lands to explore!
-                </p>
-              </div>
+        {/* No lands message */}
+        {lands.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 text-center max-w-md shadow-2xl border-4 border-white/50">
+              <div className="text-6xl mb-4">🌍</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">No Lands Yet</h2>
+              <p className="text-gray-600">
+                This world is waiting for lands to explore!
+              </p>
             </div>
-          )}
-        </TransformComponent>
-      </TransformWrapper>
+          </div>
+        )}
+      </div>
 
       {/* Instructions for young learners */}
-      {ageLevel === 1 && !isZooming && (
+      {ageLevel <= 2 && !isTransitioning && (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
           <div
             className="bg-white/95 backdrop-blur-sm rounded-full px-8 py-4 shadow-xl animate-bounce-gentle"
@@ -275,11 +226,9 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         </div>
       )}
 
-      {/* Zoom Transition Overlay */}
-      {isZooming && (
-        <div className="absolute inset-0 pointer-events-none z-30 flex items-center justify-center">
-          <div className="text-4xl animate-pulse">✨</div>
-        </div>
+      {/* Cloud Transition Overlay */}
+      {isTransitioning && (
+        <CloudTransition landName={selectedLand?.name} />
       )}
 
       {/* Animation Styles */}
@@ -318,16 +267,124 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
 }
 
 /**
- * Cloud Layer - Multiple animated clouds at different speeds
+ * Cloud Transition - Full screen cloud animation when entering a land
+ */
+function CloudTransition({ landName }) {
+  return (
+    <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+      {/* Clouds coming from all sides */}
+      <div className="absolute inset-0 animate-cloud-transition">
+        {/* Left clouds */}
+        <div className="absolute left-0 top-0 bottom-0 w-1/2 flex flex-col justify-around animate-cloud-left">
+          {[...Array(5)].map((_, i) => (
+            <Cloud key={`left-${i}`} scale={1.5 + Math.random()} />
+          ))}
+        </div>
+
+        {/* Right clouds */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/2 flex flex-col justify-around animate-cloud-right">
+          {[...Array(5)].map((_, i) => (
+            <Cloud key={`right-${i}`} scale={1.5 + Math.random()} />
+          ))}
+        </div>
+
+        {/* Top clouds */}
+        <div className="absolute top-0 left-0 right-0 h-1/3 flex justify-around animate-cloud-top">
+          {[...Array(4)].map((_, i) => (
+            <Cloud key={`top-${i}`} scale={1.2 + Math.random()} />
+          ))}
+        </div>
+
+        {/* Bottom clouds */}
+        <div className="absolute bottom-0 left-0 right-0 h-1/3 flex justify-around animate-cloud-bottom">
+          {[...Array(4)].map((_, i) => (
+            <Cloud key={`bottom-${i}`} scale={1.2 + Math.random()} />
+          ))}
+        </div>
+      </div>
+
+      {/* Center content - "Flying to..." message */}
+      <div className="absolute inset-0 flex items-center justify-center animate-fade-in-out">
+        <div className="bg-white/90 backdrop-blur-md rounded-3xl px-12 py-8 shadow-2xl text-center">
+          <div className="text-5xl mb-4 animate-bounce">✨</div>
+          <p className="text-2xl font-bold text-gray-800">Flying to...</p>
+          <p className="text-3xl font-bold text-purple-600 mt-2">{landName || 'Adventure'}</p>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes cloud-left {
+          0% { transform: translateX(-100%); }
+          50%, 100% { transform: translateX(50%); }
+        }
+        @keyframes cloud-right {
+          0% { transform: translateX(100%); }
+          50%, 100% { transform: translateX(-50%); }
+        }
+        @keyframes cloud-top {
+          0% { transform: translateY(-100%); }
+          50%, 100% { transform: translateY(100%); }
+        }
+        @keyframes cloud-bottom {
+          0% { transform: translateY(100%); }
+          50%, 100% { transform: translateY(-100%); }
+        }
+        @keyframes fade-in-out {
+          0% { opacity: 0; transform: scale(0.8); }
+          30% { opacity: 1; transform: scale(1); }
+          70% { opacity: 1; transform: scale(1); }
+          100% { opacity: 0; transform: scale(1.1); }
+        }
+        .animate-cloud-left {
+          animation: cloud-left 1.5s ease-in-out forwards;
+        }
+        .animate-cloud-right {
+          animation: cloud-right 1.5s ease-in-out forwards;
+        }
+        .animate-cloud-top {
+          animation: cloud-top 1.5s ease-in-out forwards;
+        }
+        .animate-cloud-bottom {
+          animation: cloud-bottom 1.5s ease-in-out forwards;
+        }
+        .animate-fade-in-out {
+          animation: fade-in-out 1.5s ease-in-out forwards;
+        }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * Single Cloud SVG
+ */
+function Cloud({ scale = 1 }) {
+  return (
+    <svg
+      viewBox="0 0 200 100"
+      className="w-48 h-24"
+      style={{ transform: `scale(${scale})` }}
+    >
+      <ellipse cx="60" cy="60" rx="50" ry="30" fill="rgba(255,255,255,0.95)" />
+      <ellipse cx="100" cy="50" rx="60" ry="35" fill="rgba(255,255,255,0.98)" />
+      <ellipse cx="150" cy="60" rx="45" ry="28" fill="rgba(255,255,255,0.95)" />
+      <ellipse cx="80" cy="40" rx="35" ry="25" fill="rgba(255,255,255,1)" />
+      <ellipse cx="130" cy="40" rx="40" ry="22" fill="rgba(255,255,255,0.97)" />
+    </svg>
+  )
+}
+
+/**
+ * Cloud Layer - Background animated clouds
  */
 function CloudLayer() {
-  const clouds = [
+  const clouds = useMemo(() => [
     { width: 180, height: 60, top: '12%', left: '-15%', duration: 45, delay: 0 },
     { width: 220, height: 70, top: '8%', left: '20%', duration: 55, delay: 10 },
     { width: 160, height: 50, top: '18%', left: '50%', duration: 40, delay: 5 },
     { width: 200, height: 65, top: '25%', left: '-10%', duration: 50, delay: 15 },
     { width: 140, height: 45, top: '15%', left: '70%', duration: 35, delay: 20 },
-  ]
+  ], [])
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -364,14 +421,14 @@ function CloudLayer() {
 }
 
 /**
- * Flying Birds - Small birds moving across the sky
+ * Flying Birds
  */
 function BirdFlock() {
-  const birds = [
+  const birds = useMemo(() => [
     { top: '15%', duration: 20, delay: 0 },
     { top: '22%', duration: 25, delay: 8 },
     { top: '10%', duration: 18, delay: 4 },
-  ]
+  ], [])
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -416,17 +473,26 @@ function BirdFlock() {
  * Floating Sparkles/Particles
  */
 function Sparkles({ color }) {
+  const sparkles = useMemo(() => {
+    return [...Array(15)].map((_, i) => ({
+      left: `${Math.random() * 100}%`,
+      bottom: `${Math.random() * 30}%`,
+      delay: `${Math.random() * 5}s`,
+      duration: `${4 + Math.random() * 3}s`
+    }))
+  }, [])
+
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {[...Array(15)].map((_, i) => (
+      {sparkles.map((sparkle, i) => (
         <div
           key={i}
           className="absolute animate-sparkle-float"
           style={{
-            left: `${Math.random() * 100}%`,
-            bottom: `${Math.random() * 30}%`,
-            animationDelay: `${Math.random() * 5}s`,
-            animationDuration: `${4 + Math.random() * 3}s`
+            left: sparkle.left,
+            bottom: sparkle.bottom,
+            animationDelay: sparkle.delay,
+            animationDuration: sparkle.duration
           }}
         >
           <div
@@ -467,10 +533,12 @@ function Sparkles({ color }) {
 /**
  * Floating Island - A land represented as a floating island
  */
-function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, accentColor }) {
+function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, accentColor, disabled }) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isPressed, setIsPressed] = useState(false)
+  const clickStartRef = useRef(null)
+  const clickPosRef = useRef(null)
 
-  // Default icons for lands without custom icons
   const defaultIcons = {
     'animals': '🦁',
     'colors': '🌈',
@@ -489,7 +557,6 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
 
   const landIcon = land.icon_url || defaultIcons[land.slug?.split('-')[0]] || '🏝️'
 
-  // Island colors based on land name/type
   const islandColors = {
     'animals': { base: '#8B4513', grass: '#228B22', accent: '#FFD700' },
     'colors': { base: '#DA70D6', grass: '#FF69B4', accent: '#FFD700' },
@@ -498,25 +565,108 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
 
   const colors = islandColors[land.slug?.split('-')[0]] || islandColors.default
 
+  // Handle click with drag detection to prevent accidental clicks during drag attempts
+  const handleMouseDown = (e) => {
+    if (disabled) return
+    setIsPressed(true)
+    clickStartRef.current = Date.now()
+    clickPosRef.current = { x: e.clientX, y: e.clientY }
+  }
+
+  const handleMouseUp = (e) => {
+    if (disabled || !clickStartRef.current) {
+      setIsPressed(false)
+      return
+    }
+
+    const elapsed = Date.now() - clickStartRef.current
+    const distance = clickPosRef.current
+      ? Math.sqrt(
+          Math.pow(e.clientX - clickPosRef.current.x, 2) +
+          Math.pow(e.clientY - clickPosRef.current.y, 2)
+        )
+      : 0
+
+    // Only trigger click if it was a quick tap (< 300ms) and didn't move much (< 10px)
+    if (elapsed < 300 && distance < 10) {
+      onClick?.()
+    }
+
+    setIsPressed(false)
+    clickStartRef.current = null
+    clickPosRef.current = null
+  }
+
+  const handleTouchStart = (e) => {
+    if (disabled) return
+    setIsPressed(true)
+    const touch = e.touches[0]
+    clickStartRef.current = Date.now()
+    clickPosRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+
+  const handleTouchEnd = (e) => {
+    if (disabled || !clickStartRef.current) {
+      setIsPressed(false)
+      return
+    }
+
+    const elapsed = Date.now() - clickStartRef.current
+    const touch = e.changedTouches[0]
+    const distance = clickPosRef.current
+      ? Math.sqrt(
+          Math.pow(touch.clientX - clickPosRef.current.x, 2) +
+          Math.pow(touch.clientY - clickPosRef.current.y, 2)
+        )
+      : 0
+
+    // Only trigger click if it was a quick tap (< 300ms) and didn't move much (< 20px for touch)
+    if (elapsed < 300 && distance < 20) {
+      onClick?.()
+    }
+
+    setIsPressed(false)
+    clickStartRef.current = null
+    clickPosRef.current = null
+  }
+
   return (
-    <button
-      onClick={onClick}
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        setIsPressed(false)
+      }}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onKeyDown={(e) => {
+        if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
       className={`
         absolute transform -translate-x-1/2 -translate-y-1/2
         focus:outline-none focus:ring-4 focus:ring-yellow-400 rounded-3xl
-        transition-all duration-500 ease-out
-        ${isSelected ? 'scale-125 z-30' : isHovered ? 'scale-110 z-20' : 'z-10'}
+        transition-all duration-300 ease-out select-none
+        ${disabled ? 'pointer-events-none' : 'cursor-pointer'}
+        ${isSelected ? 'scale-125 z-30' : isPressed ? 'scale-95 z-20' : isHovered ? 'scale-110 z-20' : 'z-10'}
       `}
       style={{
         left: `${land.map_position_x || 50}%`,
         top: `${land.map_position_y || 50}%`,
-        animation: `float-island 4s infinite ease-in-out`,
-        animationDelay: `${delay}s`
+        animation: disabled ? 'none' : `float-island 4s infinite ease-in-out`,
+        animationDelay: `${delay}s`,
+        WebkitUserDrag: 'none',
+        userSelect: 'none'
       }}
     >
-      {/* Floating Island Shape */}
       <div className="relative" style={{ width: size * 2, height: size * 2 }}>
         {/* Glow Effect */}
         {(isHovered || isSelected) && (
@@ -537,21 +687,16 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
             filter: isHovered ? 'drop-shadow(0 10px 30px rgba(0,0,0,0.3))' : 'drop-shadow(0 5px 15px rgba(0,0,0,0.2))'
           }}
         >
-          {/* Island Base (rocky bottom) */}
           <ellipse cx="100" cy="150" rx="70" ry="30" fill={colors.base} />
           <ellipse cx="100" cy="145" rx="60" ry="25" fill="#9B8B7A" />
-
-          {/* Grass Top */}
           <ellipse cx="100" cy="130" rx="65" ry="35" fill={colors.grass} />
           <ellipse cx="100" cy="125" rx="55" ry="28" fill="#3CB371" />
-
-          {/* Small Details - Trees/Bushes */}
           <circle cx="70" cy="110" r="12" fill="#228B22" />
           <circle cx="130" cy="115" r="10" fill="#228B22" />
           <circle cx="85" cy="105" r="8" fill="#2E8B57" />
         </svg>
 
-        {/* Icon/Character Container */}
+        {/* Icon Container */}
         <div
           className={`
             absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-[70%]
@@ -563,11 +708,7 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
           `}
         >
           {land.icon_url ? (
-            <img
-              src={land.icon_url}
-              alt={land.name}
-              className="w-3/4 h-3/4 object-contain"
-            />
+            <img src={land.icon_url} alt={land.name} className="w-3/4 h-3/4 object-contain" />
           ) : (
             <span className="text-3xl md:text-4xl">{landIcon}</span>
           )}
@@ -577,18 +718,13 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
         <div
           className={`
             absolute -bottom-4 left-1/2 transform -translate-x-1/2
-            bg-white rounded-xl px-4 py-2 shadow-lg
-            whitespace-nowrap
-            transition-all duration-300
-            border-2
+            bg-white rounded-xl px-4 py-2 shadow-lg whitespace-nowrap
+            transition-all duration-300 border-2
             ${isHovered || ageLevel === 1 ? 'opacity-100 scale-100' : 'opacity-90 scale-95'}
           `}
           style={{ borderColor: accentColor }}
         >
-          <span
-            className="font-bold text-gray-800"
-            style={{ fontSize: ageLevel === 1 ? '1.1rem' : '0.95rem' }}
-          >
+          <span className="font-bold text-gray-800" style={{ fontSize: ageLevel === 1 ? '1.1rem' : '0.95rem' }}>
             {land.name}
           </span>
         </div>
@@ -612,6 +748,6 @@ function FloatingIsland({ land, size, onClick, isSelected, ageLevel, delay, acce
           </div>
         )}
       </div>
-    </button>
+    </div>
   )
 }

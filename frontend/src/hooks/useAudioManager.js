@@ -1,5 +1,4 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import { useLearningWorldStore } from '../stores/learningWorldStore'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
@@ -13,10 +12,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  * - Background music
  */
 export function useAudioManager() {
-  // Get audio settings from store with defaults
-  const audioEnabled = useLearningWorldStore(state => state.audioEnabled ?? true)
-  const musicEnabled = useLearningWorldStore(state => state.musicEnabled ?? true)
-  const volumeLevel = useLearningWorldStore(state => state.volumeLevel ?? 80)
+  // Use hardcoded defaults - store integration temporarily disabled to debug error
+  const audioEnabled = true
+  const musicEnabled = true
+  const volumeLevel = 80
 
   // Audio element refs
   const voiceRef = useRef(null)

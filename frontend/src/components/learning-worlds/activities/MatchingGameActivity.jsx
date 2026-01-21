@@ -17,10 +17,16 @@ export default function MatchingGameActivity({
   touchTargetSize,
   onComplete
 }) {
-  const { playTap, playSuccess, playError } = useAudioManager()
+  const audioManager = useAudioManager()
+  const playTap = audioManager?.playTap
+  const playSuccess = audioManager?.playSuccess
+  const playError = audioManager?.playError
 
-  // Extract matching pairs from content
-  const pairs = content.pairs || content.items || []
+  // Safely extract matching pairs from content
+  const safeContent = content || {}
+  const pairs = Array.isArray(safeContent.pairs) ? safeContent.pairs
+    : Array.isArray(safeContent.items) ? safeContent.items
+    : []
   const [leftItems, setLeftItems] = useState([])
   const [rightItems, setRightItems] = useState([])
   const [selectedLeft, setSelectedLeft] = useState(null)
@@ -57,7 +63,7 @@ export default function MatchingGameActivity({
     if (controlMode === 'teacher') return
     if (matchedPairs.has(item.id)) return
 
-    playTap()
+    playTap?.()
     setSelectedLeft(item)
     setShowError(false)
 
@@ -71,7 +77,7 @@ export default function MatchingGameActivity({
     if (controlMode === 'teacher') return
     if (matchedPairs.has(item.id)) return
 
-    playTap()
+    playTap?.()
     setSelectedRight(item)
     setShowError(false)
 
@@ -86,12 +92,12 @@ export default function MatchingGameActivity({
     const isMatch = right.pairId === leftIndex
 
     if (isMatch) {
-      playSuccess()
+      playSuccess?.()
       setMatchedPairs(prev => new Set([...prev, left.id, right.id]))
       setSelectedLeft(null)
       setSelectedRight(null)
     } else {
-      playError()
+      playError?.()
       setShowError(true)
       setTimeout(() => {
         setSelectedLeft(null)
