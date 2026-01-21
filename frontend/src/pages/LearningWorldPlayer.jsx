@@ -77,6 +77,9 @@ export default function LearningWorldPlayer() {
   async function handleStartSession() {
     const result = await startSession(worldId, startOptions)
     if (result.success) {
+      // Refresh world data to ensure we have latest lands
+      await fetchWorld(worldId)
+
       setShowStartModal(false)
       notifySuccess('Session started!')
 

@@ -73,8 +73,14 @@ export const useLearningWorldStore = create(
         set({ loading: true, error: null })
         try {
           const data = await learningWorldsAPI.getWorld(worldId)
+          // Merge lands and characters into the world object for easy access
+          const worldWithData = {
+            ...data.world,
+            lands: data.lands || [],
+            characters: data.characters || []
+          }
           set({
-            currentWorld: data.world,
+            currentWorld: worldWithData,
             loading: false
           })
           return { success: true, data }
