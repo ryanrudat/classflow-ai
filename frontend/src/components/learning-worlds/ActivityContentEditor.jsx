@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { learningWorldsAPI } from '../../services/api'
+import { useState, useEffect, useRef } from 'react'
+import { learningWorldsAPI, uploadAPI } from '../../services/api'
 
 /**
  * Activity Content Editor
@@ -27,28 +27,33 @@ export default function ActivityContentEditor({
   const activityConfigs = {
     vocabulary_touch: {
       label: 'Vocabulary Items',
-      itemFields: ['word', 'emoji', 'phrase', 'translation'],
-      contentKey: 'items'
+      itemFields: ['word', 'imageUrl', 'emoji', 'phrase', 'translation'],
+      contentKey: 'items',
+      supportsImages: true
     },
     matching_game: {
       label: 'Matching Pairs',
-      itemFields: ['word', 'match', 'translation'],
-      contentKey: 'pairs'
+      itemFields: ['word', 'imageUrl', 'match', 'translation'],
+      contentKey: 'pairs',
+      supportsImages: true
     },
     listen_point: {
       label: 'Listen & Point Items',
-      itemFields: ['word', 'emoji', 'prompt', 'translation'],
-      contentKey: 'items'
+      itemFields: ['word', 'imageUrl', 'emoji', 'prompt', 'translation'],
+      contentKey: 'items',
+      supportsImages: true
     },
     tpr_action: {
       label: 'TPR Actions',
-      itemFields: ['command', 'emoji', 'demonstration', 'translation'],
-      contentKey: 'actions'
+      itemFields: ['command', 'imageUrl', 'emoji', 'demonstration', 'translation'],
+      contentKey: 'actions',
+      supportsImages: true
     },
     coloring: {
       label: 'Coloring Items',
-      itemFields: ['object', 'emoji', 'suggestedColor', 'prompt', 'translation'],
-      contentKey: 'items'
+      itemFields: ['object', 'imageUrl', 'emoji', 'suggestedColor', 'prompt', 'translation'],
+      contentKey: 'items',
+      supportsImages: true
     }
   }
 
@@ -146,9 +151,31 @@ export default function ActivityContentEditor({
     }
   }
 
+  // Track uploading state for each item
+  const [uploadingIndex, setUploadingIndex] = useState(null)
+  const fileInputRefs = useRef({})
+
+  // Handle image upload for an item
+  async function handleImageUpload(index, file) {
+    if (!file) return
+
+    setUploadingIndex(index)
+    try {
+      const result = await uploadAPI.uploadImage(file)
+      if (result.url) {
+        handleUpdateItem(index, 'imageUrl', result.url)
+      }
+    } catch (err) {
+      setError('Failed to upload image: ' + (err.message || 'Unknown error'))
+    } finally {
+      setUploadingIndex(null)
+    }
+  }
+
   // Field labels for display
   const fieldLabels = {
     word: 'Word',
+    imageUrl: 'Image',
     emoji: 'Emoji',
     phrase: 'Phrase',
     translation: 'Translation',
@@ -317,13 +344,71 @@ export default function ActivityContentEditor({
                             <label className="block text-xs text-gray-500 mb-0.5">
                               {fieldLabels[field] || field}
                             </label>
-                            <input
-                              type="text"
-                              value={item[field] || ''}
-                              onChange={(e) => handleUpdateItem(index, field, e.target.value)}
-                              className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-blue-500"
-                              placeholder={field}
-                            />
+                            {field === 'imageUrl' ? (
+                              <div className="relative">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  ref={el => fileInputRefs.current[index] = el}
+                                  onChange={(e) => handleImageUpload(index, e.target.files?.[0])}
+                                  className="hidden"
+                                />
+                                {item.imageUrl ? (
+                                  <div className="relative group">
+                                    <img
+                                      src={item.imageUrl}
+                                      alt="Item"
+                                      className="w-full h-12 object-cover rounded border"
+                                    />
+                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => fileInputRefs.current[index]?.click()}
+                                        className="p-1 bg-white rounded text-xs"
+                                        title="Replace"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateItem(index, 'imageUrl', '')}
+                                        className="p-1 bg-white rounded text-xs text-red-500"
+                                        title="Remove"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => fileInputRefs.current[index]?.click()}
+                                    disabled={uploadingIndex === index}
+                                    className="w-full h-12 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+                                  >
+                                    {uploadingIndex === index ? (
+                                      <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+                                    ) : (
+                                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <input
+                                type="text"
+                                value={item[field] || ''}
+                                onChange={(e) => handleUpdateItem(index, field, e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-blue-500"
+                                placeholder={field}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>

@@ -522,14 +522,14 @@ export const learningWorldsAPI = {
     return response.data
   },
 
-  // AI Content Generation
+  // AI Content Generation (uses /world-activities to avoid conflict with general /activities routes)
   generateActivityContent: async (activityId, options = {}) => {
-    const response = await api.post(`/activities/${activityId}/generate-content`, options)
+    const response = await api.post(`/world-activities/${activityId}/generate-content`, options)
     return response.data
   },
 
   saveActivityContent: async (activityId, content) => {
-    const response = await api.put(`/activities/${activityId}/content`, { content })
+    const response = await api.put(`/world-activities/${activityId}/content`, { content })
     return response.data
   }
 }

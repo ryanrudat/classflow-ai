@@ -94,8 +94,8 @@ router.post('/world-activities/:activityId/respond', authenticateStudent, record
 router.get('/land-templates', getLandTemplates)
 router.post('/learning-worlds/:worldId/import-template', authenticateToken, importLandTemplate)
 
-// AI Content Generation (teacher only)
-router.post('/activities/:activityId/generate-content', authenticateToken, generateAIActivityContent)
-router.put('/activities/:activityId/content', authenticateToken, saveActivityContent)
+// AI Content Generation (teacher only) - uses /world-activities to avoid conflict with general /activities routes
+router.post('/world-activities/:activityId/generate-content', authenticateToken, generateAIActivityContent)
+router.put('/world-activities/:activityId/content', authenticateToken, saveActivityContent)
 
 export default router
