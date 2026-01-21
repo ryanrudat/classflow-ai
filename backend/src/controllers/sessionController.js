@@ -786,12 +786,15 @@ export async function getTeacherSessions(req, res) {
     const teacherId = req.user.userId
     const { status } = req.query // Filter by status (active/ended)
 
+    // Exclude Learning World sessions (those linked to world_sessions table)
     let query = `
       SELECT s.*,
              (SELECT COUNT(*) FROM session_students WHERE session_id = s.id) as student_count,
              (SELECT COUNT(*) FROM activities WHERE session_id = s.id) as activity_count
       FROM sessions s
+      LEFT JOIN world_sessions ws ON ws.session_id = s.id
       WHERE s.teacher_id = $1
+        AND ws.id IS NULL
     `
 
     const params = [teacherId]
