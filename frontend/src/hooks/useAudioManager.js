@@ -44,8 +44,10 @@ export function useAudioManager() {
     // Set music to loop
     musicRef.current.loop = true
 
-    // Preload common sound effects
-    // Using web audio for low-latency effects
+    // Sound effects are disabled until audio files are added
+    // To enable, add mp3 files to /public/audio/effects/
+    // and uncomment the preloading code below
+    /*
     const effects = {
       tap: '/audio/effects/tap.mp3',
       success: '/audio/effects/success.mp3',
@@ -59,13 +61,13 @@ export function useAudioManager() {
     Object.entries(effects).forEach(([name, path]) => {
       const audio = new Audio()
       audio.preload = 'auto'
-      // Handle missing audio files gracefully
       audio.onerror = () => {
-        soundEffects.current[name] = null // Mark as unavailable
+        soundEffects.current[name] = null
       }
       audio.src = path
       soundEffects.current[name] = audio
     })
+    */
 
     return () => {
       voiceRef.current?.pause()
