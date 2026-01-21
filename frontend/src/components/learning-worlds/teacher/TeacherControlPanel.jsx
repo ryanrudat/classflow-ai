@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useLearningWorldStore } from '../../../stores/learningWorldStore'
 
 /**
@@ -33,25 +33,69 @@ export default function TeacherControlPanel({ joinCode, onEndSession }) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState({ x: 20, y: 100 })
+  const dragOffsetRef = useRef({ x: 0, y: 0 })
 
-  // Handle dragging
-  function handleDragStart(e) {
+  // Mouse/touch move handler
+  const handleMove = useCallback((clientX, clientY) => {
+    const newX = Math.max(0, Math.min(window.innerWidth - 300, clientX - dragOffsetRef.current.x))
+    const newY = Math.max(0, Math.min(window.innerHeight - 100, clientY - dragOffsetRef.current.y))
+    setPosition({ x: newX, y: newY })
+  }, [])
+
+  // Mouse events
+  const handleMouseDown = (e) => {
+    e.preventDefault()
     setIsDragging(true)
+    dragOffsetRef.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    }
   }
 
-  function handleDrag(e) {
+  const handleMouseMove = useCallback((e) => {
     if (!isDragging) return
-    if (e.clientX === 0 && e.clientY === 0) return // Ignore invalid positions
+    handleMove(e.clientX, e.clientY)
+  }, [isDragging, handleMove])
 
-    setPosition({
-      x: Math.max(0, e.clientX - 150),
-      y: Math.max(0, e.clientY - 20)
-    })
-  }
-
-  function handleDragEnd() {
+  const handleMouseUp = useCallback(() => {
     setIsDragging(false)
+  }, [])
+
+  // Touch events
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0]
+    setIsDragging(true)
+    dragOffsetRef.current = {
+      x: touch.clientX - position.x,
+      y: touch.clientY - position.y
+    }
   }
+
+  const handleTouchMove = useCallback((e) => {
+    if (!isDragging) return
+    const touch = e.touches[0]
+    handleMove(touch.clientX, touch.clientY)
+  }, [isDragging, handleMove])
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Add/remove global event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      window.addEventListener('touchmove', handleTouchMove)
+      window.addEventListener('touchend', handleTouchEnd)
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('touchmove', handleTouchMove)
+      window.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
 
   // Control mode labels
   const controlModeLabels = {
@@ -69,10 +113,12 @@ export default function TeacherControlPanel({ joinCode, onEndSession }) {
 
   return (
     <div
-      className={`fixed z-50 transition-all duration-300 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-      style={{ left: position.x, top: position.y }}
-      onDrag={handleDrag}
-      onDragEnd={handleDragEnd}
+      className="fixed z-50"
+      style={{
+        left: position.x,
+        top: position.y,
+        transition: isDragging ? 'none' : 'left 0.1s, top 0.1s'
+      }}
     >
       {/* Collapsed State */}
       {!isExpanded && (
@@ -92,11 +138,11 @@ export default function TeacherControlPanel({ joinCode, onEndSession }) {
         <div className="bg-white rounded-2xl shadow-xl w-72 overflow-hidden">
           {/* Header (draggable) */}
           <div
-            className="bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 flex items-center justify-between cursor-grab active:cursor-grabbing"
-            draggable
-            onDragStart={handleDragStart}
-            onDrag={handleDrag}
-            onDragEnd={handleDragEnd}
+            className={`bg-gradient-to-r from-sky-500 to-sky-600 px-4 py-3 flex items-center justify-between select-none ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            }`}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
           >
             <div className="flex items-center gap-2">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
