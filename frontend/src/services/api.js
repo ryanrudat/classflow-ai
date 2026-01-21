@@ -520,6 +520,17 @@ export const learningWorldsAPI = {
   importTemplate: async (worldId, templateId) => {
     const response = await api.post(`/learning-worlds/${worldId}/import-template`, { templateId })
     return response.data
+  },
+
+  // AI Content Generation
+  generateActivityContent: async (activityId, options = {}) => {
+    const response = await api.post(`/activities/${activityId}/generate-content`, options)
+    return response.data
+  },
+
+  saveActivityContent: async (activityId, content) => {
+    const response = await api.put(`/activities/${activityId}/content`, { content })
+    return response.data
   }
 }
 

@@ -393,10 +393,251 @@ Make it more advanced with:
   })
 }
 
+/**
+ * Generate activity content for Learning Worlds
+ * @param {object} params - Activity parameters
+ * @returns {object} Generated content based on activity type
+ */
+export async function generateActivityContent(params) {
+  const {
+    activityType,
+    landName,
+    landTheme,
+    topic,
+    ageLevel = 2,       // 1 = 4-6, 2 = 7-8, 3 = 9-10
+    itemCount = 6,
+    language = 'English',
+    supportLanguage = 'Chinese (Traditional)'
+  } = params
+
+  // Age level descriptions for prompts
+  const ageLevelGuide = {
+    1: 'Ages 4-6: Use single words only, very simple vocabulary, no sentences. Focus on basic, concrete nouns.',
+    2: 'Ages 7-8: Use simple words and short phrases (2-4 words). Simple, common vocabulary.',
+    3: 'Ages 9-10: Use words and short sentences. Can include slightly more advanced vocabulary.'
+  }
+
+  // Build prompt based on activity type
+  let prompt = ''
+
+  if (activityType === 'vocabulary_touch') {
+    prompt = `You are creating vocabulary content for a Learning World activity for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} vocabulary items that fit this theme. Each item should be appropriate for the age level.
+
+Return as JSON in this exact format:
+{
+  "items": [
+    {
+      "word": "dog",
+      "emoji": "🐕",
+      "phrase": "The dog barks",
+      "translation": "狗",
+      "category": "animals"
+    }
+  ],
+  "instructions": "Touch each picture to learn the word!"
+}
+
+Requirements:
+- Each word should be a common, child-friendly word related to the theme
+- Include an appropriate emoji that represents the word
+- The phrase should use the word in context (for age level 2+)
+- Include Traditional Chinese translation
+- All items should be thematically connected
+- For age level 1, phrase can be just the word repeated or very simple`
+  }
+
+  else if (activityType === 'matching_game') {
+    prompt = `You are creating a matching game for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} matching pairs that fit this theme.
+
+Return as JSON in this exact format:
+{
+  "pairs": [
+    {
+      "id": 1,
+      "word": "red",
+      "match": "🔴",
+      "matchType": "emoji",
+      "translation": "紅色"
+    }
+  ],
+  "instructions": "Match each word with its picture!"
+}
+
+Requirements:
+- Words should be age-appropriate
+- Each word matches to an emoji
+- Include Traditional Chinese translation
+- Pairs should be thematically connected to ${landName}`
+  }
+
+  else if (activityType === 'listen_point') {
+    prompt = `You are creating a "Listen and Point" activity for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} items where students hear a word/phrase and point to the correct image.
+
+Return as JSON in this exact format:
+{
+  "items": [
+    {
+      "word": "apple",
+      "emoji": "🍎",
+      "prompt": "Point to the apple!",
+      "translation": "蘋果"
+    }
+  ],
+  "instructions": "Listen carefully and point to the right picture!"
+}
+
+Requirements:
+- Simple, clear prompts appropriate for the age level
+- Use common vocabulary related to the theme
+- Include Traditional Chinese translation`
+  }
+
+  else if (activityType === 'tpr_action') {
+    prompt = `You are creating TPR (Total Physical Response) action prompts for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} TPR actions that fit this theme. These are physical actions students perform.
+
+Return as JSON in this exact format:
+{
+  "actions": [
+    {
+      "command": "Jump like a frog!",
+      "emoji": "🐸",
+      "demonstration": "Jump up and down with your arms out",
+      "translation": "像青蛙一樣跳！"
+    }
+  ],
+  "instructions": "Follow the actions! Move your body!"
+}
+
+Requirements:
+- Actions should be safe for classroom
+- Fun and engaging for young learners
+- Related to the theme when possible
+- Include Traditional Chinese translation`
+  }
+
+  else if (activityType === 'coloring') {
+    prompt = `You are creating a coloring activity vocabulary list for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} items to color with color vocabulary practice.
+
+Return as JSON in this exact format:
+{
+  "items": [
+    {
+      "object": "sun",
+      "emoji": "☀️",
+      "suggestedColor": "yellow",
+      "colorEmoji": "🟡",
+      "prompt": "Color the sun yellow!",
+      "translation": "太陽"
+    }
+  ],
+  "colors": ["red", "blue", "yellow", "green", "orange", "purple", "pink", "brown"],
+  "instructions": "Touch a color, then touch what you want to color!"
+}
+
+Requirements:
+- Objects should be simple and recognizable
+- Colors should be basic for younger learners
+- Include Traditional Chinese translation`
+  }
+
+  else {
+    // Generic activity content
+    prompt = `You are creating content for a "${activityType}" learning activity for young ${language} learners (${ageLevelGuide[ageLevel]}).
+
+Land: ${landName}
+Theme: ${landTheme || 'General'}
+Topic: ${topic || landName}
+
+Generate ${itemCount} appropriate items for this activity type.
+
+Return as JSON with items appropriate for the activity type. Include:
+- Clear instructions
+- Age-appropriate vocabulary
+- Traditional Chinese translations where applicable
+- Emojis to make it visual and engaging`
+  }
+
+  try {
+    const startTime = Date.now()
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 2000,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    })
+
+    const generationTime = Date.now() - startTime
+    const content = message.content[0].text
+
+    // Parse JSON response
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        return {
+          content: parsed,
+          generationTime,
+          model: 'claude-sonnet-4-5'
+        }
+      }
+      return {
+        content: JSON.parse(content),
+        generationTime,
+        model: 'claude-sonnet-4-5'
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError)
+      return {
+        error: 'Failed to parse AI response',
+        rawContent: content,
+        generationTime
+      }
+    }
+
+  } catch (error) {
+    console.error('Activity content generation error:', error)
+    throw new Error(`AI generation failed: ${error.message}`)
+  }
+}
+
 export default {
   generateContent,
   generateEasierVersion,
   generateHarderVersion,
+  generateActivityContent,
   transcribeVoicePrompt, // FUTURE
   textToSpeech          // FUTURE
 }

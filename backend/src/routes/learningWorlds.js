@@ -40,7 +40,11 @@ import {
 
   // Templates
   getLandTemplates,
-  importLandTemplate
+  importLandTemplate,
+
+  // AI Content Generation
+  generateAIActivityContent,
+  saveActivityContent
 } from '../controllers/learningWorldsController.js'
 
 const router = express.Router()
@@ -89,5 +93,9 @@ router.post('/world-activities/:activityId/respond', authenticateStudent, record
 // Templates (public read, teacher import)
 router.get('/land-templates', getLandTemplates)
 router.post('/learning-worlds/:worldId/import-template', authenticateToken, importLandTemplate)
+
+// AI Content Generation (teacher only)
+router.post('/activities/:activityId/generate-content', authenticateToken, generateAIActivityContent)
+router.put('/activities/:activityId/content', authenticateToken, saveActivityContent)
 
 export default router

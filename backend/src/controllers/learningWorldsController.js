@@ -1,6 +1,7 @@
 import db from '../database/db.js'
 import { getIO } from '../services/ioInstance.js'
 import { generateJoinCode } from '../utils/generateCode.js'
+import { generateActivityContent } from '../services/aiService.js'
 
 // ============================================================================
 // LEARNING WORLDS CRUD
@@ -1342,5 +1343,111 @@ export async function importLandTemplate(req, res) {
   } catch (error) {
     console.error('Import template error:', error)
     res.status(500).json({ message: 'Failed to import template' })
+  }
+}
+
+// ============================================================================
+// AI CONTENT GENERATION
+// ============================================================================
+
+/**
+ * Generate activity content using AI
+ * POST /api/activities/:activityId/generate-content
+ */
+export async function generateAIActivityContent(req, res) {
+  const { activityId } = req.params
+  const { topic, itemCount, customPrompt } = req.body
+  const userId = req.user.userId
+
+  try {
+    // Get activity with land and world info
+    const activityResult = await db.query(
+      `SELECT a.*, l.name as land_name, l.slug as land_slug, w.theme as world_theme,
+              w.target_language, w.support_language
+       FROM land_activities a
+       JOIN world_lands l ON a.land_id = l.id
+       JOIN learning_worlds w ON l.world_id = w.id
+       WHERE a.id = $1 AND w.teacher_id = $2`,
+      [activityId, userId]
+    )
+
+    if (activityResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    const activity = activityResult.rows[0]
+
+    // Determine age level from activity min/max
+    const ageLevel = activity.min_age_level || 2
+
+    // Generate content
+    const result = await generateActivityContent({
+      activityType: activity.activity_type,
+      landName: activity.land_name,
+      landTheme: activity.land_slug?.split('-')[0] || activity.world_theme,
+      topic: topic || activity.title,
+      ageLevel,
+      itemCount: itemCount || 6,
+      language: activity.target_language || 'English',
+      supportLanguage: activity.support_language || 'Chinese (Traditional)'
+    })
+
+    if (result.error) {
+      return res.status(500).json({
+        message: 'AI generation produced invalid content',
+        error: result.error,
+        rawContent: result.rawContent
+      })
+    }
+
+    res.json({
+      message: 'Content generated successfully',
+      content: result.content,
+      generationTime: result.generationTime
+    })
+
+  } catch (error) {
+    console.error('Generate AI content error:', error)
+    res.status(500).json({ message: 'Failed to generate content' })
+  }
+}
+
+/**
+ * Save activity content (update activity with new content)
+ * PUT /api/activities/:activityId/content
+ */
+export async function saveActivityContent(req, res) {
+  const { activityId } = req.params
+  const { content } = req.body
+  const userId = req.user.userId
+
+  try {
+    // Verify ownership through land and world
+    const check = await db.query(
+      `SELECT a.id FROM land_activities a
+       JOIN world_lands l ON a.land_id = l.id
+       JOIN learning_worlds w ON l.world_id = w.id
+       WHERE a.id = $1 AND w.teacher_id = $2`,
+      [activityId, userId]
+    )
+
+    if (check.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    const result = await db.query(
+      `UPDATE land_activities SET content = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [content, activityId]
+    )
+
+    res.json({
+      message: 'Activity content saved',
+      activity: result.rows[0]
+    })
+
+  } catch (error) {
+    console.error('Save activity content error:', error)
+    res.status(500).json({ message: 'Failed to save content' })
   }
 }

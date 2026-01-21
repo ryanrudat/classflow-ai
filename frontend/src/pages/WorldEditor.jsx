@@ -5,6 +5,7 @@ import { learningWorldsAPI } from '../services/api'
 import { useNotifications } from '../components/Toast'
 import { LoadingSpinner } from '../components/LoadingStates'
 import { ACTIVITY_TYPES, ACTIVITY_CATEGORIES, AGE_LEVELS } from '../config/learningWorldActivityTypes'
+import ActivityContentEditor from '../components/learning-worlds/ActivityContentEditor'
 
 /**
  * World Editor Page
@@ -34,6 +35,7 @@ export default function WorldEditor() {
   const [showLandModal, setShowLandModal] = useState(false)
   const [showActivityModal, setShowActivityModal] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [editingActivity, setEditingActivity] = useState(null) // For content editor
 
   // Load world data
   useEffect(() => {
@@ -312,6 +314,7 @@ export default function WorldEditor() {
                 characters={characters}
                 onUpdate={(updates) => handleUpdateLand(selectedLand.id, updates)}
                 onAddActivity={() => setShowActivityModal(true)}
+                onEditContent={(activity) => setEditingActivity(activity)}
                 onRefresh={loadWorld}
               />
             )}
@@ -345,6 +348,18 @@ export default function WorldEditor() {
         <CharacterModal
           onSave={handleCreateCharacter}
           onClose={() => setShowCharacterModal(false)}
+        />
+      )}
+
+      {editingActivity && (
+        <ActivityContentEditor
+          activity={editingActivity}
+          onSave={(content) => {
+            setEditingActivity(null)
+            loadWorld() // Refresh to show updated content
+            notifySuccess('Activity content saved!')
+          }}
+          onClose={() => setEditingActivity(null)}
         />
       )}
     </div>
@@ -706,7 +721,7 @@ function CharacterListItem({ character }) {
 /**
  * Land Editor Panel
  */
-function LandEditor({ land, characters, onUpdate, onAddActivity, onRefresh }) {
+function LandEditor({ land, characters, onUpdate, onAddActivity, onEditContent, onRefresh }) {
   const [activities, setActivities] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -779,34 +794,67 @@ function LandEditor({ land, characters, onUpdate, onAddActivity, onRefresh }) {
           </div>
         ) : (
           <div className="space-y-2">
-            {activities.map(activity => (
-              <div
-                key={activity.id}
-                className="p-3 border rounded-lg hover:bg-gray-50 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">
-                    {ACTIVITY_TYPES[activity.activity_type]?.icon || '🎯'}
-                  </span>
-                  <div>
-                    <h5 className="font-medium text-gray-800">{activity.title}</h5>
-                    <p className="text-xs text-gray-500 capitalize">
-                      {activity.activity_type.replace(/_/g, ' ')}
-                      {' • '}
-                      Ages {activity.min_age_level || 1}-{activity.max_age_level || 3}
-                    </p>
+            {activities.map(activity => {
+              const hasContent = activity.content && Object.keys(activity.content).length > 0
+              const itemCount = activity.content?.items?.length ||
+                               activity.content?.pairs?.length ||
+                               activity.content?.actions?.length || 0
+
+              return (
+                <div
+                  key={activity.id}
+                  className="p-3 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">
+                        {ACTIVITY_TYPES[activity.activity_type]?.icon || '🎯'}
+                      </span>
+                      <div>
+                        <h5 className="font-medium text-gray-800">{activity.title}</h5>
+                        <p className="text-xs text-gray-500 capitalize">
+                          {activity.activity_type.replace(/_/g, ' ')}
+                          {' • '}
+                          Ages {activity.min_age_level || 1}-{activity.max_age_level || 3}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Content status badge */}
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        hasContent
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {hasContent ? `${itemCount} items` : 'No content'}
+                      </span>
+
+                      {/* Edit Content button */}
+                      <button
+                        onClick={() => onEditContent(activity)}
+                        className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 flex items-center gap-1"
+                        title="Edit activity content"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+
+                      {/* Delete button */}
+                      <button
+                        onClick={() => handleDeleteActivity(activity.id)}
+                        className="p-1 hover:bg-red-100 rounded text-red-500"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteActivity(activity.id)}
-                  className="p-1 hover:bg-red-100 rounded text-red-500"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
