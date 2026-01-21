@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useLearningWorldStore } from '../stores/learningWorldStore'
 import { learningWorldsAPI } from '../services/api'
@@ -292,7 +292,7 @@ export default function WorldEditor() {
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="p-4 border-b bg-gray-50">
                 <h3 className="font-semibold text-gray-800">Map Preview</h3>
-                <p className="text-sm text-gray-500">Click on a land to edit it</p>
+                <p className="text-sm text-gray-500">Drag lands to reposition them on the map</p>
               </div>
               <MapPreview
                 world={world}
@@ -441,6 +441,10 @@ function WorldSettingsCard({ world, onSave, saving }) {
  * Map Preview with draggable land positions
  */
 function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosition }) {
+  const containerRef = useRef(null)
+  const [dragging, setDragging] = useState(null) // { landId, startX, startY }
+  const [dragPosition, setDragPosition] = useState(null) // { x, y } in percentage
+
   const themes = {
     fantasy: { bg: 'from-indigo-900 via-purple-600 to-orange-300', ground: '#2d5a27' },
     ocean: { bg: 'from-sky-700 via-sky-400 to-cyan-200', ground: '#059669' },
@@ -449,10 +453,90 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
   }
   const theme = themes[world.theme] || themes.fantasy
 
+  // Convert pixel position to percentage
+  const pixelToPercent = useCallback((clientX, clientY) => {
+    if (!containerRef.current) return { x: 50, y: 50 }
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = Math.max(10, Math.min(90, ((clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(15, Math.min(80, ((clientY - rect.top) / rect.height) * 100))
+    return { x, y }
+  }, [])
+
+  // Handle drag start
+  const handleDragStart = useCallback((e, land) => {
+    e.preventDefault()
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+
+    setDragging({
+      landId: land.id,
+      landName: land.name
+    })
+    setDragPosition({
+      x: land.map_position_x || 50,
+      y: land.map_position_y || 50
+    })
+    onSelectLand(land)
+  }, [onSelectLand])
+
+  // Handle drag move
+  const handleDragMove = useCallback((e) => {
+    if (!dragging) return
+    e.preventDefault()
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY
+    const pos = pixelToPercent(clientX, clientY)
+    setDragPosition(pos)
+  }, [dragging, pixelToPercent])
+
+  // Handle drag end
+  const handleDragEnd = useCallback(async () => {
+    if (!dragging || !dragPosition) return
+
+    // Save the new position
+    await onUpdateLandPosition(dragging.landId, dragPosition.x, dragPosition.y)
+
+    setDragging(null)
+    setDragPosition(null)
+  }, [dragging, dragPosition, onUpdateLandPosition])
+
+  // Add global mouse/touch listeners when dragging
+  useEffect(() => {
+    if (!dragging) return
+
+    const handleMove = (e) => handleDragMove(e)
+    const handleEnd = () => handleDragEnd()
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleEnd)
+    window.addEventListener('touchmove', handleMove, { passive: false })
+    window.addEventListener('touchend', handleEnd)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleEnd)
+      window.removeEventListener('touchmove', handleMove)
+      window.removeEventListener('touchend', handleEnd)
+    }
+  }, [dragging, handleDragMove, handleDragEnd])
+
+  // Get position for a land (use drag position if currently dragging this land)
+  const getLandPosition = (land) => {
+    if (dragging?.landId === land.id && dragPosition) {
+      return dragPosition
+    }
+    return {
+      x: land.map_position_x || 50,
+      y: land.map_position_y || 50
+    }
+  }
+
   return (
     <div
-      className={`relative h-64 bg-gradient-to-b ${theme.bg}`}
-      style={{ minHeight: 256 }}
+      ref={containerRef}
+      className={`relative h-64 bg-gradient-to-b ${theme.bg} select-none`}
+      style={{ minHeight: 256, cursor: dragging ? 'grabbing' : 'default' }}
     >
       {/* Ground */}
       <div
@@ -460,37 +544,67 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
         style={{ backgroundColor: theme.ground, opacity: 0.8 }}
       />
 
+      {/* Drag instruction hint */}
+      {lands.length > 0 && !dragging && (
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-black/40 text-white text-xs px-3 py-1 rounded-full">
+          Drag lands to reposition
+        </div>
+      )}
+
+      {/* Dragging indicator */}
+      {dragging && (
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-yellow-900 text-xs px-3 py-1 rounded-full font-medium animate-pulse">
+          Moving {dragging.landName}...
+        </div>
+      )}
+
       {/* Land markers */}
-      {lands.map(land => (
-        <button
-          key={land.id}
-          onClick={() => onSelectLand(land)}
-          className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all ${
-            selectedLand?.id === land.id
-              ? 'scale-125 z-10'
-              : 'hover:scale-110'
-          }`}
-          style={{
-            left: `${land.map_position_x || 50}%`,
-            top: `${land.map_position_y || 50}%`
-          }}
-        >
+      {lands.map(land => {
+        const pos = getLandPosition(land)
+        const isDragging = dragging?.landId === land.id
+
+        return (
           <div
-            className={`w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl border-4 ${
-              selectedLand?.id === land.id ? 'border-yellow-400' : 'border-white'
+            key={land.id}
+            className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${
+              isDragging
+                ? 'z-50 scale-110'
+                : selectedLand?.id === land.id
+                  ? 'scale-110 z-10'
+                  : 'hover:scale-105'
             }`}
+            style={{
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              cursor: isDragging ? 'grabbing' : 'grab',
+              transition: isDragging ? 'none' : 'transform 0.15s ease-out'
+            }}
+            onMouseDown={(e) => handleDragStart(e, land)}
+            onTouchStart={(e) => handleDragStart(e, land)}
           >
-            {land.icon_url ? (
-              <img src={land.icon_url} alt={land.name} className="w-10 h-10" />
-            ) : (
-              getDefaultIcon(land.slug)
-            )}
+            <div
+              className={`w-16 h-16 rounded-full bg-white shadow-lg flex items-center justify-center text-2xl border-4 transition-colors ${
+                isDragging
+                  ? 'border-yellow-400 shadow-2xl ring-4 ring-yellow-300/50'
+                  : selectedLand?.id === land.id
+                    ? 'border-blue-500'
+                    : 'border-white hover:border-gray-200'
+              }`}
+            >
+              {land.icon_url ? (
+                <img src={land.icon_url} alt={land.name} className="w-10 h-10 pointer-events-none" />
+              ) : (
+                getDefaultIcon(land.slug)
+              )}
+            </div>
+            <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded text-xs font-medium shadow ${
+              isDragging ? 'bg-yellow-100 text-yellow-900' : 'bg-white'
+            }`}>
+              {land.name}
+            </div>
           </div>
-          <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap bg-white px-2 py-1 rounded text-xs font-medium shadow">
-            {land.name}
-          </div>
-        </button>
-      ))}
+        )
+      })}
 
       {/* Empty state */}
       {lands.length === 0 && (
