@@ -13,7 +13,10 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
  * - Background music
  */
 export function useAudioManager() {
-  const { audioEnabled, musicEnabled, volumeLevel } = useLearningWorldStore()
+  // Get audio settings from store with defaults
+  const audioEnabled = useLearningWorldStore(state => state.audioEnabled ?? true)
+  const musicEnabled = useLearningWorldStore(state => state.musicEnabled ?? true)
+  const volumeLevel = useLearningWorldStore(state => state.volumeLevel ?? 80)
 
   // Audio element refs
   const voiceRef = useRef(null)

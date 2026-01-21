@@ -83,10 +83,11 @@ export default function LearningWorldPlayer() {
       setShowStartModal(false)
       notifySuccess('Session started!')
 
-      // Play background music if enabled
-      if (startOptions.musicEnabled) {
-        playMusic('/audio/music/world-theme.mp3')
-      }
+      // Background music is disabled until audio files are added
+      // To enable: add world-theme.mp3 to /public/audio/music/
+      // if (startOptions.musicEnabled) {
+      //   playMusic('/audio/music/world-theme.mp3')
+      // }
     } else {
       notifyError(result.error || 'Failed to start session')
     }

@@ -16,6 +16,8 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
   const { playTap } = useAudioManager()
   const [selectedLand, setSelectedLand] = useState(null)
   const [isZooming, setIsZooming] = useState(false)
+  const [isPanning, setIsPanning] = useState(false)
+  const panStartRef = useRef(null)
 
   // Touch target sizes based on age level
   const touchTargetSize = ageLevel === 1 ? 120 : ageLevel === 2 ? 100 : 80
@@ -65,9 +67,13 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
   const theme = themes[world?.theme] || themes.default
 
   function handleLandClick(land) {
-    if (isZooming) return
+    // Don't trigger click if we were just panning
+    if (isZooming || isPanning) {
+      setIsPanning(false)
+      return
+    }
 
-    playTap()
+    playTap?.() // Safe call in case playTap is undefined
     setSelectedLand(land)
     setIsZooming(true)
 
@@ -89,7 +95,9 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
 
     // Navigate after zoom animation
     setTimeout(() => {
-      onSelectLand(land.id)
+      if (onSelectLand) {
+        onSelectLand(land.id)
+      }
       // Reset after navigation
       setTimeout(() => {
         if (transformRef.current) {
@@ -99,6 +107,19 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         setIsZooming(false)
       }, 100)
     }, 1100)
+  }
+
+  // Track panning to prevent clicks after pan
+  function handlePanStart() {
+    setIsPanning(true)
+    panStartRef.current = Date.now()
+  }
+
+  function handlePanEnd() {
+    // Keep isPanning true briefly to catch click events that fire after pan
+    setTimeout(() => {
+      setIsPanning(false)
+    }, 100)
   }
 
   return (
@@ -203,6 +224,8 @@ export default function WorldMapView({ world, onSelectLand, ageLevel = 2 }) {
         limitToBounds={false}
         disabled={isZooming}
         panning={{ disabled: isZooming }}
+        onPanningStart={handlePanStart}
+        onPanningStop={handlePanEnd}
       >
         <TransformComponent
           wrapperStyle={{ width: '100%', height: '100%' }}
