@@ -11,6 +11,7 @@ import {
   // Characters
   createCharacter,
   updateCharacter,
+  generateCharacter,
 
   // Lands
   createLand,
@@ -69,6 +70,7 @@ router.delete('/learning-worlds/:worldId', authenticateToken, deleteWorld)
 
 // Characters (teacher only)
 router.post('/learning-worlds/:worldId/characters', authenticateToken, createCharacter)
+router.post('/learning-worlds/:worldId/generate-character', authenticateToken, generateCharacter)
 router.put('/characters/:characterId', authenticateToken, updateCharacter)
 
 // Lands CRUD (teacher only)

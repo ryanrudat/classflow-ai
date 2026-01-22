@@ -1,7 +1,7 @@
 import db from '../database/db.js'
 import { getIO } from '../services/ioInstance.js'
 import { generateJoinCode } from '../utils/generateCode.js'
-import { generateActivityContent, generateImage, generateImageBatch } from '../services/aiService.js'
+import { generateActivityContent, generateImage, generateImageBatch, generateCharacterProfile, generateCharacterAvatar } from '../services/aiService.js'
 
 // ============================================================================
 // LEARNING WORLDS CRUD
@@ -240,6 +240,100 @@ export async function createCharacter(req, res) {
   } catch (error) {
     console.error('Create character error:', error)
     res.status(500).json({ message: 'Failed to create character' })
+  }
+}
+
+/**
+ * Generate a character with AI
+ * POST /api/learning-worlds/:worldId/generate-character
+ */
+export async function generateCharacter(req, res) {
+  const { worldId } = req.params
+  const { theme, landContext, stylePreferences } = req.body
+  const userId = req.user.userId
+
+  try {
+    // Verify world ownership
+    const worldCheck = await db.query(
+      `SELECT * FROM learning_worlds WHERE id = $1 AND teacher_id = $2`,
+      [worldId, userId]
+    )
+
+    if (worldCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Learning world not found' })
+    }
+
+    const world = worldCheck.rows[0]
+
+    // Get existing characters to avoid duplicates
+    const existingChars = await db.query(
+      `SELECT name FROM world_characters WHERE world_id = $1`,
+      [worldId]
+    )
+
+    console.log('🎭 Generating character profile...')
+
+    // Step 1: Generate character profile with Claude
+    const profileResult = await generateCharacterProfile({
+      theme: theme || world.theme || 'friendly helper',
+      landContext: landContext || null,
+      worldTheme: world.theme || 'fantasy',
+      existingCharacters: existingChars.rows
+    })
+
+    if (!profileResult.success) {
+      return res.status(500).json({
+        message: 'Failed to generate character profile',
+        error: profileResult.error
+      })
+    }
+
+    const profile = profileResult.character
+    console.log('✅ Character profile generated:', profile.name)
+
+    // Step 2: Generate avatar with DALL-E 3
+    console.log('🎨 Generating character avatar...')
+    const avatarResult = await generateCharacterAvatar(profile)
+
+    let avatarUrl = null
+    if (avatarResult.success) {
+      avatarUrl = avatarResult.url
+      console.log('✅ Avatar generated successfully')
+    } else {
+      console.warn('⚠️ Avatar generation failed:', avatarResult.error)
+      // Continue without avatar - user can upload one later
+    }
+
+    // Step 3: Save character to database
+    const result = await db.query(
+      `INSERT INTO world_characters (
+        world_id, name, short_name, species,
+        personality_traits, catchphrase, voice_style, avatar_url
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *`,
+      [
+        worldId,
+        profile.name,
+        profile.shortName || profile.name.split(' ')[0],
+        profile.species,
+        profile.personalityTraits || [],
+        profile.catchphrase,
+        profile.voiceStyle || 'friendly',
+        avatarUrl
+      ]
+    )
+
+    res.status(201).json({
+      message: 'Character generated successfully',
+      character: result.rows[0],
+      profile: profile,
+      avatarGenerated: avatarResult.success,
+      generationTime: profileResult.generationTime
+    })
+
+  } catch (error) {
+    console.error('Generate character error:', error)
+    res.status(500).json({ message: 'Failed to generate character' })
   }
 }
 
@@ -1330,9 +1424,16 @@ export async function importLandTemplate(req, res) {
 
     const land = landResult.rows[0]
 
-    // Create activities
+    // Create activities (skip any without valid activityType)
+    let sequenceOrder = 0
     for (let i = 0; i < activitiesData.length; i++) {
       const activity = activitiesData[i]
+      // Skip activities without a valid activity type
+      if (!activity.activityType) {
+        console.warn(`Skipping template activity "${activity.title}" - missing activityType`)
+        continue
+      }
+      sequenceOrder++
       await db.query(
         `INSERT INTO land_activities (
           land_id, title, activity_type, instructions, student_prompt,
@@ -1345,7 +1446,7 @@ export async function importLandTemplate(req, res) {
           activity.introNarrative, activity.successNarrative, activity.content,
           activity.minAgeLevel || 1, activity.maxAgeLevel || 3,
           activity.level1Content, activity.level2Content, activity.level3Content,
-          activity.tprPrompts || [], activity.estimatedDurationSeconds || 180, i + 1
+          activity.tprPrompts || [], activity.estimatedDurationSeconds || 180, sequenceOrder
         ]
       )
     }

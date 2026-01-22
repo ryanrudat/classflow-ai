@@ -420,6 +420,11 @@ export const learningWorldsAPI = {
     return response.data
   },
 
+  generateCharacter: async (worldId, options = {}) => {
+    const response = await api.post(`/learning-worlds/${worldId}/generate-character`, options)
+    return response.data
+  },
+
   updateCharacter: async (characterId, data) => {
     const response = await api.put(`/characters/${characterId}`, data)
     return response.data

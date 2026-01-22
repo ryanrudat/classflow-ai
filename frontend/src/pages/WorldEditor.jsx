@@ -359,7 +359,20 @@ export default function WorldEditor() {
 
       {showCharacterModal && (
         <CharacterModal
-          onSave={handleCreateCharacter}
+          worldId={worldId}
+          onSave={(character) => {
+            // Character is already saved by backend for AI generation
+            // or we need to save it for manual creation
+            if (character.id) {
+              // AI-generated character already saved
+              setCharacters([...characters, character])
+              setShowCharacterModal(false)
+              notifySuccess('Character created!')
+            } else {
+              // Manual creation
+              handleCreateCharacter(character)
+            }
+          }}
           onClose={() => setShowCharacterModal(false)}
         />
       )}
@@ -754,19 +767,42 @@ function LandListItem({ land, isSelected, onClick, onEdit, onDelete }) {
  * Character List Item
  */
 function CharacterListItem({ character }) {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
   return (
-    <div className="p-3 rounded-lg border border-gray-200 hover:border-gray-300">
+    <div className="p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-xl">
-          {character.avatar_url ? (
-            <img src={character.avatar_url} alt={character.name} className="w-full h-full rounded-full" />
+        <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-xl relative overflow-hidden flex-shrink-0">
+          {character.avatar_url && !imageError ? (
+            <>
+              {!imageLoaded && (
+                <div className="absolute inset-0 bg-purple-100 animate-pulse flex items-center justify-center">
+                  <span className="text-purple-400">...</span>
+                </div>
+              )}
+              <img
+                src={character.avatar_url}
+                alt={character.name}
+                className={`w-full h-full rounded-full object-cover transition-opacity ${
+                  imageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
+              />
+            </>
           ) : (
             '🎭'
           )}
         </div>
-        <div>
-          <h4 className="font-medium text-gray-800">{character.name}</h4>
-          <p className="text-xs text-gray-500 italic">"{character.catchphrase}"</p>
+        <div className="min-w-0 flex-1">
+          <h4 className="font-medium text-gray-800 truncate">{character.name}</h4>
+          {character.species && (
+            <p className="text-xs text-gray-400 capitalize">{character.species}</p>
+          )}
+          {character.catchphrase && (
+            <p className="text-xs text-gray-500 italic truncate">"{character.catchphrase}"</p>
+          )}
         </div>
       </div>
     </div>
@@ -868,7 +904,7 @@ function LandEditor({ land, characters, onUpdate, onAddActivity, onEditContent, 
                       <div>
                         <h5 className="font-medium text-gray-800">{activity.title}</h5>
                         <p className="text-xs text-gray-500 capitalize">
-                          {activity.activity_type.replace(/_/g, ' ')}
+                          {(activity.activity_type || 'unconfigured').replace(/_/g, ' ')}
                           {' • '}
                           Ages {activity.min_age_level || 1}-{activity.max_age_level || 3}
                         </p>
@@ -1275,9 +1311,17 @@ function ActivityModal({ landId, onSave, onClose }) {
 }
 
 /**
- * Character Creation Modal
+ * Character Creation Modal with AI Generation
  */
-function CharacterModal({ onSave, onClose }) {
+function CharacterModal({ worldId, onSave, onClose }) {
+  const [mode, setMode] = useState('ai') // 'ai' or 'manual'
+  const [theme, setTheme] = useState('')
+  const [landContext, setLandContext] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [generatedCharacter, setGeneratedCharacter] = useState(null)
+  const [error, setError] = useState(null)
+
+  // Manual mode fields
   const [name, setName] = useState('')
   const [catchphrase, setCatchphrase] = useState('')
   const [personality, setPersonality] = useState('friendly')
@@ -1291,13 +1335,47 @@ function CharacterModal({ onSave, onClose }) {
     { value: 'adventurous', label: 'Adventurous', emoji: '🌟' }
   ]
 
-  async function handleSubmit(e) {
+  const themeExamples = [
+    { label: 'Ocean Explorer', value: 'ocean adventure, marine life' },
+    { label: 'Forest Friend', value: 'forest woodland, nature' },
+    { label: 'Space Buddy', value: 'space exploration, astronaut' },
+    { label: 'Safari Guide', value: 'safari animals, jungle' }
+  ]
+
+  async function handleGenerateCharacter() {
+    setGenerating(true)
+    setError(null)
+    try {
+      const response = await learningWorldsAPI.generateCharacter(worldId, {
+        theme: theme || 'friendly educational helper',
+        landContext: landContext || null
+      })
+      setGeneratedCharacter(response.character)
+    } catch (err) {
+      console.error('Character generation error:', err)
+      setError(err.response?.data?.message || 'Failed to generate character')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleAcceptCharacter() {
+    // Character is already saved by the backend, just close
+    onSave(generatedCharacter)
+  }
+
+  async function handleRegenerateCharacter() {
+    setGeneratedCharacter(null)
+    await handleGenerateCharacter()
+  }
+
+  async function handleManualSubmit(e) {
     e.preventDefault()
     setSaving(true)
     await onSave({
       name,
       catchphrase,
-      personality,
+      personalityTraits: [personality],
       voiceStyle
     })
     setSaving(false)
@@ -1305,73 +1383,297 @@ function CharacterModal({ onSave, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-lg w-full">
+      <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div className="p-4 border-b">
           <h2 className="text-lg font-bold text-gray-800">Create Character</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              placeholder="e.g., Leo the Lion"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Catchphrase</label>
-            <input
-              type="text"
-              value={catchphrase}
-              onChange={(e) => setCatchphrase(e.target.value)}
-              placeholder="e.g., Roooar! Let's learn together!"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Personality</label>
-            <div className="grid grid-cols-2 gap-2">
-              {personalities.map(p => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setPersonality(p.value)}
-                  className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
-                    personality === p.value
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <span className="text-xl">{p.emoji}</span>
-                  <span className="font-medium">{p.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
+        {/* Mode Toggle */}
+        <div className="p-4 border-b bg-gray-50">
+          <div className="flex gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              onClick={() => setMode('ai')}
+              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                mode === 'ai'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-white text-gray-600 border hover:bg-gray-50'
+              }`}
             >
-              Cancel
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Generate with AI
             </button>
             <button
-              type="submit"
-              disabled={saving || !name}
-              className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50"
+              type="button"
+              onClick={() => setMode('manual')}
+              className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                mode === 'manual'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-white text-gray-600 border hover:bg-gray-50'
+              }`}
             >
-              {saving ? 'Creating...' : 'Create Character'}
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Create Manually
             </button>
           </div>
-        </form>
+        </div>
+
+        {/* AI Generation Mode */}
+        {mode === 'ai' && !generatedCharacter && (
+          <div className="p-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Character Theme
+              </label>
+              <input
+                type="text"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                placeholder="e.g., ocean adventure, friendly robot, wise owl..."
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+              <div className="flex flex-wrap gap-2 mt-2">
+                {themeExamples.map(ex => (
+                  <button
+                    key={ex.value}
+                    type="button"
+                    onClick={() => setTheme(ex.value)}
+                    className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200"
+                  >
+                    {ex.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Land Context (optional)
+              </label>
+              <input
+                type="text"
+                value={landContext}
+                onChange={(e) => setLandContext(e.target.value)}
+                placeholder="e.g., This character will guide students through Animal Land..."
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Describe where this character will appear for better results
+              </p>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="text-sm text-purple-700">
+                  <p className="font-medium">AI will generate:</p>
+                  <ul className="mt-1 space-y-1 list-disc list-inside">
+                    <li>Unique character name and personality</li>
+                    <li>Memorable catchphrase</li>
+                    <li>Avatar image (Pixar-style)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateCharacter}
+                disabled={generating}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-2"
+              >
+                {generating ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Generate Character
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Generated Character Preview */}
+        {mode === 'ai' && generatedCharacter && (
+          <div className="p-4 space-y-4">
+            <div className="text-center">
+              {generatedCharacter.avatar_url ? (
+                <img
+                  src={generatedCharacter.avatar_url}
+                  alt={generatedCharacter.name}
+                  className="w-32 h-32 mx-auto rounded-full object-cover border-4 border-purple-200 shadow-lg"
+                />
+              ) : (
+                <div className="w-32 h-32 mx-auto rounded-full bg-purple-100 flex items-center justify-center text-4xl border-4 border-purple-200">
+                  🎭
+                </div>
+              )}
+              <h3 className="text-xl font-bold text-gray-800 mt-3">{generatedCharacter.name}</h3>
+              <p className="text-sm text-gray-500 capitalize">{generatedCharacter.species}</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div>
+                <span className="text-xs font-medium text-gray-500 uppercase">Catchphrase</span>
+                <p className="text-gray-800 italic">"{generatedCharacter.catchphrase}"</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-medium text-gray-500 uppercase">Personality</span>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {generatedCharacter.personality_traits?.map((trait, i) => (
+                    <span key={i} className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
+                      {trait}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-medium text-gray-500 uppercase">Voice Style</span>
+                <p className="text-gray-800 capitalize">{generatedCharacter.voice_style}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-between gap-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={handleRegenerateCharacter}
+                disabled={generating}
+                className="px-4 py-2 text-purple-600 hover:bg-purple-50 rounded-lg flex items-center gap-2"
+              >
+                {generating ? (
+                  <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                Regenerate
+              </button>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAcceptCharacter}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Accept Character
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual Mode */}
+        {mode === 'manual' && (
+          <form onSubmit={handleManualSubmit} className="p-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="e.g., Leo the Lion"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Catchphrase</label>
+              <input
+                type="text"
+                value={catchphrase}
+                onChange={(e) => setCatchphrase(e.target.value)}
+                placeholder="e.g., Roooar! Let's learn together!"
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Personality</label>
+              <div className="grid grid-cols-2 gap-2">
+                {personalities.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPersonality(p.value)}
+                    className={`p-3 rounded-lg border-2 flex items-center gap-2 ${
+                      personality === p.value
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-xl">{p.emoji}</span>
+                    <span className="font-medium">{p.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={saving || !name}
+                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50"
+              >
+                {saving ? 'Creating...' : 'Create Character'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )

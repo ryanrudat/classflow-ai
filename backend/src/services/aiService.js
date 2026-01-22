@@ -740,6 +740,177 @@ export async function generateImageBatch(words, options = {}) {
   return results
 }
 
+/**
+ * Generate a character profile using Claude AI
+ * Creates a unique character with name, personality, catchphrase, and visual description
+ *
+ * @param {object} params - Character generation parameters
+ * @returns {object} Generated character profile
+ */
+export async function generateCharacterProfile(params) {
+  const {
+    theme = 'friendly helper',
+    landContext = null,
+    worldTheme = 'fantasy',
+    existingCharacters = []
+  } = params
+
+  const existingNames = existingCharacters.map(c => c.name).join(', ')
+
+  const prompt = `Generate a unique character for a children's educational app.
+Theme: ${theme}
+World Theme: ${worldTheme}
+${landContext ? `Land Context: ${landContext}` : ''}
+${existingNames ? `Existing characters (avoid similar names): ${existingNames}` : ''}
+
+Create a character that is:
+- Friendly and encouraging but NOT babyish or overly cute
+- Has a distinct personality that kids ages 4-10 would enjoy
+- Suitable for language learning activities
+- Memorable and visually interesting
+
+Return JSON in this exact format:
+{
+  "name": "character full name (e.g., 'Captain Coral')",
+  "shortName": "nickname or short name (e.g., 'Coral')",
+  "species": "animal or creature type (e.g., 'sea turtle', 'owl', 'robot')",
+  "personalityTraits": ["trait1", "trait2", "trait3"],
+  "catchphrase": "a memorable phrase they say (short, fun, encouraging)",
+  "voiceStyle": "friendly|playful|wise|adventurous",
+  "visualDescription": "detailed description for image generation - include colors, clothing/accessories, expression, pose"
+}
+
+Make the character unique and memorable. The visual description should be specific enough for image generation.`
+
+  try {
+    const startTime = Date.now()
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: prompt
+      }]
+    })
+
+    const generationTime = Date.now() - startTime
+    const content = message.content[0].text
+
+    // Parse JSON response
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        return {
+          success: true,
+          character: parsed,
+          generationTime,
+          model: 'claude-sonnet-4-5'
+        }
+      }
+      return {
+        success: true,
+        character: JSON.parse(content),
+        generationTime,
+        model: 'claude-sonnet-4-5'
+      }
+    } catch (parseError) {
+      console.error('Failed to parse character profile:', parseError)
+      return {
+        success: false,
+        error: 'Failed to parse AI response',
+        rawContent: content,
+        generationTime
+      }
+    }
+
+  } catch (error) {
+    console.error('Character profile generation error:', error)
+    return {
+      success: false,
+      error: error.message || 'Failed to generate character profile'
+    }
+  }
+}
+
+/**
+ * Generate a character avatar using DALL-E 3
+ * Optimized for educational character art in Pixar/Disney style
+ *
+ * @param {object} character - Character profile from generateCharacterProfile
+ * @returns {object} Generated image URL and metadata
+ */
+export async function generateCharacterAvatar(character) {
+  const {
+    name,
+    species,
+    personalityTraits = [],
+    visualDescription
+  } = character
+
+  // Build a detailed prompt for DALL-E
+  const prompt = `A friendly ${species} character named ${name} for an educational app.
+Style: Modern 3D animation style like Pixar, clean lines, expressive eyes, appealing design.
+Personality: ${personalityTraits.join(', ')}.
+${visualDescription ? `Details: ${visualDescription}` : ''}
+Background: Simple soft gradient, portrait orientation, character centered.
+The character should appeal to children ages 4-10 but NOT be babyish or overly cute.
+No text, no letters, no watermarks.`
+
+  try {
+    console.log('🎨 Generating character avatar for:', name)
+
+    const response = await openai.images.generate({
+      model: 'dall-e-3',
+      prompt: prompt,
+      n: 1,
+      size: '1024x1024',
+      quality: 'standard',
+      style: 'vivid'
+    })
+
+    const imageUrl = response.data[0].url
+    const revisedPrompt = response.data[0].revised_prompt
+
+    console.log('✅ Character avatar generated successfully')
+
+    return {
+      success: true,
+      url: imageUrl,
+      characterName: name,
+      prompt: prompt,
+      revisedPrompt: revisedPrompt,
+      model: 'dall-e-3'
+    }
+
+  } catch (error) {
+    console.error('Character avatar generation error:', error)
+
+    if (error.code === 'content_policy_violation') {
+      return {
+        success: false,
+        error: 'Content policy violation - try different character traits',
+        characterName: name
+      }
+    }
+
+    if (error.code === 'rate_limit_exceeded') {
+      return {
+        success: false,
+        error: 'Rate limit exceeded - please try again in a moment',
+        characterName: name
+      }
+    }
+
+    return {
+      success: false,
+      error: error.message || 'Failed to generate avatar',
+      characterName: name
+    }
+  }
+}
+
 export default {
   generateContent,
   generateEasierVersion,
@@ -747,6 +918,8 @@ export default {
   generateActivityContent,
   generateImage,
   generateImageBatch,
+  generateCharacterProfile,
+  generateCharacterAvatar,
   transcribeVoicePrompt, // FUTURE
   textToSpeech          // FUTURE
 }
