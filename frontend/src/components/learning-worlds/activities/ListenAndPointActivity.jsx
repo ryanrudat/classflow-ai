@@ -62,7 +62,7 @@ export default function ListenAndPointActivity({
   }, [currentIndex, items, playWord])
 
   function handleOptionSelect(option) {
-    if (controlMode === 'teacher') return
+    // Allow interaction in all modes - teachers can test activities too
     if (showingResult) return
 
     playTap?.()
@@ -186,7 +186,7 @@ function OptionCard({
   controlMode,
   cardSize
 }) {
-  const canTouch = controlMode !== 'teacher'
+  const canTouch = true // Allow interaction in all modes
 
   return (
     <button

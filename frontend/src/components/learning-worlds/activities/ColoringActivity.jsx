@@ -51,8 +51,7 @@ export default function ColoringActivity({
   }
 
   function handleSectionClick(sectionId) {
-    if (controlMode === 'teacher') return
-
+    // Allow interaction in all modes - teachers can test activities too
     playTap?.()
     setColoredSections(prev => ({
       ...prev,
@@ -165,7 +164,7 @@ function SimpleColoringGrid({ sections, coloredSections, onSectionClick, control
   ]
 
   const actualSections = sections.length > 0 ? sections : defaultSections
-  const canTouch = controlMode !== 'teacher'
+  const canTouch = true // Allow interaction in all modes
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

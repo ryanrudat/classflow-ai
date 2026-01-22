@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, Component } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 import CharacterAvatar from './characters/CharacterAvatar'
 import SpeechBubble from './characters/SpeechBubble'
-import { P5Overlay } from './p5/P5Canvas'
-import { ambientSketch } from './p5/sketches/ambientSketch'
 
 /**
  * Error Boundary for Land View
@@ -176,50 +174,54 @@ function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
         }}
       />
 
-      {/* Animated Sun */}
-      <div className="absolute top-8 right-12 pointer-events-none">
-        <div
-          className="w-16 h-16 md:w-24 md:h-24 rounded-full animate-pulse-slow"
-          style={{
-            background: 'radial-gradient(circle at 30% 30%, #FFF8DC, #FFD700, #FFA500)',
-            boxShadow: '0 0 40px rgba(255, 215, 0, 0.4), 0 0 80px rgba(255, 165, 0, 0.2)'
-          }}
-        />
+      {/* Modern Sun - subtle gradient glow */}
+      <div className="absolute top-6 right-8 pointer-events-none">
+        <svg width="120" height="120" viewBox="0 0 120 120" className="animate-pulse-slow">
+          <defs>
+            <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#FEF3C7" />
+              <stop offset="40%" stopColor="#FCD34D" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.3" />
+            </radialGradient>
+            <filter id="sunBlur">
+              <feGaussianBlur stdDeviation="3" />
+            </filter>
+          </defs>
+          <circle cx="60" cy="60" r="50" fill="url(#sunGlow)" filter="url(#sunBlur)" opacity="0.8" />
+          <circle cx="60" cy="60" r="35" fill="#FCD34D" opacity="0.9" />
+          <circle cx="50" cy="50" r="10" fill="#FEF3C7" opacity="0.6" />
+        </svg>
       </div>
 
-      {/* Floating Clouds */}
+      {/* Clean, minimal clouds */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(4)].map((_, i) => (
+        {[...Array(3)].map((_, i) => (
           <div
             key={i}
             className="absolute"
             style={{
-              top: `${8 + i * 6}%`,
-              left: '-20%',
-              animation: `cloud-drift ${30 + i * 10}s linear infinite`,
-              animationDelay: `${i * 8}s`
+              top: `${6 + i * 8}%`,
+              left: '-15%',
+              animation: `cloud-drift ${40 + i * 15}s linear infinite`,
+              animationDelay: `${i * 10}s`,
+              opacity: 0.6 - i * 0.1
             }}
           >
-            <svg width="150" height="60" viewBox="0 0 150 60">
-              <ellipse cx="45" cy="40" rx="35" ry="18" fill="rgba(255,255,255,0.7)" />
-              <ellipse cx="75" cy="35" rx="45" ry="22" fill="rgba(255,255,255,0.8)" />
-              <ellipse cx="110" cy="40" rx="30" ry="16" fill="rgba(255,255,255,0.7)" />
-              <ellipse cx="60" cy="28" rx="22" ry="14" fill="rgba(255,255,255,0.85)" />
-              <ellipse cx="95" cy="28" rx="25" ry="13" fill="rgba(255,255,255,0.8)" />
+            <svg width={180 - i * 20} height={70 - i * 5} viewBox="0 0 180 70">
+              <defs>
+                <filter id={`cloudBlur${i}`}>
+                  <feGaussianBlur stdDeviation="2" />
+                </filter>
+              </defs>
+              <ellipse cx="50" cy="45" rx="40" ry="20" fill="white" filter={`url(#cloudBlur${i})`} />
+              <ellipse cx="90" cy="40" rx="50" ry="25" fill="white" filter={`url(#cloudBlur${i})`} />
+              <ellipse cx="135" cy="45" rx="35" ry="18" fill="white" filter={`url(#cloudBlur${i})`} />
+              <ellipse cx="70" cy="32" rx="25" ry="15" fill="white" filter={`url(#cloudBlur${i})`} />
+              <ellipse cx="110" cy="32" rx="28" ry="14" fill="white" filter={`url(#cloudBlur${i})`} />
             </svg>
           </div>
         ))}
       </div>
-
-      {/* P5.js Ambient Effects Layer */}
-      <P5Overlay
-        sketch={ambientSketch}
-        props={{
-          theme: land.name || 'default',
-          particleCount: 8
-        }}
-        frameRate={30}
-      />
 
       {/* Themed Ambient Elements */}
       <AmbientElements type={theme.ambient} />
@@ -368,147 +370,123 @@ function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
 }
 
 /**
- * Ambient animated elements based on land theme
+ * Modern SVG-based ambient elements - sophisticated, not childish
  */
 function AmbientElements({ type }) {
-  if (type === 'butterflies') {
-    return (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(5)].map((_, i) => (
+  // Subtle floating orbs - modern, clean aesthetic
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {/* Floating light orbs */}
+      {[...Array(6)].map((_, i) => {
+        const colors = ['rgba(99, 179, 237, 0.3)', 'rgba(147, 197, 253, 0.25)', 'rgba(196, 181, 253, 0.2)']
+        const size = 40 + (i % 3) * 30
+        return (
           <div
             key={i}
-            className="absolute animate-butterfly"
+            className="absolute rounded-full animate-float-orb"
             style={{
-              left: `${20 + i * 15}%`,
-              top: `${20 + Math.sin(i) * 20}%`,
-              animationDelay: `${i * 2}s`,
-              animationDuration: `${8 + i * 2}s`
+              width: size,
+              height: size,
+              left: `${10 + i * 15}%`,
+              top: `${15 + (i % 3) * 20}%`,
+              background: `radial-gradient(circle at 30% 30%, ${colors[i % 3]}, transparent)`,
+              filter: 'blur(1px)',
+              animationDelay: `${i * 1.5}s`,
+              animationDuration: `${12 + i * 2}s`
             }}
-          >
-            <span className="text-2xl">🦋</span>
-          </div>
-        ))}
-        <style>{`
-          @keyframes butterfly {
-            0% { transform: translate(0, 0) rotate(0deg); }
-            25% { transform: translate(50px, -30px) rotate(10deg); }
-            50% { transform: translate(100px, 0) rotate(0deg); }
-            75% { transform: translate(50px, 30px) rotate(-10deg); }
-            100% { transform: translate(0, 0) rotate(0deg); }
-          }
-          .animate-butterfly {
-            animation: butterfly 8s infinite ease-in-out;
-          }
-        `}</style>
-      </div>
-    )
-  }
-
-  if (type === 'fish') {
-    return (
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {[...Array(4)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute"
-            style={{
-              bottom: `${15 + i * 8}%`,
-              left: '-5%',
-              animation: `fish-swim ${12 + i * 3}s linear infinite`,
-              animationDelay: `${i * 4}s`
-            }}
-          >
-            <span className="text-3xl" style={{ display: 'inline-block', transform: 'scaleX(-1)' }}>
-              {['🐠', '🐟', '🐡', '🦈'][i % 4]}
-            </span>
-          </div>
-        ))}
-        <style>{`
-          @keyframes fish-swim {
-            0% { transform: translateX(0) translateY(0); }
-            25% { transform: translateX(25vw) translateY(-10px); }
-            50% { transform: translateX(50vw) translateY(0); }
-            75% { transform: translateX(75vw) translateY(10px); }
-            100% { transform: translateX(110vw) translateY(0); }
-          }
-        `}</style>
-      </div>
-    )
-  }
-
-  if (type === 'rainbow') {
-    return (
-      <div className="absolute top-12 left-1/4 pointer-events-none opacity-60">
-        <svg width="400" height="200" viewBox="0 0 400 200">
-          <defs>
-            <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#FF0000" />
-              <stop offset="17%" stopColor="#FF7F00" />
-              <stop offset="33%" stopColor="#FFFF00" />
-              <stop offset="50%" stopColor="#00FF00" />
-              <stop offset="67%" stopColor="#0000FF" />
-              <stop offset="83%" stopColor="#4B0082" />
-              <stop offset="100%" stopColor="#9400D3" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M 50 200 A 150 150 0 0 1 350 200"
-            fill="none"
-            stroke="url(#rainbow)"
-            strokeWidth="20"
-            strokeLinecap="round"
           />
-        </svg>
-      </div>
-    )
-  }
+        )
+      })}
 
-  return null
+      {/* Subtle sparkle dots */}
+      {[...Array(8)].map((_, i) => (
+        <div
+          key={`sparkle-${i}`}
+          className="absolute animate-twinkle"
+          style={{
+            left: `${5 + i * 12}%`,
+            top: `${10 + (i % 4) * 15}%`,
+            animationDelay: `${i * 0.8}s`
+          }}
+        >
+          <svg width="8" height="8" viewBox="0 0 8 8">
+            <circle cx="4" cy="4" r="2" fill="rgba(255, 255, 255, 0.6)" />
+          </svg>
+        </div>
+      ))}
+
+      <style>{`
+        @keyframes float-orb {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          25% { transform: translate(20px, -30px) scale(1.05); }
+          50% { transform: translate(40px, -10px) scale(1); }
+          75% { transform: translate(20px, 20px) scale(0.95); }
+        }
+        .animate-float-orb {
+          animation: float-orb 15s infinite ease-in-out;
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 0.8; transform: scale(1.3); }
+        }
+        .animate-twinkle {
+          animation: twinkle 3s infinite ease-in-out;
+        }
+      `}</style>
+    </div>
+  )
 }
 
 /**
- * Floating particles based on land theme
+ * Modern floating particles - subtle geometric shapes
  */
 function ParticleField({ type, color }) {
-  const particleEmoji = {
-    leaves: ['🍃', '🍂', '🌿'],
-    sparkles: ['✨', '⭐', '💫'],
-    bubbles: ['🫧', '○', '◯']
-  }
-
-  const emojis = particleEmoji[type] || particleEmoji.sparkles
+  const accentColor = color || '#60A5FA'
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {[...Array(12)].map((_, i) => (
-        <div
-          key={i}
-          className="absolute animate-particle-float"
-          style={{
-            left: `${Math.random() * 100}%`,
-            bottom: `${Math.random() * 20}%`,
-            animationDelay: `${Math.random() * 5}s`,
-            animationDuration: `${6 + Math.random() * 4}s`,
-            fontSize: `${1 + Math.random() * 0.5}rem`
-          }}
-        >
-          {emojis[i % emojis.length]}
-        </div>
-      ))}
+      {/* Subtle rising particles */}
+      {[...Array(8)].map((_, i) => {
+        const shapes = ['circle', 'diamond', 'circle']
+        const shape = shapes[i % 3]
+        const size = 6 + (i % 3) * 4
+
+        return (
+          <div
+            key={i}
+            className="absolute animate-particle-rise"
+            style={{
+              left: `${8 + i * 12}%`,
+              bottom: '-20px',
+              animationDelay: `${i * 1.2}s`,
+              animationDuration: `${8 + (i % 3) * 3}s`
+            }}
+          >
+            <svg width={size} height={size} viewBox="0 0 10 10">
+              {shape === 'circle' ? (
+                <circle cx="5" cy="5" r="4" fill={accentColor} opacity="0.4" />
+              ) : (
+                <polygon points="5,1 9,5 5,9 1,5" fill={accentColor} opacity="0.3" />
+              )}
+            </svg>
+          </div>
+        )
+      })}
+
       <style>{`
-        @keyframes particle-float {
+        @keyframes particle-rise {
           0% {
-            transform: translateY(0) rotate(0deg);
+            transform: translateY(0) translateX(0) rotate(0deg);
             opacity: 0;
           }
-          10% {
-            opacity: 0.8;
+          15% {
+            opacity: 0.6;
           }
-          90% {
-            opacity: 0.8;
+          85% {
+            opacity: 0.4;
           }
           100% {
-            transform: translateY(-60vh) rotate(360deg);
+            transform: translateY(-80vh) translateX(30px) rotate(180deg);
             opacity: 0;
           }
         }
@@ -521,31 +499,11 @@ function ParticleField({ type, color }) {
 }
 
 /**
- * Activity Card Component - More playful design
+ * Activity Card Component - Modern, clean design
  */
 function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
   const [isPressed, setIsPressed] = useState(false)
 
-  // Activity type icons
-  const typeIcons = {
-    vocabulary_touch: '👆',
-    matching_game: '🔗',
-    listen_point: '👂',
-    tpr_action: '🏃',
-    coloring: '🎨',
-    letter_tracing: '✍️',
-    drawing: '🖌️',
-    story_sequence: '📖',
-    fill_in_blank: '✏️',
-    word_spelling: '🔤',
-    sentence_builder: '📝',
-    reading_comprehension: '📚',
-    dictation: '🎧',
-    story_writing: '✍️',
-    dialogue_practice: '💬'
-  }
-
-  const icon = typeIcons[activity.activity_type] || '🎯'
   const durationMinutes = Math.ceil((activity.estimated_duration_seconds || 180) / 60)
 
   // Card sizes based on age
@@ -556,7 +514,7 @@ function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
     : 'p-4 rounded-xl'
 
   const titleSize = ageLevel === 1 ? 'text-xl' : ageLevel === 2 ? 'text-lg' : 'text-base'
-  const iconSize = ageLevel === 1 ? 'text-5xl' : 'text-4xl'
+  const iconSize = ageLevel === 1 ? 48 : ageLevel === 2 ? 40 : 32
 
   return (
     <button
@@ -570,27 +528,25 @@ function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
         ${cardClasses}
         bg-white/95 backdrop-blur-sm shadow-xl
         transition-all duration-200
-        focus:outline-none focus:ring-4 focus:ring-yellow-400
+        focus:outline-none focus:ring-4 focus:ring-blue-300
         transform hover:shadow-2xl
-        ${isPressed ? 'scale-95' : 'hover:scale-[1.03]'}
+        ${isPressed ? 'scale-95' : 'hover:scale-[1.02]'}
         text-left w-full relative overflow-hidden
-        border-2 border-transparent hover:border-yellow-300
+        border border-gray-100 hover:border-blue-200
       `}
       style={{
         animation: `fadeInUp 0.5s ease-out ${index * 0.1}s both`
       }}
     >
-      {/* Decorative corner accent */}
+      {/* Subtle gradient accent */}
       <div
-        className="absolute top-0 right-0 w-16 h-16 opacity-20"
-        style={{
-          background: `linear-gradient(135deg, transparent 50%, ${accentColor} 50%)`
-        }}
+        className="absolute top-0 right-0 w-20 h-20 opacity-10 rounded-bl-full"
+        style={{ background: accentColor }}
       />
 
-      {/* Icon */}
-      <div className={`${iconSize} mb-3 animate-float-gentle`} style={{ animationDelay: `${index * 0.2}s` }}>
-        {icon}
+      {/* Modern SVG Icon */}
+      <div className="mb-3" style={{ width: iconSize, height: iconSize }}>
+        <ActivityIcon type={activity.activity_type} size={iconSize} color={accentColor} />
       </div>
 
       {/* Title */}
@@ -623,5 +579,63 @@ function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
         </div>
       )}
     </button>
+  )
+}
+
+/**
+ * Modern SVG Activity Icons
+ */
+function ActivityIcon({ type, size = 40, color = '#3B82F6' }) {
+  const iconPaths = {
+    vocabulary_touch: (
+      // Hand/Touch icon
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+    ),
+    matching_game: (
+      // Link/Connect icon
+      <path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z" />
+    ),
+    listen_point: (
+      // Headphones icon
+      <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" />
+    ),
+    tpr_action: (
+      // Running person icon
+      <path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7" />
+    ),
+    coloring: (
+      // Palette icon
+      <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+    ),
+    letter_tracing: (
+      // Pencil/Write icon
+      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+    ),
+    drawing: (
+      // Brush icon
+      <path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z" />
+    ),
+    story_sequence: (
+      // Book icon
+      <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z" />
+    ),
+    default: (
+      // Target icon
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm0-14c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+    )
+  }
+
+  const path = iconPaths[type] || iconPaths.default
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      className="transition-transform duration-200"
+    >
+      {path}
+    </svg>
   )
 }

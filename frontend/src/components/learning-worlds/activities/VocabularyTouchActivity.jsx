@@ -38,8 +38,7 @@ export default function VocabularyTouchActivity({
     : items.length <= 6 ? 3 : 4
 
   function handleItemTouch(item) {
-    if (controlMode === 'teacher') return
-
+    // Allow interaction in all modes - teachers can test activities too
     playTap?.()
     setCurrentItem(item)
     setShowWord(true)
@@ -147,7 +146,8 @@ function VocabularyCard({
 }) {
   const [isPressed, setIsPressed] = useState(false)
 
-  const canTouch = controlMode !== 'teacher'
+  // Allow interaction in all modes - teachers can test activities too
+  const canTouch = true
 
   // Card size based on age level
   const cardSize = ageLevel === 1 ? 'h-40' : ageLevel === 2 ? 'h-36' : 'h-32'

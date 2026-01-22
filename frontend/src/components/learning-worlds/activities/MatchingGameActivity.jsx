@@ -60,7 +60,7 @@ export default function MatchingGameActivity({
   }
 
   function handleLeftSelect(item) {
-    if (controlMode === 'teacher') return
+    // Allow interaction in all modes - teachers can test activities too
     if (matchedPairs.has(item.id)) return
 
     playTap?.()
@@ -74,7 +74,7 @@ export default function MatchingGameActivity({
   }
 
   function handleRightSelect(item) {
-    if (controlMode === 'teacher') return
+    // Allow interaction in all modes - teachers can test activities too
     if (matchedPairs.has(item.id)) return
 
     playTap?.()
@@ -206,7 +206,7 @@ function MatchCard({
   cardSize,
   showImage
 }) {
-  const canTouch = controlMode !== 'teacher'
+  const canTouch = true // Allow interaction in all modes
 
   return (
     <button
