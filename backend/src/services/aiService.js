@@ -642,6 +642,7 @@ Return as JSON with items appropriate for the activity type. Include:
 /**
  * Generate an image using DALL-E 3
  * Optimized for educational content with child-friendly output
+ * Uses a consistent "flat vector illustration" style for visual cohesion
  *
  * @param {string} word - The word/concept to visualize
  * @param {object} options - Generation options
@@ -649,21 +650,35 @@ Return as JSON with items appropriate for the activity type. Include:
  */
 export async function generateImage(word, options = {}) {
   const {
-    style = 'cartoon',  // cartoon, illustration, realistic
+    style = 'flat',     // flat, 3d, watercolor
     ageLevel = 2,       // 1 = 4-6, 2 = 7-8, 3 = 9-10
     category = null,    // animals, food, colors, etc.
     size = '1024x1024'  // 1024x1024, 1792x1024, 1024x1792
   } = options
 
-  // Style descriptions for different age groups
+  // Consistent style guide - flat vector illustration style
+  // This ensures all images look cohesive when displayed together
   const styleGuides = {
-    cartoon: 'cute cartoon style, simple shapes, bright cheerful colors, child-friendly',
-    illustration: 'educational illustration style, clean lines, colorful, suitable for textbooks',
-    realistic: 'photorealistic but appropriate for children, bright and clear'
+    flat: 'flat vector illustration style, minimal shading, bold solid colors, clean geometric shapes, modern minimalist design like Kurzgesagt or Duolingo, simple and friendly',
+    '3d': 'soft 3D rendered style like Pixar characters, rounded shapes, gentle gradients, warm lighting, friendly and approachable',
+    watercolor: 'soft watercolor illustration style, gentle pastel colors, organic shapes, whimsical and dreamy'
   }
 
-  // Build the prompt for DALL-E
-  const prompt = `A single ${word}${category ? ` (${category})` : ''}, ${styleGuides[style] || styleGuides.cartoon}, white or simple solid color background, centered composition, no text or letters, suitable for young children ages 4-10, educational content.`
+  const selectedStyle = styleGuides[style] || styleGuides.flat
+
+  // Build the prompt for DALL-E with very specific style instructions
+  const prompt = `A single ${word}${category ? ` (${category})` : ''}.
+
+Art style: ${selectedStyle}
+
+Requirements:
+- Pure white background (#FFFFFF), no gradients or patterns
+- Subject centered in frame with padding around edges
+- No text, labels, watermarks, or letters anywhere
+- No decorative elements, borders, or frames
+- Simple, recognizable, child-friendly depiction
+- Consistent with educational flashcard aesthetic
+- Single subject only, no multiples`
 
   try {
     console.log('🎨 Generating DALL-E image for:', word)
@@ -674,7 +689,7 @@ export async function generateImage(word, options = {}) {
       n: 1,
       size: size,
       quality: 'standard',
-      style: 'vivid'
+      style: 'natural'  // 'natural' gives more consistent, less dramatic results
     })
 
     const imageUrl = response.data[0].url
