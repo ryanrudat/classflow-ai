@@ -375,10 +375,24 @@ export const useLearningWorldStore = create(
         get().navigateTo('land_view', { landId })
       },
 
-      navigateToActivity: (activityId, activity = null) => {
+      navigateToActivity: async (activityId, activity = null) => {
         get().navigateTo('activity', { activityId })
-        if (activity) {
+
+        if (activity && activity.activity_type) {
+          // We have the full activity object with activity_type
           set({ currentActivity: activity })
+        } else {
+          // Need to fetch the full activity data
+          try {
+            const data = await learningWorldsAPI.getActivity(activityId)
+            if (data.activity) {
+              set({ currentActivity: data.activity })
+            }
+          } catch (error) {
+            console.error('Failed to fetch activity:', error)
+            // Still set partial activity so UI can show error state
+            set({ currentActivity: activity || { id: activityId } })
+          }
         }
       },
 
@@ -487,12 +501,42 @@ export const useLearningWorldStore = create(
       // SOCKET EVENT HANDLERS
       // ============================================================
 
-      handleNavigateEvent: (data) => {
+      handleNavigateEvent: async (data) => {
         set({
           currentView: data.view,
           currentLand: data.landId ? { id: data.landId } : null,
           currentActivity: data.activityId ? { id: data.activityId } : null
         })
+
+        // If navigating to an activity, fetch the full activity data
+        if (data.view === 'activity' && data.activityId) {
+          try {
+            const result = await learningWorldsAPI.getActivity(data.activityId)
+            if (result.activity) {
+              set({ currentActivity: result.activity })
+            }
+          } catch (error) {
+            console.error('Failed to fetch activity for socket navigation:', error)
+          }
+        }
+
+        // If navigating to a land, fetch the full land data
+        if (data.view === 'land_view' && data.landId) {
+          try {
+            const result = await learningWorldsAPI.getLand(data.landId)
+            if (result.land) {
+              set({
+                currentLand: {
+                  ...result.land,
+                  activities: result.activities || [],
+                  vocabulary: result.vocabulary || []
+                }
+              })
+            }
+          } catch (error) {
+            console.error('Failed to fetch land for socket navigation:', error)
+          }
+        }
       },
 
       handleControlModeEvent: (data) => {

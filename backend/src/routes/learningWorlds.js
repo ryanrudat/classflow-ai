@@ -48,7 +48,10 @@ import {
 
   // Image Generation
   generateImageController,
-  generateImageBatchController
+  generateImageBatchController,
+
+  // Activity fetch
+  getActivity
 } from '../controllers/learningWorldsController.js'
 
 const router = express.Router()
@@ -98,7 +101,8 @@ router.post('/world-activities/:activityId/respond', authenticateStudent, record
 router.get('/land-templates', getLandTemplates)
 router.post('/learning-worlds/:worldId/import-template', authenticateToken, importLandTemplate)
 
-// AI Content Generation (teacher only) - uses /world-activities to avoid conflict with general /activities routes
+// World Activities - uses /world-activities to avoid conflict with general /activities routes
+router.get('/world-activities/:activityId', optionalStudentAuth, getActivity)
 router.post('/world-activities/:activityId/generate-content', authenticateToken, generateAIActivityContent)
 router.put('/world-activities/:activityId/content', authenticateToken, saveActivityContent)
 

@@ -583,6 +583,36 @@ export async function createActivity(req, res) {
 }
 
 /**
+ * Get a single activity by ID
+ * GET /api/world-activities/:activityId
+ */
+export async function getActivity(req, res) {
+  const { activityId } = req.params
+
+  try {
+    const result = await db.query(
+      `SELECT a.*, l.name as land_name, l.slug as land_slug,
+              w.name as world_name, w.theme as world_theme
+       FROM land_activities a
+       JOIN world_lands l ON a.land_id = l.id
+       JOIN learning_worlds w ON l.world_id = w.id
+       WHERE a.id = $1`,
+      [activityId]
+    )
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Activity not found' })
+    }
+
+    res.json({ activity: result.rows[0] })
+
+  } catch (error) {
+    console.error('Get activity error:', error)
+    res.status(500).json({ message: 'Failed to get activity' })
+  }
+}
+
+/**
  * Update an activity
  * PUT /api/activities/:activityId/world
  */

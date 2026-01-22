@@ -533,6 +533,12 @@ export const learningWorldsAPI = {
     return response.data
   },
 
+  // Get single activity
+  getActivity: async (activityId) => {
+    const response = await api.get(`/world-activities/${activityId}`)
+    return response.data
+  },
+
   // DALL-E Image Generation
   generateImage: async (word, options = {}) => {
     const response = await api.post('/generate-image', { word, ...options })
