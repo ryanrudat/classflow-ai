@@ -586,7 +586,7 @@ function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
 
       {/* Activity Type */}
       <p className="text-sm text-gray-500 capitalize mb-3">
-        {activity.activity_type.replace(/_/g, ' ')}
+        {(activity.activity_type || 'unconfigured').replace(/_/g, ' ')}
       </p>
 
       {/* Duration Badge */}
