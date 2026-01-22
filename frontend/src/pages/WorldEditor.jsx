@@ -122,7 +122,14 @@ export default function WorldEditor() {
       // Refresh lands to get updated activity count
       await loadWorld()
       setShowActivityModal(false)
-      notifySuccess('Activity created!')
+
+      // AUTO-OPEN content editor for new activity
+      if (response.activity) {
+        setEditingActivity(response.activity)
+        notifySuccess('Activity created! Now add some content.')
+      } else {
+        notifySuccess('Activity created!')
+      }
     } catch (error) {
       notifyError('Failed to create activity')
     }
@@ -249,9 +256,13 @@ export default function WorldEditor() {
                     </button>
 
                     {lands.length === 0 ? (
-                      <p className="text-center text-gray-500 py-4">
-                        No lands yet. Add your first land!
-                      </p>
+                      <div className="text-center py-6 px-4">
+                        <div className="text-3xl mb-2">🗺️</div>
+                        <p className="text-gray-700 font-medium mb-1">Step 1: Create a Land</p>
+                        <p className="text-gray-500 text-sm">
+                          Lands are areas in your world where activities live.
+                        </p>
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         {lands.map(land => (
@@ -285,9 +296,13 @@ export default function WorldEditor() {
                     </button>
 
                     {characters.length === 0 ? (
-                      <p className="text-center text-gray-500 py-4">
-                        No characters yet. Add a guide!
-                      </p>
+                      <div className="text-center py-6 px-4">
+                        <div className="text-3xl mb-2">🎭</div>
+                        <p className="text-gray-700 font-medium mb-1">Add a Guide Character</p>
+                        <p className="text-gray-500 text-sm">
+                          Characters make learning fun! Generate one with AI.
+                        </p>
+                      </div>
                     ) : (
                       <div className="space-y-2">
                         {characters.map(char => (
@@ -685,9 +700,10 @@ function MapPreview({ world, lands, selectedLand, onSelectLand, onUpdateLandPosi
       {/* Empty state */}
       {lands.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-white text-center">
-            <p className="text-lg font-medium">No lands yet</p>
-            <p className="text-sm opacity-80">Add lands to see them on the map</p>
+          <div className="text-white text-center bg-black/30 rounded-2xl p-6 backdrop-blur-sm">
+            <div className="text-4xl mb-3">🌍</div>
+            <p className="text-lg font-medium">Your World Awaits</p>
+            <p className="text-sm opacity-90 mt-1">Create your first land to start building</p>
           </div>
         </div>
       )}
@@ -874,8 +890,10 @@ function LandEditor({ land, characters, onUpdate, onAddActivity, onEditContent, 
         {loading ? (
           <div className="py-8 text-center text-gray-500">Loading...</div>
         ) : activities.length === 0 ? (
-          <div className="py-8 text-center text-gray-500 bg-gray-50 rounded-lg">
-            <p>No activities in this land yet</p>
+          <div className="py-8 text-center bg-gradient-to-b from-blue-50 to-white rounded-lg border-2 border-dashed border-blue-200">
+            <div className="text-3xl mb-2">🎯</div>
+            <p className="text-gray-700 font-medium">Step 2: Add an Activity</p>
+            <p className="text-gray-500 text-sm mb-3">Activities are learning games for students</p>
             <button
               onClick={onAddActivity}
               className="mt-2 text-blue-500 hover:text-blue-600"
