@@ -79,21 +79,31 @@ export default function LearningWorldPlayer() {
   }, [currentWorld, worldSession])
 
   async function handleStartSession() {
-    const result = await startSession(worldId, startOptions)
-    if (result.success) {
-      // Refresh world data to ensure we have latest lands
-      await fetchWorld(worldId)
+    try {
+      const result = await startSession(worldId, startOptions)
+      if (result.success) {
+        // Refresh world data to ensure we have latest lands
+        const worldResult = await fetchWorld(worldId)
 
-      setShowStartModal(false)
-      notifySuccess('Session started!')
+        if (!worldResult.success) {
+          notifyError('Failed to load world data')
+          return
+        }
 
-      // Background music is disabled until audio files are added
-      // To enable: add world-theme.mp3 to /public/audio/music/
-      // if (startOptions.musicEnabled) {
-      //   playMusic('/audio/music/world-theme.mp3')
-      // }
-    } else {
-      notifyError(result.error || 'Failed to start session')
+        setShowStartModal(false)
+        notifySuccess('Session started!')
+
+        // Background music is disabled until audio files are added
+        // To enable: add world-theme.mp3 to /public/audio/music/
+        // if (startOptions.musicEnabled) {
+        //   playMusic('/audio/music/world-theme.mp3')
+        // }
+      } else {
+        notifyError(result.error || 'Failed to start session')
+      }
+    } catch (err) {
+      console.error('Session start error:', err)
+      notifyError('Failed to start session: ' + (err.message || 'Unknown error'))
     }
   }
 
@@ -177,6 +187,23 @@ export default function LearningWorldPlayer() {
             onComplete={handleActivityComplete}
             onBack={goBack}
           />
+        )}
+
+        {/* Fallback when no content to show */}
+        {!currentWorld && !loading && worldSession && (
+          <div className="w-full h-full flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-8 max-w-md text-center shadow-lg">
+              <div className="text-6xl mb-4">🔄</div>
+              <h2 className="text-lg font-semibold text-gray-800 mb-2">Loading World...</h2>
+              <p className="text-gray-500 mb-4">Please wait while we load your learning world.</p>
+              <button
+                onClick={() => fetchWorld(worldId)}
+                className="px-6 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600"
+              >
+                Reload
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
