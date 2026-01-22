@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import crypto from 'crypto'
 import db from '../database/db.js'
+import { downloadAndStoreImage } from './imageStorageService.js'
 
 // Initialize Claude client
 const client = new Anthropic({
@@ -689,19 +690,38 @@ Keep it SIMPLE, FLAT, and RECOGNIZABLE.`
       style: 'natural'    // Natural style is more predictable than vivid
     })
 
-    const imageUrl = response.data[0].url
+    const tempUrl = response.data[0].url
     const revisedPrompt = response.data[0].revised_prompt
 
     console.log('✅ Image generated successfully')
     console.log('📝 Revised prompt:', revisedPrompt?.substring(0, 100) + '...')
 
+    // Download and store the image locally (DALL-E URLs expire)
+    const storageResult = await downloadAndStoreImage(tempUrl, category || 'vocabulary', word)
+
+    if (!storageResult.success) {
+      console.warn('⚠️ Failed to store image locally, returning temporary URL')
+      return {
+        success: true,
+        url: tempUrl,
+        word: word,
+        prompt: prompt,
+        revisedPrompt: revisedPrompt,
+        model: 'dall-e-3',
+        warning: 'Image not stored locally - URL may expire'
+      }
+    }
+
+    console.log('📁 Image stored locally:', storageResult.localUrl)
+
     return {
       success: true,
-      url: imageUrl,
+      url: storageResult.localUrl,
       word: word,
       prompt: prompt,
       revisedPrompt: revisedPrompt,
-      model: 'dall-e-3'
+      model: 'dall-e-3',
+      stored: true
     }
 
   } catch (error) {
@@ -901,18 +921,37 @@ RESTRICTIONS:
       style: 'natural'
     })
 
-    const imageUrl = response.data[0].url
+    const tempUrl = response.data[0].url
     const revisedPrompt = response.data[0].revised_prompt
 
     console.log('✅ Character avatar generated successfully')
 
+    // Download and store the image locally (DALL-E URLs expire)
+    const storageResult = await downloadAndStoreImage(tempUrl, 'characters', name)
+
+    if (!storageResult.success) {
+      console.warn('⚠️ Failed to store avatar locally, returning temporary URL')
+      return {
+        success: true,
+        url: tempUrl,
+        characterName: name,
+        prompt: prompt,
+        revisedPrompt: revisedPrompt,
+        model: 'dall-e-3',
+        warning: 'Image not stored locally - URL may expire'
+      }
+    }
+
+    console.log('📁 Avatar stored locally:', storageResult.localUrl)
+
     return {
       success: true,
-      url: imageUrl,
+      url: storageResult.localUrl,
       characterName: name,
       prompt: prompt,
       revisedPrompt: revisedPrompt,
-      model: 'dall-e-3'
+      model: 'dall-e-3',
+      stored: true
     }
 
   } catch (error) {

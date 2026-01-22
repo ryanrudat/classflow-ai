@@ -2,6 +2,7 @@ import db from '../database/db.js'
 import { getIO } from '../services/ioInstance.js'
 import { generateJoinCode } from '../utils/generateCode.js'
 import { generateActivityContent, generateImage, generateImageBatch, generateCharacterProfile, generateCharacterAvatar } from '../services/aiService.js'
+import { isAzureDalleUrl, isLocalUrl } from '../services/imageStorageService.js'
 
 // ============================================================================
 // LEARNING WORLDS CRUD
@@ -1699,5 +1700,203 @@ export async function generateImageBatchController(req, res) {
   } catch (error) {
     console.error('Batch image generation error:', error)
     res.status(500).json({ message: 'Failed to generate images' })
+  }
+}
+
+/**
+ * Regenerate expired images for a world
+ * POST /api/learning-worlds/:worldId/regenerate-images
+ *
+ * Finds all vocabulary and characters with expired Azure URLs and regenerates them
+ */
+export async function regenerateExpiredImages(req, res) {
+  const { worldId } = req.params
+  const { type = 'all' } = req.body // 'all', 'vocabulary', 'characters'
+  const userId = req.user.userId
+
+  try {
+    // Verify world ownership
+    const worldCheck = await db.query(
+      `SELECT id FROM learning_worlds WHERE id = $1 AND teacher_id = $2`,
+      [worldId, userId]
+    )
+
+    if (worldCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Learning world not found' })
+    }
+
+    const results = {
+      vocabulary: { found: 0, regenerated: 0, failed: 0, items: [] },
+      characters: { found: 0, regenerated: 0, failed: 0, items: [] }
+    }
+
+    // Regenerate vocabulary images
+    if (type === 'all' || type === 'vocabulary') {
+      const vocabResult = await db.query(
+        `SELECT id, word, image_url, category FROM world_vocabulary WHERE world_id = $1`,
+        [worldId]
+      )
+
+      for (const vocab of vocabResult.rows) {
+        // Check if URL is an expired Azure URL
+        if (isAzureDalleUrl(vocab.image_url)) {
+          results.vocabulary.found++
+
+          console.log(`🔄 Regenerating image for vocabulary: ${vocab.word}`)
+
+          const imageResult = await generateImage(vocab.word, {
+            category: vocab.category || 'vocabulary'
+          })
+
+          if (imageResult.success) {
+            await db.query(
+              `UPDATE world_vocabulary SET image_url = $1 WHERE id = $2`,
+              [imageResult.url, vocab.id]
+            )
+            results.vocabulary.regenerated++
+            results.vocabulary.items.push({ word: vocab.word, status: 'success', url: imageResult.url })
+          } else {
+            results.vocabulary.failed++
+            results.vocabulary.items.push({ word: vocab.word, status: 'failed', error: imageResult.error })
+          }
+
+          // Small delay to avoid rate limits
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    }
+
+    // Regenerate character avatars
+    if (type === 'all' || type === 'characters') {
+      const charResult = await db.query(
+        `SELECT id, name, species, personality_traits, avatar_url FROM world_characters WHERE world_id = $1`,
+        [worldId]
+      )
+
+      for (const char of charResult.rows) {
+        if (isAzureDalleUrl(char.avatar_url)) {
+          results.characters.found++
+
+          console.log(`🔄 Regenerating avatar for character: ${char.name}`)
+
+          const avatarResult = await generateCharacterAvatar({
+            name: char.name,
+            species: char.species,
+            personalityTraits: char.personality_traits || []
+          })
+
+          if (avatarResult.success) {
+            await db.query(
+              `UPDATE world_characters SET avatar_url = $1 WHERE id = $2`,
+              [avatarResult.url, char.id]
+            )
+            results.characters.regenerated++
+            results.characters.items.push({ name: char.name, status: 'success', url: avatarResult.url })
+          } else {
+            results.characters.failed++
+            results.characters.items.push({ name: char.name, status: 'failed', error: avatarResult.error })
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 500))
+        }
+      }
+    }
+
+    const totalFound = results.vocabulary.found + results.characters.found
+    const totalRegenerated = results.vocabulary.regenerated + results.characters.regenerated
+
+    res.json({
+      message: totalFound === 0
+        ? 'No expired images found'
+        : `Regenerated ${totalRegenerated}/${totalFound} expired images`,
+      results
+    })
+
+  } catch (error) {
+    console.error('Regenerate images error:', error)
+    res.status(500).json({ message: 'Failed to regenerate images' })
+  }
+}
+
+/**
+ * Check image status for a world
+ * GET /api/learning-worlds/:worldId/image-status
+ *
+ * Returns counts of local, expired, and missing images
+ */
+export async function getImageStatus(req, res) {
+  const { worldId } = req.params
+  const userId = req.user.userId
+
+  try {
+    // Verify world ownership
+    const worldCheck = await db.query(
+      `SELECT id FROM learning_worlds WHERE id = $1 AND teacher_id = $2`,
+      [worldId, userId]
+    )
+
+    if (worldCheck.rows.length === 0) {
+      return res.status(404).json({ message: 'Learning world not found' })
+    }
+
+    // Check vocabulary images
+    const vocabResult = await db.query(
+      `SELECT id, word, image_url FROM world_vocabulary WHERE world_id = $1`,
+      [worldId]
+    )
+
+    const vocabStatus = {
+      total: vocabResult.rows.length,
+      local: 0,
+      expired: 0,
+      missing: 0,
+      expiredItems: []
+    }
+
+    for (const vocab of vocabResult.rows) {
+      if (!vocab.image_url) {
+        vocabStatus.missing++
+      } else if (isLocalUrl(vocab.image_url)) {
+        vocabStatus.local++
+      } else if (isAzureDalleUrl(vocab.image_url)) {
+        vocabStatus.expired++
+        vocabStatus.expiredItems.push(vocab.word)
+      }
+    }
+
+    // Check character avatars
+    const charResult = await db.query(
+      `SELECT id, name, avatar_url FROM world_characters WHERE world_id = $1`,
+      [worldId]
+    )
+
+    const charStatus = {
+      total: charResult.rows.length,
+      local: 0,
+      expired: 0,
+      missing: 0,
+      expiredItems: []
+    }
+
+    for (const char of charResult.rows) {
+      if (!char.avatar_url) {
+        charStatus.missing++
+      } else if (isLocalUrl(char.avatar_url)) {
+        charStatus.local++
+      } else if (isAzureDalleUrl(char.avatar_url)) {
+        charStatus.expired++
+        charStatus.expiredItems.push(char.name)
+      }
+    }
+
+    res.json({
+      vocabulary: vocabStatus,
+      characters: charStatus,
+      needsRegeneration: vocabStatus.expired > 0 || charStatus.expired > 0
+    })
+
+  } catch (error) {
+    console.error('Get image status error:', error)
+    res.status(500).json({ message: 'Failed to get image status' })
   }
 }

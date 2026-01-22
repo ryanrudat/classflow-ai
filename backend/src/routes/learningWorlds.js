@@ -51,6 +51,10 @@ import {
   generateImageController,
   generateImageBatchController,
 
+  // Image Management
+  regenerateExpiredImages,
+  getImageStatus,
+
   // Activity fetch
   getActivity
 } from '../controllers/learningWorldsController.js'
@@ -111,5 +115,9 @@ router.put('/world-activities/:activityId/content', authenticateToken, saveActiv
 // DALL-E Image Generation (teacher only)
 router.post('/generate-image', authenticateToken, generateImageController)
 router.post('/generate-images-batch', authenticateToken, generateImageBatchController)
+
+// Image Management (teacher only)
+router.get('/learning-worlds/:worldId/image-status', authenticateToken, getImageStatus)
+router.post('/learning-worlds/:worldId/regenerate-images', authenticateToken, regenerateExpiredImages)
 
 export default router
