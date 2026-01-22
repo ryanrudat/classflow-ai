@@ -10,8 +10,23 @@ export {
   errorFeedbackSketch
 } from './celebrationSketch.js'
 
-// Future sketches will be added here:
-// export { tracingSketch } from './tracingSketch.js'
-// export { drawingSketch } from './drawingSketch.js'
-// export { coloringSketch } from './coloringSketch.js'
-// export { ambientSketch } from './ambientSketch.js'
+export {
+  touchRippleSketch,
+  successBurstSketch,
+  errorShakeSketch,
+  sparkleTrailSketch,
+  matchLineSketch
+} from './feedbackSketch.js'
+
+export { tracingSketch } from './tracingSketch.js'
+
+export {
+  drawingSketch,
+  DRAWING_COLORS,
+  BRUSH_SIZES
+} from './drawingSketch.js'
+
+export {
+  ambientSketch,
+  cloudAmbientSketch
+} from './ambientSketch.js'

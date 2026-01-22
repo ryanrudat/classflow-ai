@@ -61,6 +61,28 @@ export const ACTIVITY_TYPES = {
     category: 'creative'
   },
 
+  letter_tracing: {
+    name: 'Letter Tracing',
+    description: 'Trace letters with your finger',
+    icon: '✍️',
+    minAgeLevel: 1,
+    maxAgeLevel: 3,
+    interactive: true,
+    requiresAudio: false,
+    category: 'writing'
+  },
+
+  drawing: {
+    name: 'Drawing',
+    description: 'Draw and color freely',
+    icon: '🖌️',
+    minAgeLevel: 1,
+    maxAgeLevel: 3,
+    interactive: true,
+    requiresAudio: false,
+    category: 'creative'
+  },
+
   story_sequence: {
     name: 'Story Sequence',
     description: 'Order story pictures',

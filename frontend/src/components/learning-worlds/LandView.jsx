@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, Component } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 import CharacterAvatar from './characters/CharacterAvatar'
 import SpeechBubble from './characters/SpeechBubble'
+import { P5Overlay } from './p5/P5Canvas'
+import { ambientSketch } from './p5/sketches/ambientSketch'
 
 /**
  * Error Boundary for Land View
@@ -208,6 +210,16 @@ function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
           </div>
         ))}
       </div>
+
+      {/* P5.js Ambient Effects Layer */}
+      <P5Overlay
+        sketch={ambientSketch}
+        props={{
+          theme: land.name || 'default',
+          particleCount: 8
+        }}
+        frameRate={30}
+      />
 
       {/* Themed Ambient Elements */}
       <AmbientElements type={theme.ambient} />
@@ -521,6 +533,8 @@ function ActivityCard({ activity, index, onClick, ageLevel, accentColor }) {
     listen_point: '👂',
     tpr_action: '🏃',
     coloring: '🎨',
+    letter_tracing: '✍️',
+    drawing: '🖌️',
     story_sequence: '📖',
     fill_in_blank: '✏️',
     word_spelling: '🔤',

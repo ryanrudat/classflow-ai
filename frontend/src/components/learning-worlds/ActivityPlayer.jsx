@@ -5,6 +5,8 @@ import MatchingGameActivity from './activities/MatchingGameActivity'
 import ListenAndPointActivity from './activities/ListenAndPointActivity'
 import TPRActionActivity from './activities/TPRActionActivity'
 import ColoringActivity from './activities/ColoringActivity'
+import TracingActivity from './activities/TracingActivity'
+import DrawingActivity from './activities/DrawingActivity'
 import P5Canvas from './p5/P5Canvas'
 import { celebrationSketch } from './p5/sketches/celebrationSketch'
 
@@ -140,7 +142,9 @@ function ActivityPlayerInner({
     matching_game: MatchingGameActivity,
     listen_point: ListenAndPointActivity,
     tpr_action: TPRActionActivity,
-    coloring: ColoringActivity
+    coloring: ColoringActivity,
+    letter_tracing: TracingActivity,
+    drawing: DrawingActivity
   }
 
   const ActivityComponent = ActivityComponents[activity.activity_type]
