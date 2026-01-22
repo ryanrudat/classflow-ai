@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, Component } from 'react'
 import { useAudioManager } from '../../hooks/useAudioManager'
 import CharacterAvatar from './characters/CharacterAvatar'
 import SpeechBubble from './characters/SpeechBubble'
+import VillageLayout from './buildings/VillageLayout'
+import P5Canvas from './p5/P5Canvas'
+import { villageAmbientSketch } from './p5/sketches/villageAmbientSketch'
 
 /**
  * Error Boundary for Land View
@@ -288,6 +291,20 @@ function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
         </div>
       </div>
 
+      {/* P5.js Village Ambient Effects Layer */}
+      <div className="absolute inset-0 pointer-events-none z-10">
+        <P5Canvas
+          sketch={villageAmbientSketch}
+          props={{
+            theme: theme.ambient || 'default',
+            landType: land.slug?.split('-')[0] || 'default',
+            characterCount: Math.min(activities.length, 5)
+          }}
+          transparent={true}
+          frameRate={30}
+        />
+      </div>
+
       {/* Character Guide */}
       {land.character_name && (
         <div className="absolute left-4 md:left-8 bottom-20 md:bottom-8 z-30">
@@ -312,32 +329,27 @@ function LandViewInner({ land, onSelectActivity, onBack, ageLevel = 2 }) {
         </div>
       )}
 
-      {/* Activities Grid */}
-      <div className="absolute inset-0 pt-24 pb-24 px-4 overflow-y-auto">
-        <div className="max-w-5xl mx-auto mt-4">
-          {activities.length === 0 ? (
-            <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 text-center shadow-2xl">
-              <div className="text-6xl mb-4">🎮</div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">No Activities Yet</h2>
+      {/* Village Layout with Buildings */}
+      <div className="absolute inset-0 pt-24 pb-8 px-4 overflow-y-auto z-15">
+        {activities.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 text-center shadow-2xl max-w-md">
+              <div className="text-6xl mb-4">🏗️</div>
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Building Your Village...</h2>
               <p className="text-gray-600">
-                Activities will appear here once they're added to this land.
+                Activity buildings will appear here once they're added to this land.
               </p>
             </div>
-          ) : (
-            <div className={`grid gap-4 md:gap-6 ${ageLevel === 1 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-3'}`}>
-              {activities.map((activity, index) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  index={index}
-                  onClick={() => handleActivityClick(activity)}
-                  ageLevel={ageLevel}
-                  accentColor={theme.accent}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <VillageLayout
+            activities={activities}
+            onSelectActivity={(id, activity) => handleActivityClick(activity)}
+            ageLevel={ageLevel}
+            theme={theme}
+            completedActivities={activities.filter(a => a.isCompleted).map(a => a.id)}
+          />
+        )}
       </div>
 
       {/* Animation Styles */}

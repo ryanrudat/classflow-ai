@@ -30,3 +30,5 @@ export {
   ambientSketch,
   cloudAmbientSketch
 } from './ambientSketch.js'
+
+export { villageAmbientSketch } from './villageAmbientSketch.js'
