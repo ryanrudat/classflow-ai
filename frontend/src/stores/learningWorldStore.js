@@ -35,8 +35,8 @@ export const useLearningWorldStore = create(
       previousView: null,
       zoomTarget: null, // { x, y, scale } for zoom animations
 
-      // Control mode
-      controlMode: 'teacher', // 'teacher' | 'student_touch' | 'hybrid'
+      // Control mode - default to student_touch for interactive activities
+      controlMode: 'student_touch', // 'teacher' | 'student_touch' | 'hybrid'
 
       // Age level
       ageLevel: 2, // 1 = 4-6, 2 = 7-8, 3 = 9-10
@@ -579,7 +579,7 @@ export const useLearningWorldStore = create(
         currentView: 'world_map',
         previousView: null,
         zoomTarget: null,
-        controlMode: 'teacher',
+        controlMode: 'student_touch',
         studentProgress: {},
         error: null
       }),

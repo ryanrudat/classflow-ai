@@ -149,11 +149,6 @@ function ActivityPlayerInner({
 
   const ActivityComponent = ActivityComponents[activity.activity_type]
 
-  // Debug: Log if activity_type is missing
-  if (!activity.activity_type) {
-    console.warn('Activity missing activity_type:', activity)
-  }
-
   return (
     <div className="w-full h-screen bg-gradient-to-b from-sky-100 to-sky-200 relative overflow-hidden">
       {/* Header */}

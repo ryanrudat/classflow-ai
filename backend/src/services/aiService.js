@@ -642,7 +642,7 @@ Return as JSON with items appropriate for the activity type. Include:
 /**
  * Generate an image using DALL-E 3
  * Optimized for educational content with child-friendly output
- * Uses a consistent "flat vector illustration" style for visual cohesion
+ * Uses a strict, consistent style for visual cohesion across all images
  *
  * @param {string} word - The word/concept to visualize
  * @param {object} options - Generation options
@@ -650,35 +650,32 @@ Return as JSON with items appropriate for the activity type. Include:
  */
 export async function generateImage(word, options = {}) {
   const {
-    style = 'flat',     // flat, 3d, watercolor
+    style = 'flat',     // flat, simple, cute
     ageLevel = 2,       // 1 = 4-6, 2 = 7-8, 3 = 9-10
     category = null,    // animals, food, colors, etc.
     size = '1024x1024'  // 1024x1024, 1792x1024, 1024x1792
   } = options
 
-  // Consistent style guide - flat vector illustration style
-  // This ensures all images look cohesive when displayed together
-  const styleGuides = {
-    flat: 'flat vector illustration style, minimal shading, bold solid colors, clean geometric shapes, modern minimalist design like Kurzgesagt or Duolingo, simple and friendly',
-    '3d': 'soft 3D rendered style like Pixar characters, rounded shapes, gentle gradients, warm lighting, friendly and approachable',
-    watercolor: 'soft watercolor illustration style, gentle pastel colors, organic shapes, whimsical and dreamy'
-  }
+  // Build a very strict, explicit prompt that DALL-E 3 will follow
+  // The key is to be extremely specific and repetitive about the style
+  const prompt = `Create a simple educational flashcard illustration of: ${word}${category ? ` (category: ${category})` : ''}
 
-  const selectedStyle = styleGuides[style] || styleGuides.flat
+CRITICAL STYLE REQUIREMENTS - MUST FOLLOW EXACTLY:
+1. FLAT DESIGN: No gradients, no shadows, no 3D effects, no shading. Only flat, solid colors.
+2. SIMPLE SHAPES: Use basic geometric shapes. Circles, ovals, rectangles. No complex details.
+3. SOLID COLORS: Bold, bright, solid fill colors. No textures, no patterns, no gradients.
+4. WHITE BACKGROUND: Pure white (#FFFFFF) background only. Nothing else.
+5. CENTERED: Subject centered in frame with generous padding.
+6. SINGLE SUBJECT: Show only ONE ${word}, nothing else in the image.
+7. NO TEXT: Absolutely no text, letters, words, labels, or watermarks anywhere.
+8. CHILD-FRIENDLY: Friendly, approachable appearance suitable for ages 4-10.
 
-  // Build the prompt for DALL-E with very specific style instructions
-  const prompt = `A single ${word}${category ? ` (${category})` : ''}.
+STYLE REFERENCE: Think of simple educational app icons or emoji-style illustrations.
+Similar to: Duolingo vocabulary cards, Google Material Design icons, or simple children's book illustrations.
 
-Art style: ${selectedStyle}
-
-Requirements:
-- Pure white background (#FFFFFF), no gradients or patterns
-- Subject centered in frame with padding around edges
-- No text, labels, watermarks, or letters anywhere
-- No decorative elements, borders, or frames
-- Simple, recognizable, child-friendly depiction
-- Consistent with educational flashcard aesthetic
-- Single subject only, no multiples`
+The result should look like a clean, professional educational flashcard that could be printed.
+DO NOT add any artistic interpretation, abstract elements, or creative flourishes.
+Keep it SIMPLE, FLAT, and RECOGNIZABLE.`
 
   try {
     console.log('🎨 Generating DALL-E image for:', word)
@@ -688,14 +685,15 @@ Requirements:
       prompt: prompt,
       n: 1,
       size: size,
-      quality: 'standard',
-      style: 'natural'  // 'natural' gives more consistent, less dramatic results
+      quality: 'hd',      // HD quality for cleaner lines
+      style: 'natural'    // Natural style is more predictable than vivid
     })
 
     const imageUrl = response.data[0].url
     const revisedPrompt = response.data[0].revised_prompt
 
     console.log('✅ Image generated successfully')
+    console.log('📝 Revised prompt:', revisedPrompt?.substring(0, 100) + '...')
 
     return {
       success: true,
@@ -851,7 +849,7 @@ Make the character unique and memorable. The visual description should be specif
 
 /**
  * Generate a character avatar using DALL-E 3
- * Optimized for educational character art in Pixar/Disney style
+ * Optimized for educational character art with consistent style
  *
  * @param {object} character - Character profile from generateCharacterProfile
  * @returns {object} Generated image URL and metadata
@@ -864,14 +862,32 @@ export async function generateCharacterAvatar(character) {
     visualDescription
   } = character
 
-  // Build a detailed prompt for DALL-E
-  const prompt = `A friendly ${species} character named ${name} for an educational app.
-Style: Modern 3D animation style like Pixar, clean lines, expressive eyes, appealing design.
-Personality: ${personalityTraits.join(', ')}.
-${visualDescription ? `Details: ${visualDescription}` : ''}
-Background: Simple soft gradient, portrait orientation, character centered.
-The character should appeal to children ages 4-10 but NOT be babyish or overly cute.
-No text, no letters, no watermarks.`
+  // Build a detailed prompt for DALL-E with strict style requirements
+  const prompt = `Create a character portrait of a friendly ${species} named ${name} for an educational children's app.
+
+STYLE REQUIREMENTS:
+1. Modern, clean illustration style similar to Pixar/Disney junior characters
+2. Soft, rounded shapes with gentle 3D shading
+3. Large, expressive, friendly eyes
+4. Warm, inviting color palette
+5. Simple, uncluttered composition
+
+CHARACTER DETAILS:
+- Species: ${species}
+- Personality: ${personalityTraits.join(', ')}
+${visualDescription ? `- Visual details: ${visualDescription}` : ''}
+
+COMPOSITION:
+- Portrait/bust shot (head and upper body)
+- Character centered in frame
+- Soft pastel gradient background (light blue, pink, or yellow tones)
+- Character facing slightly toward viewer with welcoming expression
+
+RESTRICTIONS:
+- NO text, labels, or watermarks
+- NOT babyish or overly cute - appealing to ages 4-10
+- Professional quality suitable for educational app
+- Single character only`
 
   try {
     console.log('🎨 Generating character avatar for:', name)
@@ -881,8 +897,8 @@ No text, no letters, no watermarks.`
       prompt: prompt,
       n: 1,
       size: '1024x1024',
-      quality: 'standard',
-      style: 'vivid'
+      quality: 'hd',
+      style: 'natural'
     })
 
     const imageUrl = response.data[0].url

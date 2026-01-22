@@ -59,7 +59,7 @@ export default function LearningWorldPlayer() {
   const [showStartModal, setShowStartModal] = useState(false)
   const [startOptions, setStartOptions] = useState({
     ageLevel: 2,
-    controlMode: 'teacher',
+    controlMode: 'student_touch',  // Default to interactive mode
     audioEnabled: true,
     musicEnabled: true
   })
