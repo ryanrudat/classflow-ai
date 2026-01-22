@@ -5,6 +5,8 @@ import MatchingGameActivity from './activities/MatchingGameActivity'
 import ListenAndPointActivity from './activities/ListenAndPointActivity'
 import TPRActionActivity from './activities/TPRActionActivity'
 import ColoringActivity from './activities/ColoringActivity'
+import P5Canvas from './p5/P5Canvas'
+import { celebrationSketch } from './p5/sketches/celebrationSketch'
 
 /**
  * Error Boundary for Activity Player
@@ -291,85 +293,74 @@ function IntroOverlay({ narrative, ageLevel, onSkip }) {
 }
 
 /**
- * Celebration Overlay Component
+ * Celebration Overlay Component with P5.js Effects
  */
 function CelebrationOverlay({ result, successNarrative, ageLevel }) {
-  const [stars, setStars] = useState([])
-
-  // Generate stars for animation
-  useEffect(() => {
-    const newStars = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 2,
-      duration: 2 + Math.random() * 2
-    }))
-    setStars(newStars)
-  }, [])
-
   const starsEarned = result?.starsEarned || 3
   const fontSize = ageLevel === 1 ? 'text-2xl' : ageLevel === 2 ? 'text-xl' : 'text-lg'
 
   return (
-    <div className="absolute inset-0 z-30 bg-gradient-to-b from-yellow-400 to-orange-400 flex items-center justify-center overflow-hidden">
-      {/* Floating stars */}
-      {stars.map(star => (
-        <div
-          key={star.id}
-          className="absolute text-4xl animate-float-up"
-          style={{
-            left: `${star.left}%`,
-            bottom: '-10%',
-            animationDelay: `${star.delay}s`,
-            animationDuration: `${star.duration}s`
-          }}
-        >
-          ⭐
+    <div className="absolute inset-0 z-30 overflow-hidden">
+      {/* Gradient Background */}
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-400 via-orange-400 to-rose-400" />
+
+      {/* P5.js Celebration Canvas */}
+      <div className="absolute inset-0">
+        <P5Canvas
+          sketch={celebrationSketch}
+          props={{ starsEarned, ageLevel }}
+          transparent={true}
+          frameRate={60}
+        />
+      </div>
+
+      {/* Content - on top of canvas */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="text-center relative z-10">
+          {/* Stars */}
+          <div className="flex justify-center gap-4 mb-6">
+            {[1, 2, 3].map(i => (
+              <span
+                key={i}
+                className={`text-6xl transform transition-all duration-500 drop-shadow-lg ${
+                  i <= starsEarned ? 'scale-100 opacity-100 animate-bounce-in' : 'scale-50 opacity-30'
+                }`}
+                style={{ animationDelay: `${i * 0.2}s` }}
+              >
+                ⭐
+              </span>
+            ))}
+          </div>
+
+          {/* Message */}
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg animate-bounce-in">
+            Great Job!
+          </h1>
+
+          {successNarrative && (
+            <p className={`${fontSize} text-white/90 max-w-md mx-auto drop-shadow`}>
+              {successNarrative}
+            </p>
+          )}
         </div>
-      ))}
-
-      {/* Content */}
-      <div className="text-center relative z-10">
-        {/* Stars */}
-        <div className="flex justify-center gap-4 mb-6">
-          {[1, 2, 3].map(i => (
-            <span
-              key={i}
-              className={`text-6xl transform transition-all duration-500 ${
-                i <= starsEarned ? 'scale-100 opacity-100' : 'scale-50 opacity-30'
-              }`}
-              style={{ animationDelay: `${i * 0.3}s` }}
-            >
-              ⭐
-            </span>
-          ))}
-        </div>
-
-        {/* Message */}
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
-          Great Job!
-        </h1>
-
-        {successNarrative && (
-          <p className={`${fontSize} text-white/90 max-w-md mx-auto`}>
-            {successNarrative}
-          </p>
-        )}
       </div>
 
       <style>{`
-        @keyframes float-up {
+        @keyframes bounce-in {
           0% {
-            transform: translateY(0) rotate(0deg);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(-100vh) rotate(720deg);
+            transform: scale(0);
             opacity: 0;
           }
+          50% {
+            transform: scale(1.2);
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
-        .animate-float-up {
-          animation: float-up 3s ease-out forwards;
+        .animate-bounce-in {
+          animation: bounce-in 0.5s ease-out forwards;
         }
       `}</style>
     </div>
