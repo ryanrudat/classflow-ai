@@ -973,10 +973,12 @@ export async function bulkAddVocabulary(req, res) {
 /**
  * Start a teaching session for a world
  * POST /api/learning-worlds/:worldId/start-session
+ *
+ * If an active session already exists for this world, returns it instead of creating a new one.
  */
 export async function startWorldSession(req, res) {
   const { worldId } = req.params
-  const { ageLevel, controlMode, audioEnabled, musicEnabled } = req.body
+  const { ageLevel, controlMode, audioEnabled, musicEnabled, forceNew } = req.body
   const userId = req.user.userId
 
   try {
@@ -988,6 +990,31 @@ export async function startWorldSession(req, res) {
 
     if (worldCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Learning world not found' })
+    }
+
+    // Check for existing active session for this world (unless forceNew is true)
+    if (!forceNew) {
+      const existingSession = await db.query(
+        `SELECT ws.*, s.join_code, s.id as session_id
+         FROM world_sessions ws
+         JOIN sessions s ON ws.session_id = s.id
+         WHERE ws.world_id = $1 AND ws.teacher_id = $2 AND ws.is_active = true AND s.status = 'active'
+         ORDER BY ws.started_at DESC
+         LIMIT 1`,
+        [worldId, userId]
+      )
+
+      if (existingSession.rows.length > 0) {
+        const existing = existingSession.rows[0]
+        // Return existing session
+        return res.status(200).json({
+          message: 'Existing session found',
+          worldSession: existing,
+          session: { id: existing.session_id, join_code: existing.join_code },
+          joinCode: existing.join_code,
+          reused: true
+        })
+      }
     }
 
     // Generate unique join code
@@ -1046,7 +1073,8 @@ export async function startWorldSession(req, res) {
       worldSession: worldSessionResult.rows[0],
       session,
       sessionInstance: instanceResult.rows[0],
-      joinCode: session.join_code
+      joinCode: session.join_code,
+      reused: false
     })
   } catch (error) {
     console.error('Start world session error:', error)
