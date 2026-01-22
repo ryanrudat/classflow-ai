@@ -26,7 +26,7 @@ export function ToastProvider({ children }) {
       type: toast.type || 'info',
       title: toast.title,
       message: toast.message,
-      duration: toast.duration || 5000,
+      duration: toast.duration ?? 2500,  // Reduced from 5000ms to 2500ms
       action: toast.action,
       onAction: toast.onAction
     }
@@ -87,33 +87,29 @@ function ToastContainer({ toasts, onDismiss }) {
 }
 
 /**
- * Individual Toast Item
+ * Individual Toast Item - Compact design
  */
 function ToastItem({ toast, onDismiss }) {
   const styles = {
     success: {
-      container: 'bg-white border-green-500 shadow-lg',
-      icon: '✅',
-      iconBg: 'bg-green-100 text-green-600',
-      progressBar: 'bg-green-500'
+      container: 'bg-white border-l-2 border-green-500',
+      icon: '✓',
+      iconClass: 'text-green-600'
     },
     error: {
-      container: 'bg-white border-red-500 shadow-lg',
-      icon: '❌',
-      iconBg: 'bg-red-100 text-red-600',
-      progressBar: 'bg-red-500'
+      container: 'bg-white border-l-2 border-red-500',
+      icon: '✕',
+      iconClass: 'text-red-600'
     },
     warning: {
-      container: 'bg-white border-yellow-500 shadow-lg',
-      icon: '⚠️',
-      iconBg: 'bg-yellow-100 text-yellow-600',
-      progressBar: 'bg-yellow-500'
+      container: 'bg-white border-l-2 border-yellow-500',
+      icon: '!',
+      iconClass: 'text-yellow-600'
     },
     info: {
-      container: 'bg-white border-blue-500 shadow-lg',
-      icon: 'ℹ️',
-      iconBg: 'bg-blue-100 text-blue-600',
-      progressBar: 'bg-blue-500'
+      container: 'bg-white border-l-2 border-blue-500',
+      icon: 'i',
+      iconClass: 'text-blue-600'
     }
   }
 
@@ -121,53 +117,24 @@ function ToastItem({ toast, onDismiss }) {
 
   return (
     <div
-      className={`${style.container} rounded-lg border-l-4 p-4 animate-slide-in-right`}
+      className={`${style.container} rounded shadow-md px-3 py-2 animate-slide-in-right`}
       role="alert"
     >
-      <div className="flex items-start gap-3">
-        <div className={`${style.iconBg} rounded-full p-2 flex-shrink-0`}>
-          <span className="text-lg">{style.icon}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          {toast.title && (
-            <h4 className="font-semibold text-gray-900 text-sm mb-0.5">
-              {toast.title}
-            </h4>
-          )}
-          {toast.message && (
-            <p className="text-gray-700 text-sm">{toast.message}</p>
-          )}
-          {toast.action && toast.onAction && (
-            <button
-              onClick={() => {
-                toast.onAction()
-                onDismiss()
-              }}
-              className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-            >
-              {toast.action}
-            </button>
-          )}
-        </div>
+      <div className="flex items-center gap-2">
+        <span className={`${style.iconClass} font-bold text-sm`}>{style.icon}</span>
+        <span className="text-gray-700 text-sm flex-1">
+          {toast.message || toast.title}
+        </span>
         <button
           onClick={onDismiss}
-          className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+          className="text-gray-400 hover:text-gray-600 transition-colors ml-2"
           aria-label="Dismiss"
         >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      {/* Progress bar for auto-dismiss */}
-      {toast.duration > 0 && (
-        <div className="mt-2 h-1 bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className={`h-full ${style.progressBar} animate-shrink-width`}
-            style={{ animationDuration: `${toast.duration}ms` }}
-          />
-        </div>
-      )}
     </div>
   )
 }
