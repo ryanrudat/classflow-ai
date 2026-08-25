@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useToast } from '../components/Toast'
 import { useSocket } from '../hooks/useSocket'
-import CollaborationLobby from '../components/CollaborationLobby'
-import PartnerChat from '../components/PartnerChat'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
@@ -29,21 +27,24 @@ export default function ReverseTutoring() {
   const toast = useToast()
   const socket = useSocket()
 
-  // Get student info from location state
-  const studentId = location.state?.studentId
-  const studentName = location.state?.studentName
+  // Get student info from router state, falling back to the join stored for this tab
+  // so a page refresh does not drop the student out of the activity.
+  const storedJoin = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('student_session') || 'null')
+    } catch {
+      return null
+    }
+  })()
+  const storedStudent = storedJoin?.session?.id === sessionId ? storedJoin.student : null
+  const studentId = location.state?.studentId || storedStudent?.id
+  const studentName = location.state?.studentName || storedStudent?.student_name
 
   // State
-  const [view, setView] = useState('topics') // 'topics', 'lobby', or 'conversation'
+  const [view, setView] = useState('topics') // 'topics' or 'conversation'
   const [availableTopics, setAvailableTopics] = useState([])
   const [loadingTopics, setLoadingTopics] = useState(true)
   const [selectedTopic, setSelectedTopic] = useState(null)
-
-  // Collaboration State (Tag-Team Mode)
-  const [isCollaborative, setIsCollaborative] = useState(false)
-  const [collabSessionId, setCollabSessionId] = useState(null)
-  const [partner, setPartner] = useState(null)
-  const [isMyTurn, setIsMyTurn] = useState(true) // Who is currently teaching
 
   const [conversationId, setConversationId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -76,7 +77,6 @@ export default function ReverseTutoring() {
   const messagesEndRef = useRef(null)
   const scaffoldingCloseButtonRef = useRef(null)
   const textInputRef = useRef(null)
-  const hasHandledPartnerFoundRef = useRef(false) // Prevent duplicate partner found handling
 
   // Auto-scroll to bottom - only when new messages arrive
   const scrollToBottom = () => {
@@ -115,7 +115,6 @@ export default function ReverseTutoring() {
         role: 'student',
         studentId,
         studentName,
-        context: 'reverse-tutoring' // Add context to distinguish from regular session
       })
       console.log('📡 Joined reverse tutoring session for presence tracking')
 
@@ -126,54 +125,6 @@ export default function ReverseTutoring() {
       }
     }
   }, [socket, sessionId, studentId, studentName])
-
-  // Collaboration socket listeners for turn changes
-  useEffect(() => {
-    if (!socket || !isCollaborative || !collabSessionId) return
-
-    // Listen for turn approved (partner tagged you in)
-    const handleTurnApproved = (data) => {
-      if (data.toStudentId === studentId) {
-        setIsMyTurn(true)
-        toast.success("You're tagged in!", 'Your turn to teach Alex')
-      } else if (data.fromStudentId === studentId) {
-        setIsMyTurn(false)
-      }
-    }
-
-    // Listen for turn request from partner
-    const handleTurnRequested = (data) => {
-      if (data.studentId !== studentId) {
-        toast.info(
-          `${data.studentName} wants to teach`,
-          'Click "Tag Partner" to pass the turn',
-          { duration: 5000 }
-        )
-      }
-    }
-
-    // Listen for partner disconnect
-    const handlePartnerDisconnected = (data) => {
-      if (data.studentId === partner?.id) {
-        toast.warning('Partner disconnected', `${partner?.name} left the session. You can continue solo.`)
-        // Continue in solo mode
-        setIsCollaborative(false)
-        setCollabSessionId(null)
-        setPartner(null)
-        setIsMyTurn(true)
-      }
-    }
-
-    socket.on('collab-turn-approved', handleTurnApproved)
-    socket.on('collab-turn-requested', handleTurnRequested)
-    socket.on('collab-partner-disconnected', handlePartnerDisconnected)
-
-    return () => {
-      socket.off('collab-turn-approved', handleTurnApproved)
-      socket.off('collab-turn-requested', handleTurnRequested)
-      socket.off('collab-partner-disconnected', handlePartnerDisconnected)
-    }
-  }, [socket, isCollaborative, collabSessionId, studentId, partner])
 
   // Grace period countdown timer
   useEffect(() => {
@@ -267,24 +218,12 @@ export default function ReverseTutoring() {
 
   /**
    * Select a topic and start conversation immediately
-   * If topic has collaboration enabled, show the lobby first
    */
   const selectTopic = async (topic) => {
     console.log('🎯 Topic selected:', topic)
     setSelectedTopic(topic)
     setLoadingTopics(true) // Prevent multiple clicks
 
-    // Check if this topic has Tag-Team collaboration enabled
-    if (topic.allowCollaboration) {
-      console.log('🤝 Tag-Team mode enabled for this topic')
-      setIsCollaborative(true)
-      setView('lobby')
-      setLoadingTopics(false)
-      return
-    }
-
-    // Solo mode - start conversation directly
-    setIsCollaborative(false)
     const success = await startConversation(topic)
 
     if (success) {
@@ -292,106 +231,6 @@ export default function ReverseTutoring() {
     }
 
     setLoadingTopics(false)
-  }
-
-  /**
-   * Handle when partner is found in the lobby
-   */
-  const handlePartnerFound = async ({ collabSessionId: newCollabId, conversationId: existingConversationId, partner: newPartner, isInitiator }) => {
-    // Prevent duplicate handling
-    if (hasHandledPartnerFoundRef.current) {
-      console.log('⚠️ Already handled partner found, ignoring duplicate call')
-      return
-    }
-    hasHandledPartnerFoundRef.current = true
-
-    console.log('🎉 Partner found!', newPartner, 'Initiator:', isInitiator, 'ConversationId:', existingConversationId)
-    setCollabSessionId(newCollabId)
-    setPartner(newPartner)
-    setIsMyTurn(isInitiator) // Initiator goes first
-
-    let success = false
-
-    // If we already have a conversationId from the collaboration API, use it
-    if (existingConversationId) {
-      console.log('📄 Using existing conversation:', existingConversationId)
-      success = await loadExistingConversation(existingConversationId, selectedTopic)
-
-      // If loading fails but we have an ID, still set the conversation and try to continue
-      if (!success) {
-        console.log('⚠️ Failed to load existing conversation, setting ID anyway')
-        setConversationId(existingConversationId)
-        // Set empty messages - the AI message should be generated by the backend
-        setMessages([])
-        setMessageCount(0)
-        success = true
-      }
-    } else {
-      // Fallback: Try to start a new conversation (shouldn't normally happen for collaborative sessions)
-      console.log('🆕 No existing conversationId, starting new conversation')
-      success = await startConversation(selectedTopic)
-    }
-
-    if (success) {
-      setView('conversation')
-      toast.success(
-        'Tag-Team Started!',
-        isInitiator ? "You're up first - teach Alex!" : `${newPartner.name} will start, then you'll tag in!`
-      )
-    } else {
-      // Reset the ref so user can try again
-      hasHandledPartnerFoundRef.current = false
-    }
-  }
-
-  /**
-   * Handle canceling from lobby (go solo)
-   */
-  const handleLobbyCancel = async () => {
-    console.log('👤 Going solo instead')
-    setIsCollaborative(false)
-    setCollabSessionId(null)
-    setPartner(null)
-    setIsMyTurn(true)
-
-    // Start solo conversation
-    const success = await startConversation(selectedTopic)
-
-    if (success) {
-      setView('conversation')
-    }
-  }
-
-  /**
-   * Handle turn change in collaborative mode
-   */
-  const handleTagPartner = () => {
-    if (!isCollaborative || !collabSessionId) return
-
-    // Emit turn change via socket
-    socket?.emit('collab-approve-turn', {
-      collabSessionId,
-      fromStudentId: studentId,
-      toStudentId: partner?.id
-    })
-
-    setIsMyTurn(false)
-    toast.info('Tagged!', `It's ${partner?.name}'s turn to teach`)
-  }
-
-  /**
-   * Handle requesting turn from partner
-   */
-  const handleRequestTurn = () => {
-    if (!isCollaborative || !collabSessionId) return
-
-    socket?.emit('collab-request-turn', {
-      collabSessionId,
-      studentId,
-      studentName
-    })
-
-    toast.info('Request sent', 'Waiting for your partner to tag you in...')
   }
 
   /**
@@ -851,25 +690,11 @@ export default function ReverseTutoring() {
     )
   }
 
-  // Lobby View (Tag-Team matching)
-  if (view === 'lobby') {
-    return (
-      <CollaborationLobby
-        sessionId={sessionId}
-        studentId={studentId}
-        studentName={studentName}
-        topic={selectedTopic}
-        onPartnerFound={handlePartnerFound}
-        onCancel={handleLobbyCancel}
-      />
-    )
-  }
-
-  // Conversation View (with optional PartnerChat sidebar for collaborative mode)
+  // Conversation View
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex flex-col lg:flex-row">
       {/* Main Conversation Area */}
-      <div className={`flex-1 p-3 md:p-4 ${isCollaborative ? 'lg:pr-2' : ''}`}>
+      <div className="flex-1 p-3 md:p-4">
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-4 md:mb-6">
         <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-3 md:p-4 lg:p-6">
@@ -1113,36 +938,6 @@ export default function ReverseTutoring() {
                 {/* Record Button */}
                 {!currentTranscript && !isTranscribing && (
                   <div className="flex flex-col items-center animate-scale-in">
-                    {/* Tag Partner Button - only in collaborative mode when it's your turn */}
-                    {isCollaborative && isMyTurn && partner && (
-                      <button
-                        onClick={handleTagPartner}
-                        className="mb-4 px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
-                        </svg>
-                        Tag {partner.name} (Pass Turn)
-                      </button>
-                    )}
-
-                    {/* Waiting for turn message - collaborative mode when not your turn */}
-                    {isCollaborative && !isMyTurn && (
-                      <div className="text-center py-4 mb-4">
-                        <div className="w-16 h-16 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <p className="text-gray-600 font-medium">Waiting for your turn...</p>
-                        <p className="text-sm text-gray-500 mt-1">{partner?.name || 'Your partner'} is teaching Alex</p>
-                        <p className="text-xs text-indigo-600 mt-2">Use the chat to coordinate!</p>
-                      </div>
-                    )}
-
-                    {/* Recording button - disabled in collaborative mode when not your turn */}
-                    {(!isCollaborative || isMyTurn) && (
-                    <>
                     <div className="relative">
                       <button
                         onMouseDown={startRecording}
@@ -1192,8 +987,6 @@ export default function ReverseTutoring() {
                       <p className="text-xs text-gray-500 mt-1 text-center max-w-md px-4">
                         Tip: Press and hold the button while you speak, then release when done. Make sure your browser has microphone permission.
                       </p>
-                    )}
-                    </>
                     )}
                   </div>
                 )}
@@ -1556,17 +1349,6 @@ export default function ReverseTutoring() {
       )}
       </div>
 
-      {/* Partner Chat Sidebar (only in collaborative mode) */}
-      {isCollaborative && partner && (
-        <PartnerChat
-          collabSessionId={collabSessionId}
-          studentId={studentId}
-          studentName={studentName}
-          partner={partner}
-          isMyTurn={isMyTurn}
-          onRequestTurn={handleRequestTurn}
-        />
-      )}
     </div>
   )
 }

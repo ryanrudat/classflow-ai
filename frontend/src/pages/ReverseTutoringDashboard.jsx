@@ -40,9 +40,6 @@ export default function ReverseTutoringDashboard() {
     // New fields for subject hierarchy and collaboration
     subjectId: null,
     subjectPath: [],
-    allowCollaboration: false,
-    collaborationMode: 'tag_team', // 'tag_team' only for now
-    maxCollaborators: 2,
     selectedStandardIds: [],
     // Lesson context for ALEX
     conceptsCovered: [],
@@ -254,9 +251,6 @@ export default function ReverseTutoringDashboard() {
         // Subject hierarchy fields
         subjectId: selectedFocusSubject || selectedSubSubject || selectedMainSubject,
         subjectPath,
-        allowCollaboration: topicForm.allowCollaboration,
-        collaborationMode: topicForm.collaborationMode,
-        maxCollaborators: topicForm.maxCollaborators,
         standardIds: topicForm.selectedStandardIds,
         // Lesson context for ALEX
         conceptsCovered: topicForm.conceptsCovered,
@@ -322,9 +316,6 @@ export default function ReverseTutoringDashboard() {
         assignedStudentIds: [],
         subjectId: null,
         subjectPath: [],
-        allowCollaboration: false,
-        collaborationMode: 'tag_team',
-        maxCollaborators: 2,
         selectedStandardIds: [],
         conceptsCovered: [],
         expectedExplanations: [],
@@ -1404,85 +1395,6 @@ export default function ReverseTutoringDashboard() {
                               </ul>
                             </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Tag-Team Collaboration Settings */}
-                      <div className="border-t pt-4">
-                        <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                          <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                          </svg>
-                          Tag-Team Mode (Optional)
-                        </h3>
-
-                        <div className="space-y-4">
-                          {/* Enable Collaboration Toggle */}
-                          <div>
-                            <label className="flex items-start gap-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={topicForm.allowCollaboration}
-                                onChange={(e) => setTopicForm({ ...topicForm, allowCollaboration: e.target.checked })}
-                                className="mt-1 h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                              />
-                              <div>
-                                <span className="text-sm font-medium text-gray-700">Enable Tag-Team Teaching</span>
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  Allow students to collaborate in pairs, taking turns teaching the AI
-                                </p>
-                              </div>
-                            </label>
-                          </div>
-
-                          {/* Collaboration Options (shown when enabled) */}
-                          {topicForm.allowCollaboration && (
-                            <div className="ml-7 space-y-3 animate-fadeIn">
-                              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                                <h4 className="text-sm font-semibold text-indigo-900 mb-2">How Tag-Team Works:</h4>
-                                <ul className="text-xs text-indigo-800 space-y-1.5 list-disc list-inside">
-                                  <li><strong>Voice to AI:</strong> Students speak to Alex using voice only</li>
-                                  <li><strong>Text to Partner:</strong> Partners can chat via text sidebar</li>
-                                  <li><strong>Turn-Based:</strong> One student teaches at a time, then tags partner</li>
-                                  <li><strong>Shared Progress:</strong> Both students contribute to understanding score</li>
-                                </ul>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-4">
-                                {/* Max Collaborators */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Team Size
-                                  </label>
-                                  <select
-                                    value={topicForm.maxCollaborators}
-                                    onChange={(e) => setTopicForm({ ...topicForm, maxCollaborators: parseInt(e.target.value) })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                  >
-                                    <option value={2}>2 students (pairs)</option>
-                                    <option value={3}>3 students (trios)</option>
-                                  </select>
-                                </div>
-
-                                {/* Matching Mode */}
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Partner Matching
-                                  </label>
-                                  <select
-                                    value="auto"
-                                    disabled
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
-                                  >
-                                    <option value="auto">Auto-match (waiting room)</option>
-                                  </select>
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Students are paired when they join
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
 

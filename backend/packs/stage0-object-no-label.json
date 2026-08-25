@@ -1,0 +1,147 @@
+{
+  "id": "stage0-object-no-label",
+  "version": 1,
+  "blockId": "stage_0",
+  "title": "The Object With No Label",
+  "centralQuestion": "What can we say about this object from the evidence — and what can't we say yet?",
+
+  "student": {
+    "intro": "This is a practice object. It is not from a real dig. Nobody knows what it is — there is no answer to find. Your job: say what you can SEE, say what you THINK, and say what is NOT proved. The Archive Apprentice will write your note.",
+    "terms": [
+      { "term": "mark", "gloss": "a line or cut on a surface" },
+      { "term": "hole", "gloss": "an opening that goes into or through something" },
+      { "term": "smooth", "gloss": "flat and even, not rough" },
+      { "term": "evidence", "gloss": "what you can see or measure" },
+      { "term": "prove", "gloss": "to show something is definitely true" }
+    ],
+    "frames": {
+      "support": [
+        "I can see ___.",
+        "There are ___ on the ___.",
+        "I think it was ___ because ___."
+      ],
+      "challenge": [
+        "The ___ show(s) ___, but it does not prove ___.",
+        "Another idea is ___. To check, we would need ___."
+      ]
+    },
+    "notebookLabels": {
+      "claim": "I think",
+      "because": "Because (evidence)",
+      "notProved": "Not proved",
+      "nextEvidence": "Next evidence"
+    }
+  },
+
+  "evidence": [
+    {
+      "id": "ev_holes",
+      "label": "Five small holes in a row",
+      "detail": "Five round holes, about the same size, in a straight line along one edge.",
+      "imageUrl": null
+    },
+    {
+      "id": "ev_smooth_side",
+      "label": "One smooth side",
+      "detail": "One side is smooth and shiny. The other side is rough.",
+      "imageUrl": null
+    },
+    {
+      "id": "ev_size",
+      "label": "It fits in one hand",
+      "detail": "About 12 centimetres long. Light enough to hold in one hand.",
+      "imageUrl": null
+    },
+    {
+      "id": "ev_marks",
+      "label": "Short marks near the holes",
+      "detail": "Three short scratches next to the holes. They are not all the same length.",
+      "imageUrl": null
+    }
+  ],
+
+  "claims": [
+    {
+      "id": "claim_tool",
+      "text": "The object was used as a tool",
+      "evidenceIds": ["ev_holes", "ev_size", "ev_smooth_side"],
+      "doesNotProve": "that the holes were made on purpose, or what the tool was for"
+    },
+    {
+      "id": "claim_worn",
+      "text": "One side was rubbed smooth by use",
+      "evidenceIds": ["ev_smooth_side"],
+      "doesNotProve": "that a person did the rubbing — water or sand can also make things smooth"
+    },
+    {
+      "id": "claim_counting",
+      "text": "The marks were made to count something",
+      "evidenceIds": ["ev_marks"],
+      "doesNotProve": "that the marks were made on purpose, or what was counted"
+    }
+  ],
+
+  "concepts": [
+    { "id": "c_observe_holes", "label": "Describes the holes (number, row, edge)", "kind": "observation" },
+    { "id": "c_observe_smooth", "label": "Describes the smooth side", "kind": "observation" },
+    { "id": "c_observe_marks", "label": "Describes the short marks", "kind": "observation" },
+    { "id": "c_observe_size", "label": "Describes the size or that it fits a hand", "kind": "observation" },
+    { "id": "c_infer_use", "label": "Suggests what the object was for", "kind": "inference" },
+    { "id": "c_link_evidence", "label": "Links an idea to a piece of evidence with 'because'", "kind": "link" },
+    { "id": "c_limit", "label": "Says what the evidence does NOT prove", "kind": "limit" },
+    { "id": "c_next_evidence", "label": "Says what evidence would help next", "kind": "next" }
+  ],
+
+  "prompts": {
+    "firstTeach": "Look at the object and the four pieces of evidence. Tell me what you can see, and what you think it was for.",
+    "reteach": "Now explain the whole thing again in your own words: what you see, what you think, and what is not proved.",
+    "done": "Your note is in the archive. Now teach a partner."
+  },
+
+  "probes": [
+    {
+      "id": "probe_limit_01",
+      "text": "What does this evidence not prove yet?",
+      "targetsConceptId": "c_limit"
+    },
+    {
+      "id": "probe_link_01",
+      "text": "Why do you think that? Which piece of evidence?",
+      "targetsConceptId": "c_link_evidence"
+    },
+    {
+      "id": "probe_observe_01",
+      "text": "Before we say what it was for — what exactly can you see?",
+      "targetsConceptId": "c_observe_holes"
+    },
+    {
+      "id": "probe_next_01",
+      "text": "What would we need to look at next to check your idea?",
+      "targetsConceptId": "c_next_evidence"
+    }
+  ],
+
+  "repairs": [
+    {
+      "id": "repair_overclaim_01",
+      "trigger": "overclaim",
+      "text": "You said the evidence proves what it was. Can you make that more careful? Use 'but it does not prove'.",
+      "targetsConceptId": "c_limit"
+    },
+    {
+      "id": "repair_no_evidence_01",
+      "trigger": "missing_link",
+      "text": "Good idea. Now add the evidence: 'I think ___ because ___'.",
+      "targetsConceptId": "c_link_evidence"
+    }
+  ],
+
+  "offLimits": [
+    "what the object really is (there is no real answer)",
+    "dates, places, or a culture it came from",
+    "any evidence not in the four evidence cards"
+  ],
+
+  "maxTurns": 6,
+  "peerQuestion": "Ask your partner: what is one thing the evidence does NOT prove?"
+}

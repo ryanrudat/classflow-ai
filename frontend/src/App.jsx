@@ -10,10 +10,8 @@ import TeacherDashboard from './pages/TeacherDashboard'
 import StudentView from './pages/StudentView'
 import ReverseTutoring from './pages/ReverseTutoring'
 import ReverseTutoringDashboard from './pages/ReverseTutoringDashboard'
-import LibraryBrowser from './pages/LibraryBrowser'
-import LearningWorldsHub from './pages/LearningWorldsHub'
-import LearningWorldPlayer from './pages/LearningWorldPlayer'
-import WorldEditor from './pages/WorldEditor'
+import SpeakingActivity from './pages/SpeakingActivity'
+import SpeakingDashboard from './pages/SpeakingDashboard'
 
 function App() {
   const { user } = useAuthStore()
@@ -25,25 +23,28 @@ function App() {
           <Navigation />
           <main id="main-content">
           <Routes>
-            {/* Teacher routes */}
+            {/* Teacher auth */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
 
-            {/* Student join routes - No login required, only join code */}
+            {/* Student join - no login, only a join code */}
             <Route path="/join" element={<StudentView />} />
             <Route path="/join/:joinCode" element={<StudentView />} />
 
-            {/* Protected teacher routes */}
+            {/* Teacher dashboard */}
             <Route
               path="/dashboard"
               element={user ? <TeacherDashboard /> : <Navigate to="/login" />}
             />
+
+            {/* Speaking activity (pack-driven) */}
+            <Route path="/speak/:sessionId" element={<SpeakingActivity />} />
             <Route
-              path="/library"
-              element={user ? <LibraryBrowser /> : <Navigate to="/login" />}
+              path="/speaking/dashboard/:sessionId"
+              element={user ? <SpeakingDashboard /> : <Navigate to="/login" />}
             />
 
-            {/* Reverse Tutoring routes */}
+            {/* Legacy reverse tutoring (reachable by URL only) */}
             <Route
               path="/reverse-tutoring/:sessionId"
               element={<ReverseTutoring />}
@@ -53,22 +54,9 @@ function App() {
               element={user ? <ReverseTutoringDashboard /> : <Navigate to="/login" />}
             />
 
-            {/* Learning Worlds routes */}
-            <Route
-              path="/worlds"
-              element={user ? <LearningWorldsHub /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/worlds/:worldId/edit"
-              element={user ? <WorldEditor /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/worlds/:worldId/play"
-              element={user ? <LearningWorldPlayer /> : <Navigate to="/login" />}
-            />
-
-            {/* Default route */}
+            {/* Default */}
             <Route path="/" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
           </Routes>
           </main>
         </div>

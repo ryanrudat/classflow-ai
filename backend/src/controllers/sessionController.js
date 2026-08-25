@@ -17,11 +17,8 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: 'Session title is required' })
     }
 
-    const validSubjects = ['English', 'History', 'Social Studies', 'Government', 'Biology']
-    if (subject && !validSubjects.includes(subject)) {
-      return res.status(400).json({
-        message: `Subject must be one of: ${validSubjects.join(', ')}`
-      })
+    if (subject && (typeof subject !== 'string' || subject.trim().length > 100)) {
+      return res.status(400).json({ message: 'Subject must be text of 100 characters or fewer' })
     }
 
     // Generate unique join code
@@ -108,14 +105,9 @@ export async function updateSession(req, res) {
       return res.status(404).json({ message: 'Session not found' })
     }
 
-    // Validate subject if provided
-    if (subject) {
-      const validSubjects = ['English', 'History', 'Social Studies', 'Government', 'Biology']
-      if (!validSubjects.includes(subject)) {
-        return res.status(400).json({
-          message: `Subject must be one of: ${validSubjects.join(', ')}`
-        })
-      }
+    // Validate subject if provided (free text; the course defines its own subjects)
+    if (subject && (typeof subject !== 'string' || subject.trim().length > 100)) {
+      return res.status(400).json({ message: 'Subject must be text of 100 characters or fewer' })
     }
 
     // Build update query dynamically
