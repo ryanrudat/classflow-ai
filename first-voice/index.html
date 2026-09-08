@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>History of Science 001 · Interactive Evidence Gallery</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#f2f2f2;margin:0;line-height:1.5}header,main{max-width:1120px;margin:auto}header{padding:28px 32px 18px}h1{font-size:34px;margin:4px 0 8px;line-height:1.2}h2{font-size:29px;line-height:1.25;margin:6px 0 18px}h3{font-size:20px;margin:18px 0 8px}.eyebrow{font-size:12px;font-weight:bold;letter-spacing:.09em;text-transform:uppercase}.notice{border-left:4px solid #111;padding:10px 16px;background:white}.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}a{color:inherit;text-underline-offset:3px}nav a,button{display:inline-block;border:1px solid #777;background:white;padding:8px 13px;font:inherit;text-decoration:none;border-radius:3px;cursor:pointer}nav a:hover,button:hover{background:#ddd}section{background:white;padding:30px 38px;margin:0 18px 24px;border:1px solid #ccc;scroll-margin-top:12px}figure{margin:15px 0 10px}.evidence-photo{display:block;max-width:100%;height:auto;max-height:580px;margin:auto;object-fit:contain}.image-status{padding:16px;border:1px dashed #555}.small,figcaption{font-size:13px;color:#333}figcaption{margin-top:9px}.two{display:grid;grid-template-columns:1fr 1fr;gap:22px}.two svg,.diagram svg{width:100%;height:auto;display:block}details{border:1px solid #888;padding:12px 16px;margin-top:16px}summary{font-size:18px;font-weight:bold;cursor:pointer}summary+div{margin-top:12px}.prompt{border-left:3px solid #111;padding:8px 14px;font-size:19px;background:#f6f6f6}.source-links{font-size:14px;margin-top:14px}.record{display:grid;grid-template-columns:1fr 1fr;gap:20px}.record>div{border:1px solid #aaa;padding:8px 16px}footer{max-width:1080px;margin:auto;padding:15px 25px 35px;font-size:13px}body.presentation section{font-size:20px}body.presentation figcaption,body.presentation .source-links{font-size:14px}body.presentation .evidence-photo{max-height:72vh}body.presentation h2{font-size:36px}body.presentation .prompt{font-size:24px}@media(max-width:720px){header{padding:20px}section{margin:0 8px 15px;padding:22px 18px}.two,.record{grid-template-columns:1fr}h1{font-size:28px}}@media print{@page{size:A4;margin:12mm}body{background:white;font-size:11pt}header,.toolbar,nav,.no-print,button{display:none!important}section{border:0;margin:0;padding:0;break-before:page;break-inside:avoid}h2{font-size:23pt}.evidence-photo{max-height:110mm}details{border:1px solid #888}figcaption,.source-links{font-size:8pt}.prompt{font-size:12pt}footer{break-before:page}.small{font-size:9pt}}</style><style>
+.stacked-evidence{display:block}.stacked-evidence>div{margin:24px 0}
+.stacked-evidence>.diagram{padding-top:22px;border-top:1px solid #bbb}
+.stacked-evidence svg{width:100%;height:auto;display:block}
+#card-b .evidence-photo{max-height:620px;max-width:720px;width:100%;object-fit:contain}
+#card-b figcaption{max-width:760px;margin:10px auto}
+button:disabled{cursor:wait;opacity:.6}
+.image-status{font-weight:bold}
+@media print{
+ @page{size:A4 portrait;margin:14mm}
+ body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.4}
+ main{max-width:none}
+ header{display:none!important}
+ section{break-before:page;break-inside:auto!important;margin:0;padding:0}
+ section:first-child{break-before:auto}
+ h2{font-size:25pt;margin:6mm 0 5mm}h3{font-size:14pt}
+ .eyebrow{font-size:9pt}
+ .evidence-photo,#card-b .evidence-photo{max-height:100mm;max-width:100%;width:auto;height:auto;object-fit:contain}
+ figure,.diagram,details,.record,.prompt{break-inside:avoid}
+ .stacked-evidence>.diagram{break-before:page;border-top:0;padding-top:0}
+ .stacked-evidence svg{max-height:105mm}
+ .prompt{font-size:12pt;margin:4mm 0;padding:2mm 4mm}
+ .record{gap:4mm}.record>div{padding:2mm 4mm}
+ details{padding:3mm 4mm;margin:4mm 0}summary{font-size:12pt}
+ figcaption,.source-links{font-size:8.5pt}
+ a[href^='http']{overflow-wrap:anywhere}
+ .small{font-size:9pt}
+ footer{break-before:page;padding:0;font-size:10pt}
+}
+</style><style>
+/* Updated photographs within the original interactive-gallery layout. */
+#card-b .painting-view{margin:24px 0 32px}
+#card-b .painting-view:last-of-type{margin-bottom:18px}
+#card-b .evidence-photo{display:block;width:100%;height:auto;max-width:1000px;max-height:none;object-fit:contain;filter:none;border:1px solid #bbb}
+#card-b figcaption{max-width:1000px;margin:10px auto 0}
+#card-b .photo-label{font-size:18px;font-weight:bold;margin:0 0 10px}
+.photo-tools{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+.photo-tools button{font-size:14px;padding:6px 11px}
+#card-b-location .diagram{padding:12px 0;margin:8px 0 18px;overflow-x:auto}
+#card-b-location .diagram svg{width:100%;height:auto;min-width:680px;max-height:none}
+#card-b-location .map-note{font-size:14px;margin:8px 0 18px}
+.image-status{display:block;padding:12px 15px;border:1px dashed #777;font-weight:normal}
+.image-status[hidden]{display:none!important}
+.source-links a{overflow-wrap:anywhere}
+.evidence-photo{cursor:zoom-in}
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #222;outline-offset:3px}
+#photo-dialog{border:1px solid #999;border-radius:5px;padding:0;width:96vw;max-width:1600px;height:94vh;max-height:94vh;background:#fff;color:#111}
+#photo-dialog::backdrop{background:rgba(0,0,0,.8)}
+.viewer-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid #aaa;flex-wrap:wrap}
+.viewer-bar strong{font-size:16px;flex:1 1 230px}
+.viewer-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.viewer-controls button{font-size:14px;padding:6px 10px}
+#zoom-level{min-width:45px;font-size:14px}
+#photo-scroll{overflow:auto;height:calc(94vh - 134px);padding:14px;background:#eee}
+#photo-large{display:block;width:100%;height:auto;max-width:none;margin:auto;object-fit:contain}
+#photo-credit{font-size:12px;line-height:1.35;padding:9px 16px;margin:0;max-height:64px;overflow:auto}
+@media(max-width:720px){.toolbar{gap:8px}.toolbar button,.toolbar a{font-size:14px;padding:8px 10px}#card-b-location .diagram{margin-left:-4px;margin-right:-4px}#card-b .photo-label{font-size:17px}.viewer-bar{padding:8px}.viewer-bar strong{font-size:14px}#photo-scroll{height:calc(94vh - 174px)}}
+@media print{
+ body{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ .photo-tools,#photo-dialog{display:none!important}
+ #card-b .painting-view{margin:8mm 0;break-inside:avoid}
+ #card-b .painting-view+.painting-view{break-before:page;padding-top:5mm}
+ #card-b .evidence-photo{width:auto;max-width:100%;max-height:210mm;margin:auto}
+ #card-b figcaption{max-width:none;margin:3mm 0}
+ #card-b-location .diagram{overflow:visible;padding:0;margin:5mm 0}
+ #card-b-location .diagram svg{min-width:0;max-height:105mm}
+ #card-b-location .map-note{font-size:9pt}
+}
+</style></head><body><header>
+<div class="eyebrow">The Society of Explorers · History of Science 001</div>
+<h1>The First Voice: evidence gallery</h1>
+<p>Explore the evidence. Open each research note when you are ready. Use the accompanying worksheet to record your answers.</p>
+<div class="notice"><strong>Internet connection required for photographs.</strong> Photographs load from their credited source websites. The cave diagram and timeline are built into this file. The photographs in this gallery are sourced images, not AI-generated replacements.</div>
+<nav aria-label="Evidence cards" class="toolbar">
+<a href="#card-a">A · Shared grave</a><a href="#card-b">B1 · Cave paintings</a><a href="#card-b-location">B2 · Cave location</a><a href="#card-c">C · Dates</a><a href="#stone">Silent A · Stone</a><a href="#fire">Silent B · Fire</a>
+</nav>
+<div class="toolbar"><button id="save-pdf" onclick="preparePDF()" type="button">Save as PDF / Print</button><button aria-pressed="false" id="presentation-button" onclick="togglePresentation()" type="button">Larger projection text</button><button onclick="setNotes(true)" type="button">Show all research notes</button><button onclick="setNotes(false)" type="button">Hide research notes</button></div>
+<p aria-live="polite" class="small" id="export-status" role="status">Open a photograph to enlarge it. Saving a PDF makes a static copy; this HTML file keeps the interactive controls.</p>
+<p class="small">This gallery does not collect or submit student answers.</p>
+</header><main><section id="card-a"><div class="eyebrow">Evidence card A</div><h2>A shared grave</h2><figure><img alt="Photograph of the younger Bonn-Oberkassel dog’s jaw and teeth; includes the source’s arrows and a one-centimetre scale." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://www.universiteitleiden.nl/binaries/content/gallery/ul2/main-images/general/afbeeldingen-in-tekst/unsorted/publicatie-luc-janssens-hond-in-graf-verzorging-gebit-1.jpg/publicatie-luc-janssens-hond-in-graf-verzorging-gebit-1.jpg/d700xvar" tabindex="0" title="Open enlarged photograph"/><p class="image-status" hidden="">The source image did not load. Open the original source below to see it.</p><figcaption>Photograph: Pütz Martin, Jürgen Vogel, Ralf Schmitz / LVR-LandesMuseum Bonn, via Leiden University. The arrows and scale belong to the published figure.</figcaption></figure><p class="prompt">Point to a detail you can actually see. What information would require a researcher’s report?</p><details><summary>Read the evidence record</summary><div><p><strong>Bonn-Oberkassel, Germany · about 14,000 years ago.</strong> This card focuses on the younger dog in the study.</p><div class="record"><div><h3>What researchers found</h3><p>The remains of a young dog were buried with two adult humans. Researchers examined damage in its teeth.</p></div><div><h3>What researchers think</h3><p>The damage suggests serious illness. The dog seems to have survived for weeks while ill. The researchers think survival without human help would have been unlikely.</p></div></div><p>The burial information, age and illness interpretation cannot be read directly from this photograph alone.</p></div></details><p class="prompt">Compare with Kae: 15,000 years ago; a wolf; sleeping by the fire; accepting children. Which part can this evidence help us check? What remains uncertain?</p><p class="source-links"><a href="https://www.universiteitleiden.nl/en/news/2018/02/emotional-bond-between-humans-and-dogs-goes-back-14000-years" rel="noopener noreferrer" target="_blank">Leiden University: Bonn-Oberkassel research and photographs</a><br/><a href="https://biblio.ugent.be/publication/8550758" rel="noopener noreferrer" target="_blank">Janssens et al. (2018), A new look at an old dog: Bonn-Oberkassel reconsidered</a></p></section><section id="card-b"><div class="eyebrow">Evidence card B1</div><h2>The cave paintings</h2>
+<figure class="painting-view">
+<p class="photo-label">1 · Lascaux, France — a horse from the Panel of the Chinese Horses</p>
+<img alt="Colour source photograph of a complete painted horse at Lascaux, with an ochre body, dark mane and legs visible on the cave wall." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://scx2.b-cdn.net/gfx/news/hires/2011/ancientdnapr.jpg" tabindex="0" title="Open enlarged photograph"/>
+<p class="image-status" hidden="">The photograph did not load. Check your connection or open the source below.</p>
+<figcaption>Photograph: N. Aujoulat / French Ministry of Culture and Communication. Published with a University of York research release. The full source photograph is displayed without a layout crop.</figcaption>
+<div class="photo-tools no-print"><button onclick="openPhoto(this.closest('figure').querySelector('img'))" type="button">Enlarge photograph</button></div>
+</figure>
+<figure class="painting-view">
+<p class="photo-label">2 · Chauvet, France — horses in the Hillaire Chamber</p>
+<img alt="Colour source photograph of four horse heads drawn in dark pigment on the warm-coloured cave wall in the Hillaire Chamber at Chauvet." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://scx2.b-cdn.net/gfx/news/hires/2011/1-ancientdnapr.jpg" tabindex="0" title="Open enlarged photograph"/>
+<p class="image-status" hidden="">The photograph did not load. Check your connection or open the source below.</p>
+<figcaption>Photograph: French Ministry of Culture and Communication / Regional Direction for Cultural Affairs, Rhône-Alpes / Regional Department of Archaeology. Published with the same University of York release. This is a different cave from Lascaux.</figcaption>
+<div class="photo-tools no-print"><button onclick="openPhoto(this.closest('figure').querySelector('img'))" type="button">Enlarge photograph</button></div>
+</figure>
+<p class="source-links"><a href="https://phys.org/news/2011-11-ancient-dna-insights-cave-horses.html" rel="noopener noreferrer" target="_blank">Source: University of York research release, with both photographs and their credits</a></p>
+</section><section id="card-b-location"><div class="eyebrow">Evidence card B2</div><h2>The cave location</h2><p><strong>Lascaux, France.</strong> This map relates to photograph 1. It does not show Chauvet.</p><div class="diagram"><svg aria-label="Simplified Lascaux location diagram showing the entrance, Hall of the Bulls and Axial Gallery. Not to scale." height="540" role="img" viewBox="0 0 1480 540" width="1480" xmlns="http://www.w3.org/2000/svg">
+<rect fill="white" height="540" width="1480"></rect>
+<g fill="black" font-family="Arial, sans-serif">
+<path d="M210 447 L310 350 Q360 283 414 257 L465 192 Q480 163 500 125 L516 74" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="77"></path>
+<path d="M418 257 Q600 249 755 244 L920 235" fill="none" stroke="black" stroke-linecap="round" stroke-width="48"></path>
+<path d="M697 247 Q692 321 722 383" fill="none" stroke="black" stroke-linecap="round" stroke-width="43"></path>
+<path d="M210 447 L310 350 Q360 283 414 257 L465 192 Q480 163 500 125 L516 74" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="69"></path>
+<path d="M418 257 Q600 249 755 244 L920 235" fill="none" stroke="white" stroke-linecap="round" stroke-width="40"></path>
+<path d="M697 247 Q692 321 722 383" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="35"></path>
+<text font-size="35" font-weight="bold" x="28" y="493">Entrance</text><path d="M180 471 L210 447" fill="none" stroke="black" stroke-width="3"></path>
+<text font-size="31" font-weight="bold" x="25" y="215">Hall of the Bulls</text><path d="M257 224 L337 296" fill="none" stroke="black" stroke-width="3"></path>
+<text font-size="32" font-weight="bold" x="610" y="70">Axial Gallery</text>
+<text font-size="29" x="610" y="112">The Lascaux horse is</text><text font-size="29" x="610" y="148">in this gallery.</text>
+<path d="M591 117 L518 153" fill="none" stroke="black" stroke-width="3"></path>
+<text font-size="29" x="970" y="252">Other passages</text><path d="M937 243 L956 243" stroke="black" stroke-width="3"></path>
+<text font-size="29" x="806" y="397">Other chambers</text><path d="M746 381 L790 390" stroke="black" stroke-width="3"></path>
+<text font-size="25" x="985" y="461">Simplified location diagram</text><text font-size="25" x="985" y="493">Not to scale; not all areas shown</text>
+</g></svg></div><p class="map-note">Simplified map. Not to scale. The gallery is marked, not the exact position of the horse.</p><details><summary>Read the Lascaux research note</summary><div><p>Tests on animal bone from Lascaux place a period of human use at about 21,000–21,500 years ago. This is not a direct test of the photographed paint.</p><p>Lascaux is an earlier example than Kae’s story. These records do not identify the artist or establish what happened at Kae’s particular camp. The Chauvet photograph is a separate example from a different cave; the Lascaux map and dating note do not apply to it.</p></div></details><details><summary>Optional: look at a lamp found at Lascaux</summary><div><figure><img alt="Source photograph of the sandstone lamp from the Shaft at Lascaux." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://archeologie.culture.gouv.fr/sites/archeologie/files/styles/vignette_media/public/upload/mediatheque/vignettes/3373_vign_0.jpg?h=a338d27f&amp;itok=JWOjm-5G" tabindex="0" title="Open enlarged photograph"/><p class="image-status" hidden="">The source image did not load. Open the original source below to see it.</p><figcaption>© Musée national de Préhistoire. Source thumbnail detail.</figcaption></figure><p>Researchers found stone lamps at Lascaux. This lamp was found in the Shaft, not beside the horse painting.</p><p class="source-links"><a href="https://archeologie.culture.gouv.fr/lascaux/en/mediatheque/die-lampe-aus-rotem-sandstein" rel="noopener noreferrer" target="_blank">Musée national de Préhistoire: Sandstone lamp from Lascaux</a><br/><a href="https://archeologie.culture.gouv.fr/lascaux/en/lighting" rel="noopener noreferrer" target="_blank">French Ministry of Culture: Lighting</a></p></div></details><p class="source-links"><a href="https://archeologie.culture.gouv.fr/lascaux/en/mediatheque/topographie-der-hoehle" rel="noopener noreferrer" target="_blank">French Ministry of Culture: Topographical map of the cave</a><br/><a href="https://archeologie.culture.gouv.fr/lascaux/en/dating-figures-lascaux" rel="noopener noreferrer" target="_blank">French Ministry of Culture: Dating the figures at Lascaux</a></p></section><section id="card-c"><div class="eyebrow">Evidence card C</div><h2>Could the dates overlap?</h2><p>Here, “dinosaurs” means the extinct non-bird dinosaurs, such as T. rex. Birds are living dinosaurs and are not included in this claim check.</p><div class="diagram"><svg height="740" viewBox="0 0 1480 740" width="1480" xmlns="http://www.w3.org/2000/svg"><rect fill="white" height="740" width="1480"></rect><g fill="black" font-family="Arial, sans-serif"><text font-size="32" font-weight="bold" x="65" y="50">1. The whole interval: 66 million years to today</text><line stroke="black" stroke-width="4" x1="100" x2="1380" y1="235" y2="235"></line><line stroke="black" stroke-width="3" x1="100.0" x2="100.0" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="100.0" y="289">66</text><line stroke="black" stroke-width="3" x1="313.33333333333326" x2="313.33333333333326" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="313.33333333333326" y="289">55</text><line stroke="black" stroke-width="3" x1="526.6666666666667" x2="526.6666666666667" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="526.6666666666667" y="289">44</text><line stroke="black" stroke-width="3" x1="740.0" x2="740.0" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="740.0" y="289">33</text><line stroke="black" stroke-width="3" x1="953.3333333333334" x2="953.3333333333334" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="953.3333333333334" y="289">22</text><line stroke="black" stroke-width="3" x1="1166.6666666666667" x2="1166.6666666666667" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="1166.6666666666667" y="289">11</text><line stroke="black" stroke-width="3" x1="1380.0" x2="1380.0" y1="224" y2="247"></line><text font-size="27" text-anchor="middle" x="1380.0" y="289">0</text><circle cx="100" cy="235" r="7"></circle><text font-size="31" font-weight="bold" x="100" y="112">66,000,000 years ago</text><text font-size="28" x="100" y="151">Non-bird dinosaurs die out</text><line stroke="black" stroke-width="2" x1="100" x2="100" y1="166" y2="215"></line>
+<circle cx="1379.70909" cy="235" r="6"></circle><text font-size="31" font-weight="bold" x="1000" y="112">Kae: 15,000 years ago</text><path d="M1260 127 L1379.70909 216" fill="none" stroke="black" stroke-width="2"></path>
+<text font-size="26" text-anchor="middle" x="740" y="338">Numbers on this axis are MILLIONS of years ago. Equal spaces = equal time.</text>
+<text font-size="32" font-weight="bold" x="65" y="412">2. Enlarged view: only the last 30,000 years</text><text font-size="26" x="65" y="449">This entire lower line fits inside the tiny end of the upper line.</text>
+<line stroke="black" stroke-width="4" x1="100" x2="1380" y1="578" y2="578"></line><line stroke="black" stroke-width="3" x1="100.0" x2="100.0" y1="567" y2="590"></line><text font-size="28" text-anchor="middle" x="100.0" y="632">30,000</text><line stroke="black" stroke-width="3" x1="526.6666666666667" x2="526.6666666666667" y1="567" y2="590"></line><text font-size="28" text-anchor="middle" x="526.6666666666667" y="632">20,000</text><line stroke="black" stroke-width="3" x1="953.3333333333334" x2="953.3333333333334" y1="567" y2="590"></line><text font-size="28" text-anchor="middle" x="953.3333333333334" y="632">10,000</text><line stroke="black" stroke-width="3" x1="1380.0" x2="1380.0" y1="567" y2="590"></line><text font-size="28" text-anchor="middle" x="1380.0" y="632">Today (0)</text><circle cx="740.0" cy="578" r="8"></circle><line stroke="black" stroke-width="2" x1="740.0" x2="740.0" y1="541" y2="562"></line><text font-size="31" font-weight="bold" text-anchor="middle" x="740.0" y="509">Kae: 15,000</text><text font-size="27" text-anchor="middle" x="740" y="693">YEARS ago. A different scale; equal spaces still mean equal time.</text></g></svg></div><p class="prompt">Find Kae. Did the non-bird dinosaurs die out before or after his time? Could he hunt a living one? Use both dates.</p><p class="small">The event positions are proportional within each line. The lower line is a zoom, not an equal-length second time period. Marker sizes are enlarged for visibility. Extinction date: Natural History Museum. Kae’s date: the fictional Recording 001.</p><p class="source-links"><a href="https://www.nhm.ac.uk/discover/when-did-dinosaurs-live.html" rel="noopener noreferrer" target="_blank">Natural History Museum: When did dinosaurs live?</a><br/><a href="https://www.nhm.ac.uk/discover/dinosaur-extinction.html" rel="noopener noreferrer" target="_blank">Natural History Museum: What killed the dinosaurs?</a></p></section><section id="stone"><div class="eyebrow">Silent Evidence Report · Fragment A · Main task</div><h2>A shaped stone</h2><figure><img alt="Smithsonian photograph of the Olduvai chopper, showing its uneven worked surfaces and edge." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://humanorigins.si.edu/sites/default/files/styles/full_width/public/images/landscape/3.4.3-28_stone_chopper_olduvai_gorge_cc_l.jpg.webp?itok=JkhkiERz" tabindex="0" title="Open enlarged photograph"/><p class="image-status" hidden="">The source image did not load. Open the original source below to see it.</p><figcaption>Source photograph: Smithsonian Institution, Human Origins Program, “Olduvai Chopper.”</figcaption></figure><p class="prompt">Describe one visible feature before you suggest a use.</p><details><summary>Read the museum note</summary><div><p><strong>Olduvai Gorge, Tanzania · about 1.8 million years old.</strong></p><p>Small pieces were struck off this stone, leaving an edge.</p></div></details><p class="prompt">I can see… / This may show… because… / I cannot tell… from this evidence.</p><p class="source-links"><a href="https://humanorigins.si.edu/evidence/behavior/stone-tools/early-stone-age-tools/olduvai-chopper" rel="noopener noreferrer" target="_blank">Smithsonian Human Origins Program: Olduvai Chopper</a></p></section><section id="fire"><div class="eyebrow">Silent Evidence Report · Fragment B · Teacher-selected alternative</div><h2>Material from a cave</h2><figure><img alt="Published Weizmann composite figure of Qesem Cave excavation, laboratory spectrum and microscope or sediment images." class="evidence-photo" loading="eager" onclick="openPhoto(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPhoto(this)}" referrerpolicy="no-referrer" role="button" src="https://wis-wander.weizmann.ac.il/sites/default/files/Image-for-popular-magazine3.jpg" tabindex="0" title="Open enlarged photograph"/><p class="image-status" hidden="">The source image did not load. Open the original source below to see it.</p><figcaption>Source: Weizmann Institute of Science. Published composite figure. The lower-left image is the excavation; the other panels are laboratory records, not drawings of a campfire.</figcaption></figure><p class="prompt">Describe one visible feature in the excavation photograph. Do not guess the identity of the material from its colour alone.</p><details><summary>Read the research note</summary><div><p><strong>Qesem Cave, Israel · about 300,000 years ago.</strong></p><p>Laboratory tests identified several layers of wood ash and heated bone. Stone tools were found nearby.</p><p>Which part of the information is a visible observation? Which part comes from expert analysis?</p></div></details><p class="prompt">What might the combination of findings suggest? What does it not tell us? Complete one Silent Evidence Report, not both.</p><p class="source-links"><a href="https://wis-wander.weizmann.ac.il/scientific-archaeology/300000-year-old-hearth-found" rel="noopener noreferrer" target="_blank">Weizmann Institute: 300,000-Year-Old Hearth Found</a></p></section></main><footer><strong>Source and use notes.</strong> This updates the previous interactive gallery, not the worksheet or transcript. The original A, C, stone and fire evidence records are retained. B1 now uses two credited colour photographs rather than generated artwork; B2 identifies which cave the map represents. Cave-photo source records were checked on 8 September 2026. Research notes are simplified paraphrases. Kae is a fictional speaker, not an archaeological recording. The map is a simplified diagram, not a measured survey. Source links require internet access; photographs retain their creators’ rights. Check the owners’ reuse terms before public or commercial redistribution.</footer><dialog aria-labelledby="photo-title" id="photo-dialog"><div class="viewer-bar"><strong id="photo-title">Evidence photograph</strong><div class="viewer-controls"><button aria-label="Zoom out" onclick="adjustZoom(-25)" type="button">−</button><output id="zoom-level">100%</output><button aria-label="Zoom in" onclick="adjustZoom(25)" type="button">+</button><button onclick="setZoom(100)" type="button">Fit width</button><button onclick="document.getElementById('photo-dialog').close()" type="button">Close ×</button></div></div><div id="photo-scroll"><img alt="" id="photo-large"/></div><p id="photo-credit"></p></dialog><script>
+'use strict';
+let currentZoom=100;
+let notesBeforePrint=null;
+function setNotes(open){document.querySelectorAll('main details').forEach(x=>x.open=open);}
+function togglePresentation(){
+ const on=document.body.classList.toggle('presentation');
+ document.getElementById('presentation-button').setAttribute('aria-pressed',String(on));
+}
+function openPhoto(img){
+ const dialog=document.getElementById('photo-dialog');
+ const full=document.getElementById('photo-large');
+ full.src=img.currentSrc||img.src;full.alt=img.alt;
+ const figure=img.closest('figure');
+ document.getElementById('photo-title').textContent=figure?.querySelector('.photo-label')?.textContent||img.closest('section')?.querySelector('h2')?.textContent||'Evidence photograph';
+ document.getElementById('photo-credit').textContent=figure?.querySelector('figcaption')?.textContent||'';
+ setZoom(100);
+ if(!dialog.open)dialog.showModal();
+ document.getElementById('photo-scroll').scrollTo(0,0);
+}
+function setZoom(value){
+ currentZoom=Math.max(50,Math.min(300,value));
+ document.getElementById('photo-large').style.width=currentZoom+'%';
+ document.getElementById('zoom-level').textContent=currentZoom+'%';
+}
+function adjustZoom(delta){setZoom(currentZoom+delta);}
+function watchImages(){
+ document.querySelectorAll('main img.evidence-photo').forEach(img=>{
+  const status=img.nextElementSibling;
+  const update=()=>{if(status?.classList.contains('image-status'))status.hidden=img.complete&&img.naturalWidth>0;};
+  img.addEventListener('load',update);img.addEventListener('error',update);
+  if(img.complete)update();
+ });
+}
+function saveNoteState(){
+ if(notesBeforePrint===null) notesBeforePrint=[...document.querySelectorAll('main details')].map(x=>x.open);
+ setNotes(true);
+}
+function restoreNoteState(){
+ if(notesBeforePrint!==null){document.querySelectorAll('main details').forEach((x,i)=>x.open=notesBeforePrint[i]);notesBeforePrint=null;}
+}
+async function preparePDF(){
+ const button=document.getElementById('save-pdf'),status=document.getElementById('export-status');
+ button.disabled=true;saveNoteState();
+ const images=[...document.querySelectorAll('main img.evidence-photo')];
+ status.textContent='Checking '+images.length+' source photographs before printing…';
+ try{
+  await Promise.all(images.map(img=>new Promise(resolve=>{
+   if(img.complete){resolve();return;}
+   let timer;const done=()=>{clearTimeout(timer);resolve();};
+   timer=setTimeout(done,20000);img.addEventListener('load',done,{once:true});img.addEventListener('error',done,{once:true});
+  })));
+  const missing=images.filter(img=>!img.complete||img.naturalWidth===0);
+  if(missing.length){
+   const names=[...new Set(missing.map(img=>img.closest('section')?.querySelector('h2')?.textContent||'Image'))];
+   status.textContent='Cannot export yet: '+missing.length+' photograph(s) did not load ('+names.join(', ')+'). Check your connection or open the source links, then try again.';
+   restoreNoteState();return;
+  }
+  status.textContent='All '+images.length+' photographs loaded. Choose Save as PDF in your browser’s print dialog. Keep this HTML file for the interactive version.';
+  window.print();
+ }finally{button.disabled=false;}
+}
+window.addEventListener('beforeprint',saveNoteState);
+window.addEventListener('afterprint',restoreNoteState);
+document.getElementById('photo-dialog').addEventListener('click',event=>{if(event.target.id==='photo-dialog')event.target.close();});
+watchImages();
+</script></body></html>
